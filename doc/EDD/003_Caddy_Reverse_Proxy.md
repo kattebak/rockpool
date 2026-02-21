@@ -9,7 +9,7 @@
 
 ## Summary
 
-Caddy serves as the single HTTP entry point for Tidepool. The control plane dynamically configures Caddy's routes via its admin API as workspaces are created and destroyed. All routing is path-based (no subdomains).
+Caddy serves as the single HTTP entry point for Tidepool, running inside the root VM alongside the control plane. The control plane configures Caddy's routes via its admin API on localhost as workspaces are created and destroyed. All routing is path-based (no subdomains). The root VM is network-isolated from the host LAN; workspace VMs are further isolated from each other.
 
 ## Admin API Basics
 
@@ -39,21 +39,39 @@ Load initial config via `POST /load`:
           "listen": [":8080"],
           "routes": [
             {
+              "@id": "basic-auth",
+              "match": [{ "path": ["/*"] }],
+              "handle": [{
+                "handler": "authentication",
+                "providers": {
+                  "http_basic": {
+                    "accounts": [
+                      {
+                        "username": "admin",
+                        "password": "$HASHED_PASSWORD"
+                      }
+                    ]
+                  }
+                }
+              }]
+            },
+            {
               "@id": "control-plane",
               "match": [{ "path": ["/api/*"] }],
               "handle": [{
                 "handler": "reverse_proxy",
-                "upstreams": [{ "dial": "CONTROL_PLANE_IP:3000" }]
+                "upstreams": [{ "dial": "localhost:3000" }]
               }],
               "terminal": true
             },
             {
               "@id": "spa",
-              "match": [{ "path": ["/*"] }],
+              "match": [{ "path": ["/app/*"] }],
               "handle": [{
                 "handler": "reverse_proxy",
-                "upstreams": [{ "dial": "CONTROL_PLANE_IP:3000" }]
-              }]
+                "upstreams": [{ "dial": "localhost:3000" }]
+              }],
+              "terminal": true
             }
           ]
         }
@@ -106,36 +124,9 @@ Key settings:
 
 ## Port Forwarding Routes
 
-For `/workspace/alice/port/3000/*` proxying to VM port 3000:
+Each workspace exposes a fixed set of forwarded ports: **8081-8085**. These are mapped to the same ports on the VM, accessible at `/workspace/{name}/port/{port}/*`.
 
-```json
-{
-  "@id": "workspace-alice-port-3000",
-  "match": [{ "path": ["/workspace/alice/port/3000/*"] }],
-  "handle": [
-    {
-      "handler": "rewrite",
-      "strip_path_prefix": "/workspace/alice/port/3000"
-    },
-    {
-      "handler": "reverse_proxy",
-      "upstreams": [{ "dial": "10.0.1.50:3000" }],
-      "flush_interval": -1,
-      "stream_timeout": "24h",
-      "stream_close_delay": "5s"
-    }
-  ],
-  "terminal": true
-}
-```
-
-### Route Ordering
-
-Port-specific routes MUST match before the general workspace route (more specific first). Two strategies:
-
-**Strategy A: Insert at index 0** using `PUT /config/.../routes/0`
-
-**Strategy B: Subroutes** (preferred) -- nest port routes inside the workspace route handler:
+Port routes are nested inside the workspace route using a subroute handler. Subroutes match against the **original request path** (no rewrite has happened yet), so inner matchers use the full path. More specific port routes match first due to subroute ordering; the fallback (no matcher) handles the IDE itself.
 
 ```json
 {
@@ -145,18 +136,33 @@ Port-specific routes MUST match before the general workspace route (more specifi
     "handler": "subroute",
     "routes": [
       {
-        "@id": "workspace-alice-port-3000",
-        "match": [{ "path": ["/workspace/alice/port/3000/*"] }],
+        "@id": "workspace-alice-port-8081",
+        "match": [{ "path": ["/workspace/alice/port/8081/*"] }],
         "handle": [
-          { "handler": "rewrite", "strip_path_prefix": "/workspace/alice/port/3000" },
-          { "handler": "reverse_proxy", "upstreams": [{ "dial": "10.0.1.50:3000" }], "flush_interval": -1 }
+          { "handler": "rewrite", "strip_path_prefix": "/workspace/alice/port/8081" },
+          { "handler": "reverse_proxy", "upstreams": [{ "dial": "10.0.1.50:8081" }], "flush_interval": -1 }
+        ],
+        "terminal": true
+      },
+      {
+        "@id": "workspace-alice-port-8082",
+        "match": [{ "path": ["/workspace/alice/port/8082/*"] }],
+        "handle": [
+          { "handler": "rewrite", "strip_path_prefix": "/workspace/alice/port/8082" },
+          { "handler": "reverse_proxy", "upstreams": [{ "dial": "10.0.1.50:8082" }], "flush_interval": -1 }
         ],
         "terminal": true
       },
       {
         "handle": [
           { "handler": "rewrite", "strip_path_prefix": "/workspace/alice" },
-          { "handler": "reverse_proxy", "upstreams": [{ "dial": "10.0.1.50:8080" }], "flush_interval": -1, "stream_timeout": "24h" }
+          {
+            "handler": "reverse_proxy",
+            "upstreams": [{ "dial": "10.0.1.50:8080" }],
+            "flush_interval": -1,
+            "stream_timeout": "24h",
+            "stream_close_delay": "5s"
+          }
         ]
       }
     ]
@@ -221,9 +227,14 @@ async function removeRoute(id: string): Promise<void> {
 
 Use `ETag`/`If-Match` headers for optimistic concurrency when multiple requests may modify config simultaneously. GET returns an `ETag`, pass it as `If-Match` on mutations.
 
+## Decisions
+
+- **Caddy runs in the root VM** alongside the control plane — admin API on localhost only, network-isolated from host LAN
+- **Basic auth in Caddy** as the initial auth mechanism; can upgrade to `forward_auth` later
+- **Unambiguous URL scheme**: `/api/*` for control plane, `/app/*` for SPA, `/workspace/{name}/*` for IDE sessions
+- **Fixed port forwarding**: ports 8081-8085 per workspace
+
 ## Open Questions
 
-- [ ] Should Caddy run on the host or inside a VM?
-- [ ] Auth middleware in Caddy (forward_auth) or in the control plane?
 - [ ] Rate limiting on workspace routes?
 - [ ] Health check routes for upstreams (auto-remove dead workspaces)?

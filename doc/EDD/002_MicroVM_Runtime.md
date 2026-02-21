@@ -3,7 +3,7 @@
 | Field   | Value      |
 | ------- | ---------- |
 | Author  | mvhenten   |
-| Status  | Draft      |
+| Status  | Accepted   |
 | Created | 2026-02-21 |
 | Updated | 2026-02-21 |
 
@@ -19,10 +19,10 @@ Evaluation of microVM and lightweight VM runtimes for hosting isolated Tidepool 
 | Linux support          | Must     | Production on office server                  |
 | Network isolation      | Must     | No LAN access, NAT egress only              |
 | Programmatic control   | Must     | API or scriptable CLI for lifecycle mgmt     |
-| Full Linux userspace   | Must     | systemd, package managers, code-server       |
+| Lightweight Linux      | Must     | Slim custom image with code-server           |
 | Fast boot              | Should   | Sub-30s acceptable, sub-5s ideal             |
 | Low memory overhead    | Should   | Multiple workspaces on a single host         |
-| OCI/cloud-init images  | Nice     | Reproducible workspace images                |
+| Custom images          | Must     | Lightweight custom-built VM images           |
 
 ## Options Evaluated
 
@@ -168,10 +168,55 @@ Run Incus on the Linux server. Use macOS only as a remote client. All VMs live o
 **Pros:** Single runtime, best API, best networking, official Coder template.
 **Cons:** Requires network to server, no offline laptop development.
 
-## Open Questions
+## Decision
 
-- [ ] Which Mac chip? M1/M2 rules out Firecracker nested virt.
-- [ ] Is 10-30s boot time acceptable, or is sub-second critical?
-- [ ] Single platform first (Linux server) or cross-platform from day one?
-- [ ] Custom VM images or standard distro + provisioning scripts?
-- [ ] How much abstraction over the runtime -- thin wrapper or full SDK?
+**Selected: Option B -- Tart (macOS) + Incus (Linux)**
+
+Best-of-breed runtime per platform, unified behind thin service wrappers using the repository pattern.
+
+| Question | Decision | Rationale |
+|---|---|---|
+| Mac chip | M4 | Nested virt available but not needed -- Tart is native |
+| Boot time | Not a differentiator | All runtimes converge once booting a full userspace |
+| Platform strategy | Cross-platform day one | Dev on laptop (Tart), production on Linux server (Incus) |
+| VM images | Custom lightweight Linux | Alpine Linux, baked with code-server (see [EDD 005](005_Workspace_Image_Pipeline.md)) |
+| Abstraction level | Thin wrappers | Service repository pattern, shared interface per runtime |
+
+### Why not Lima?
+
+Lima offers the simplest cross-platform story (one tool everywhere), but:
+- No OCI image support -- custom images require building QCOW2s with external tooling
+- CLI-only, no REST API
+- Less mature on Linux than on macOS
+
+### Why not Firecracker / Cloud Hypervisor?
+
+Gold standard for boot time on Linux, but:
+- No macOS support without double-nested VMs
+- Custom rootfs image building is significant effort
+- Boot time advantage disappears once a full userspace is required
+
+### Architecture
+
+```
+┌─────────────────────────────────┐
+│        Workspace Service        │
+│   (runtime-agnostic interface)  │
+├────────────────┬────────────────┤
+│  TartAdapter   │  IncusAdapter  │
+│  (macOS)       │  (Linux)       │
+│  CLI wrapper   │  REST client   │
+└────────────────┴────────────────┘
+```
+
+Each adapter implements the same interface: create, start, stop, delete, status, get IP.
+
+See: [EDD 005: Workspace Image Pipeline](005_Workspace_Image_Pipeline.md) for image build and distribution strategy.
+
+## Resolved Questions
+
+- [x] Which Mac chip? **M4** -- nested virt available, Tart makes it irrelevant.
+- [x] Is 10-30s boot time acceptable? **Yes** -- all runtimes converge for full userspace boot.
+- [x] Single platform first or cross-platform? **Cross-platform day one** -- dev on laptop, run on server.
+- [x] Custom VM images or standard distro? **Custom lightweight Linux** -- slim base, baked images.
+- [x] How much abstraction? **Thin wrappers** -- service repository pattern, shared interface.
