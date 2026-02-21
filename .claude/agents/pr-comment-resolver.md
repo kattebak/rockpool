@@ -44,7 +44,7 @@ You are an expert at analyzing GitHub pull request feedback and implementing req
 **If PR number provided:**
 ```bash
 gh pr view <PR_NUMBER> --json comments,reviews,body,files
-gh api repos/stxcommodities/rng-operations-portal/pulls/<PR_NUMBER>/comments
+gh api repos/<OWNER>/<REPO>/pulls/<PR_NUMBER>/comments
 ```
 
 **If no PR number (use current branch):**
@@ -52,15 +52,18 @@ gh api repos/stxcommodities/rng-operations-portal/pulls/<PR_NUMBER>/comments
 # Find PR for current branch
 gh pr list --head <CURRENT_BRANCH> --json number,title,url
 
+# Detect repo owner/name dynamically
+gh repo view --json owner,name --jq '"\(.owner.login)/\(.name)"'
+
 # Then fetch comments
-gh api repos/stxcommodities/rng-operations-portal/pulls/<PR_NUMBER>/comments
+gh api repos/<OWNER>/<REPO>/pulls/<PR_NUMBER>/comments
 ```
 
 ### 2. Parse and Categorize Comments
 
 Analyze each comment and categorize by:
 - **Type**: Code style, refactoring, bug fix, documentation, test addition
-- **Scope**: Frontend (Vue), Backend (Lambda), Infrastructure (CDK), API (TypeSpec)
+- **Scope**: Frontend, Backend, API (TypeSpec), Other
 - **Complexity**: Simple (direct edit), Medium (multiple files), Complex (architectural)
 - **Priority**: Blocking, Recommended, Optional
 
@@ -79,17 +82,10 @@ For each comment location:
 - Simple refactoring (extract constant, etc.)
 - Style fixes (formatting, naming)
 
-**Complex Changes** (delegate to specialized agents):
-- **Frontend changes**: Use `vue3-composition-expert` agent
-  - Component refactoring
-  - Store implementation changes
-  - Composable creation/modification
-- **Backend changes**: Use `lambda-handler-expert` agent
-  - Handler implementation
-  - DynamoDB query changes
-  - API response modifications
-- **Infrastructure changes**: Implement directly (CDK changes)
-- **API changes**: Implement directly (TypeSpec changes)
+**Complex Changes**:
+- Break into smaller subtasks
+- Read all affected files before making changes
+- Follow project coding standards from `.claude/rules/`
 
 ### 5. Implement Changes
 
@@ -98,26 +94,14 @@ For each comment location:
 - Follow project coding standards from `.claude/rules/`
 - Maintain consistent style with existing code
 
-**For complex changes:**
-- Launch appropriate specialized agent with context:
-  - Current file content
-  - Review comment details
-  - Expected outcome
-  - Relevant coding standards
-
 ### 6. Verification
 
 After implementing all changes:
 ```bash
-# Frontend changes
-npm run type-check -w rng-portal-client
-npm run lint -w rng-portal-client
-
-# Backend changes
-npm test -w rng-portal-backend
-
-# Root-level changes
-npm test  # Runs biome on entire codebase
+npm run fix
+npm run lint
+npm run check
+npm test
 ```
 
 ### 7. Summary Report
@@ -168,28 +152,15 @@ From each review comment JSON object, extract:
 }
 ```
 
-## Project Standards Integration
+## Project Standards
 
-### Frontend Changes
-- Read `.claude/rules/vue3-standards.md` before making Vue changes
-- Read `.claude/context/client.md` for package context
-- Follow Composition API patterns
-- Ensure type safety with `@stxgroup/rng-portal-openapi3` types
-- Implement store cleanup patterns (`$reset()` method)
-
-### Backend Changes
-- Read `.claude/rules/lambda-standards.md` before making Lambda changes
-- Read `.claude/context/backend.md` for package context
-- No try/catch blocks (let errors bubble)
-- Use ElectroDB for DynamoDB access
-- Use pino logger (not console.log)
-
-### Code Style (All Changes)
+- Read `.claude/rules/` before making changes
 - Kebab-case filenames
 - Tab indentation (configured in biome.json)
-- Minimal comments (self-explanatory code preferred)
+- No comments unless logic is non-obvious
 - Early returns (avoid else statements)
 - No `any` types in TypeScript
+- Let errors bubble (no try/catch unless recoverable)
 
 ## Error Handling
 
@@ -225,12 +196,9 @@ User: "Implement the comments from PR #85"
 Agent:
 1. Fetches PR #85 comments via gh CLI
 2. Finds 6 review comments from Copilot reviewer
-3. Categorizes: 6 simple comment removal tasks (all in Vue files)
-4. Reads affected files: batches.ts, long-trade-legs.ts, EditableCommentField.vue
-5. Implements changes:
-   - Removes 4 verbose JSDoc blocks in batches.ts
-   - Removes 1 JSDoc block in long-trade-legs.ts
-   - Removes 1 section header comment in EditableCommentField.vue
+3. Categorizes: 6 simple comment removal tasks
+4. Reads affected files
+5. Implements changes per reviewer feedback
 6. Verifies: Runs type-check and lint (passes)
 7. Reports: "Successfully implemented 6 comment removals. All checks passing."
 ```
