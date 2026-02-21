@@ -18,13 +18,13 @@ Example:
 ### Affected Files
 
 **CREATE:**
-- `/Users/guidovillaverde/Development/stx/rng-operations-portal/[path]` - [Description]
+- `./[path]` - [Description]
 
 **MODIFY:**
-- `/Users/guidovillaverde/Development/stx/rng-operations-portal/[path]` - [Description]
+- `./[path]` - [Description]
 
 **DELETE:**
-- `/Users/guidovillaverde/Development/stx/rng-operations-portal/[path]` - [Description]
+- `./[path]` - [Description]
 
 ### Architecture & Design
 
@@ -40,7 +40,7 @@ Example:
 ```
 
 **State Management:**
-- **Store**: [StoreName] (Pinia, Composition API style)
+- **Store**: [StoreName]
 - **Key State**: [State properties]
 - **Key Actions**: [Actions]
 
@@ -64,10 +64,9 @@ Example:
 - [Key method signatures]
 - [Integration points]
 
-**DynamoDB Schema** (if applicable):
-- **Entity**: [EntityName]
-- **Primary Key**: pk: [composite], sk: [composite]
-- **GSI**: [if needed]
+**Database Schema** (if applicable):
+- **Table/Entity**: [Name]
+- **Key fields**: [describe]
 
 #### For Full-Stack Projects:
 
@@ -75,14 +74,12 @@ Include both frontend and backend sections above.
 
 ### Coding Standards
 
-**CRITICAL**: All code MUST follow project standards:
-- **Frontend**: `.claude/rules/vue3-standards.md`
-- **Backend**: `.claude/rules/lambda-standards.md`
+All code MUST follow project standards in `.claude/rules/`
 
 ### TypeSpec Changes
 
 **Files to modify:**
-- `/Users/guidovillaverde/Development/stx/rng-operations-portal/typespec/[path]`
+- `./typespec/[path]`
 
 [Show namespace and operation signatures - NOT full implementations]
 
@@ -108,16 +105,16 @@ VITE_[VARIABLE_NAME]=[description]
 
 **Tasks**:
 - [ ] Task 1: [Specific, actionable task]
-  - File: `/Users/guidovillaverde/Development/stx/rng-operations-portal/[path]`
+  - File: `./[path]`
   - Notes:
 - [ ] Task 2: [Specific, actionable task]
-  - File: `/Users/guidovillaverde/Development/stx/rng-operations-portal/[path]`
+  - File: `./[path]`
   - Notes:
 
 **Validation**:
 - [ ] [Validation step 1]
 - [ ] [Validation step 2]
-- [ ] Type-check passes (`npm run type-check` for frontend, `npm test` for backend)
+- [ ] Type-check passes (`npm run check`)
 - [ ] Linting passes (`npm run lint`)
 
 ---
@@ -130,11 +127,11 @@ VITE_[VARIABLE_NAME]=[description]
 
 **Tasks**:
 - [ ] Task 1: [Specific, actionable task]
-  - File: `/Users/guidovillaverde/Development/stx/rng-operations-portal/[path]`
+  - File: `./[path]`
   - Parallel with: Task 2, Task 3
   - Notes:
 - [ ] Task 2: [Specific, actionable task]
-  - File: `/Users/guidovillaverde/Development/stx/rng-operations-portal/[path]`
+  - File: `./[path]`
   - Parallel with: Task 1, Task 3
   - Notes:
 
@@ -148,29 +145,14 @@ VITE_[VARIABLE_NAME]=[description]
 
 ## TESTING & VALIDATION
 
-### Frontend Testing
-- [ ] `npm run type-check -w rng-portal-client` passes
-- [ ] `npm run lint -w rng-portal-client` passes
+### Verification
 - [ ] `npm run fix` auto-fixes any linting issues
-- [ ] `npm run test:unit -w rng-portal-client` passes
+- [ ] `npm run lint` passes
+- [ ] `npm run check` passes (tsgo type-check)
+- [ ] `npm test` passes
 - [ ] Manual testing checklist:
   - [ ] [Test case 1]
   - [ ] [Test case 2]
-
-### Backend Testing
-- [ ] `npm test -w rng-portal-backend` passes
-- [ ] `npm run bundle -w rng-portal-backend` succeeds
-- [ ] Integration tests:
-  ```bash
-  curl -X [METHOD] https://[api-url]/[path] \
-    -H "Authorization: Bearer $TOKEN"
-
-  # Expected: [response]
-  ```
-
-### End-to-End Testing
-- [ ] [E2E test scenario 1]
-- [ ] [E2E test scenario 2]
 
 ## APPENDICES
 
@@ -198,7 +180,5 @@ curl -X GET https://api.example.com/[path]
 
 ### References
 
-- Data Model: `/doc/EDD/Data_Model.md` (if applicable)
 - TypeScript Standards: `.claude/rules/typescript.md`
-- CDK Standards: `.claude/rules/cdk.md` (infrastructure)
-- Development Guides: `doc/guides/`
+- Development Standards: `.claude/rules/development.md`

@@ -11,36 +11,27 @@
 		"build/ts-enums",
 		"build/zod-schemas"
 	],
-	"imports": {
-		"#app/*": "./src/app/*",
-		"#config/*": "./src/config/*",
-		"#lib/*": "./src/lib/*",
-		"#constructs/*": "./src/constructs/*",
-		"#stacks/*": "./src/stacks/*"
-	},
 	"scripts": {
 		"prepare": "make",
 		"build": "make all",
 		"build:typespec": "make typespec",
 		"clean": "make clean",
 		"test": "echo \"No tests configured yet\"",
-		"cdk": "cdk",
-		"cdk:synth": "cdk synth",
-		"cdk:deploy": "cdk deploy",
-		"cdk:diff": "cdk diff",
-		"cdk:destroy": "cdk destroy",
-		"cdk:bootstrap": "cdk bootstrap",
-		"cdk:list": "cdk list"
+		"lint": "biome lint .",
+		"format": "biome format --write .",
+		"fix": "biome check --fix .",
+		"check": "tsgo --noEmit",
+		"check:tsc": "tsc --noEmit"
 	},
 	"dependencies": {
 		"aws-cdk-lib": "^2.x",
 		"constructs": "^10.x"
 	},
 	"devDependencies": {
-		"@aws-sdk/client-dynamodb": "^3.x",
-		"@aws-sdk/lib-dynamodb": "^3.x",
+		"@biomejs/biome": "^2.4.4",
 		"@kattebak/typespec-enum-emitter": "^1.2.2",
 		"@kattebak/typespec-zod-emitter": "^1.2.2",
+		"@typescript/native-preview": "^7.0.0-dev.20260221.1",
 		"@typespec/compiler": "*",
 		"@typespec/http": "*",
 		"@typespec/json-schema": "*",
@@ -48,9 +39,6 @@
 		"@typespec/openapi3": "*",
 		"@typespec/rest": "*",
 		"@typespec/versioning": "*",
-		"aws-cdk": "^2.x",
-		"dynamodb-local": "^0.0.34",
-		"electrodb": "^3.4.7",
 		"find-process": "^1.4.7",
 		"openapicmd": "*",
 		"tsx": "^4.19.3",
