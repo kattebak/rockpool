@@ -1,21 +1,12 @@
 {
-	"name": "@stxgroup/serverless-foundation",
+	"name": "tidepool",
 	"version": "0.0.1",
 	"private": true,
 	"type": "module",
 	"workspaces": [
-		"packages/*",
-		"build/ddb-entities",
-		"build/bookstore-types",
-		"build/bookstore-openapi3",
-		"build/ts-enums",
-		"build/zod-schemas"
+		"packages/*"
 	],
 	"scripts": {
-		"prepare": "make",
-		"build": "make all",
-		"build:typespec": "make typespec",
-		"clean": "make clean",
 		"test": "echo \"No tests configured yet\"",
 		"lint": "biome lint .",
 		"format": "biome format --write .",
@@ -23,30 +14,13 @@
 		"check": "tsgo --noEmit",
 		"check:tsc": "tsc --noEmit"
 	},
-	"dependencies": {
-		"aws-cdk-lib": "^2.x",
-		"constructs": "^10.x"
-	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",
-		"@kattebak/typespec-enum-emitter": "^1.2.2",
-		"@kattebak/typespec-zod-emitter": "^1.2.2",
 		"@typescript/native-preview": "^7.0.0-dev.20260221.1",
-		"@typespec/compiler": "*",
-		"@typespec/http": "*",
-		"@typespec/json-schema": "*",
-		"@typespec/openapi": "*",
-		"@typespec/openapi3": "*",
-		"@typespec/rest": "*",
-		"@typespec/versioning": "*",
-		"find-process": "^1.4.7",
-		"openapicmd": "*",
 		"tsx": "^4.19.3",
-		"typescript": "*",
-		"typespec-electrodb-emitter": "*"
+		"typescript": "*"
 	},
 	"engines": {
 		"node": ">=22.0.0"
-	},
-	"types": "index.d.ts"
+	}
 }
