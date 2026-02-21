@@ -1,0 +1,23 @@
+export const ACCESS_LOG_FORMAT = JSON.stringify({
+	requestId: "$context.requestId",
+	requestTime: "$context.requestTime",
+	requestTimeEpoch: "$context.requestTimeEpoch",
+	httpMethod: "$context.httpMethod",
+	path: "$context.path",
+	resourcePath: "$context.resourcePath",
+	stage: "$context.stage",
+	status: "$context.status",
+	protocol: "$context.protocol",
+	responseLength: "$context.responseLength",
+	responseLatency: "$context.responseLatency",
+	integrationLatency: "$context.integration.latency",
+	integrationStatus: "$context.integration.status",
+	sourceIp: "$context.identity.sourceIp",
+	userAgent: "$context.identity.userAgent",
+	username: "$context.authorizer.claims['cognito:username']",
+	userSub: "$context.authorizer.claims.sub",
+	error: {
+		message: "$context.error.message",
+		messageString: "$context.error.messageString",
+	},
+});

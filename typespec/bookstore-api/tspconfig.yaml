@@ -1,0 +1,29 @@
+emit:
+  - "@kattebak/typespec-zod-emitter"
+  - "@typespec/openapi3"
+  - "@typespec/json-schema"
+  - "typespec-electrodb-emitter"
+  - "@kattebak/typespec-enum-emitter"
+options:
+  "@kattebak/typespec-zod-emitter":
+    emitter-output-dir: "{cwd}/build/zod-schemas"
+    package-name: "@bookstore/zod-schemas"
+    package-version: "0.0.1"
+  "@kattebak/typespec-enum-emitter":
+    emitter-output-dir: "{cwd}/build/ts-enums"
+    package-name: "@bookstore/enums"
+    package-version: "0.0.1"
+  "typespec-electrodb-emitter":
+    emitter-output-dir: "{cwd}/build/ddb-entities"
+    package-name: "@bookstore/ddb-entities"
+    package-version: "0.0.1"
+  "@typespec/openapi3":
+    emitter-output-dir: "{cwd}/build/openapi3"
+    file-type: "json"
+  "@typespec/json-schema":
+    emitter-output-dir: "{cwd}/build/openapi3"
+    file-type: "json"
+    int64-strategy: string
+    emitAllModels: true
+    emitAllRefs: true
+    bundleId: "schema.json"
