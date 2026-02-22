@@ -4,6 +4,8 @@ import type { DbClient } from "../src/connection.ts";
 import { createMemoryDb } from "../src/connection.ts";
 import {
 	addPort,
+	countWorkspaces,
+	countWorkspacesByStatus,
 	createWorkspace,
 	decodeCursor,
 	deleteWorkspace,
@@ -269,5 +271,46 @@ describe("Port queries", () => {
 
 		const result = await listPorts(db, ws.id);
 		assert.deepEqual(result, []);
+	});
+});
+
+describe("Count queries", () => {
+	let db: DbClient;
+
+	before(() => {
+		db = createMemoryDb();
+	});
+
+	it("countWorkspaces returns 0 for empty database", async () => {
+		const total = await countWorkspaces(db);
+		assert.equal(total, 0);
+	});
+
+	it("countWorkspaces returns correct count after inserts", async () => {
+		await createWorkspace(db, { name: "count-ws-1", image: "alpine-v1" });
+		await createWorkspace(db, { name: "count-ws-2", image: "alpine-v1" });
+
+		const total = await countWorkspaces(db);
+		assert.equal(total, 2);
+	});
+
+	it("countWorkspacesByStatus filters by status", async () => {
+		const ws = await createWorkspace(db, { name: "count-status", image: "alpine-v1" });
+		await updateWorkspaceStatus(db, ws.id, "running", { vmIp: "10.0.1.1" });
+
+		const creating = await countWorkspacesByStatus(db, "creating");
+		const running = await countWorkspacesByStatus(db, "running");
+
+		assert.equal(creating, 2);
+		assert.equal(running, 1);
+	});
+
+	it("countWorkspaces decreases after delete", async () => {
+		const before = await countWorkspaces(db);
+		const ws = await createWorkspace(db, { name: "count-delete", image: "alpine-v1" });
+		await deleteWorkspace(db, ws.id);
+		const after = await countWorkspaces(db);
+
+		assert.equal(after, before);
 	});
 });

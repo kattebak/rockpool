@@ -1,4 +1,4 @@
-import { and, desc, eq, lt, or } from "drizzle-orm";
+import { and, count, desc, eq, lt, or } from "drizzle-orm";
 import type { DbClient } from "./connection.ts";
 import {
 	type NewPort,
@@ -159,4 +159,22 @@ export function removeAllPorts(db: DbClient, workspaceId: string): Promise<void>
 		.delete(ports)
 		.where(eq(ports.workspaceId, workspaceId))
 		.then(() => {});
+}
+
+export function countWorkspaces(db: DbClient): Promise<number> {
+	return db
+		.select({ value: count() })
+		.from(workspaces)
+		.then((rows) => rows[0].value);
+}
+
+export function countWorkspacesByStatus(
+	db: DbClient,
+	status: WorkspaceStatus,
+): Promise<number> {
+	return db
+		.select({ value: count() })
+		.from(workspaces)
+		.where(eq(workspaces.status, status))
+		.then((rows) => rows[0].value);
 }
