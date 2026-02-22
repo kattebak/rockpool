@@ -5,7 +5,7 @@
 | Author  | mvhenten   |
 | Status  | Draft      |
 | Created | 2026-02-22 |
-| Updated | 2026-02-22 |
+| Updated | 2026-02-23 |
 
 ## Summary
 
@@ -127,8 +127,10 @@ These standards apply to all current and future endpoints. Prefer explicit, besp
 ### Limits and Pagination
 
 - **All list endpoints must be paginated.** Use `limit` + `cursor` (opaque string) for pagination.
-- **Default `limit`: 25. Max `limit`: 100.** Defaults are soft limits intentionally below hard caps. Requests above max are clamped or rejected.
+- **Default `limit`: 25. Max `limit`: 100.** Defaults are soft limits intentionally below hard caps. Requests above max are clamped to 100.
 - **Responses include `nextCursor` when more results are available.**
+
+**Implementation status:** `GET /api/workspaces` is paginated (TypeSpec `WorkspaceListResponse` model, cursor-based with base64url-encoded `createdAt|id`, `ORDER BY createdAt DESC, id DESC`, `LIMIT n+1` strategy). Port listing (`GET /api/workspaces/{id}/ports`) is not yet paginated (low cardinality, max 5 per workspace).
 
 ### Rate Limiting
 

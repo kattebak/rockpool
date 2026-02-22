@@ -5,7 +5,9 @@ import { createMemoryDb } from "../src/connection.ts";
 import {
 	addPort,
 	createWorkspace,
+	decodeCursor,
 	deleteWorkspace,
+	encodeCursor,
 	getWorkspace,
 	getWorkspaceByName,
 	listPorts,
@@ -26,9 +28,10 @@ describe("Workspace queries", () => {
 		// better-sqlite3 cleans up on GC for in-memory DBs
 	});
 
-	it("listWorkspaces returns empty array initially", async () => {
+	it("listWorkspaces returns empty items initially", async () => {
 		const result = await listWorkspaces(db);
-		assert.deepEqual(result, []);
+		assert.deepEqual(result.items, []);
+		assert.equal(result.nextCursor, undefined);
 	});
 
 	it("createWorkspace inserts and returns a workspace", async () => {
@@ -111,14 +114,87 @@ describe("Workspace queries", () => {
 		assert.equal(found, undefined);
 	});
 
-	it("listWorkspaces returns all workspaces", async () => {
-		const results = await listWorkspaces(db);
-		assert.ok(results.length > 0);
+	it("listWorkspaces returns workspaces in paginated result", async () => {
+		const result = await listWorkspaces(db);
+		assert.ok(result.items.length > 0);
 	});
 
 	it("createWorkspace rejects duplicate names", async () => {
 		await createWorkspace(db, { name: "unique-name", image: "alpine-v1" });
 		await assert.rejects(() => createWorkspace(db, { name: "unique-name", image: "alpine-v1" }));
+	});
+});
+
+describe("Cursor encoding", () => {
+	it("encodeCursor and decodeCursor are inverse operations", () => {
+		const date = new Date("2026-01-15T10:30:00Z");
+		const id = "abc123";
+		const cursor = encodeCursor(date, id);
+		const decoded = decodeCursor(cursor);
+		assert.equal(decoded.createdAt.getTime(), date.getTime());
+		assert.equal(decoded.id, id);
+	});
+
+	it("encodeCursor produces a base64url string", () => {
+		const cursor = encodeCursor(new Date(), "test-id");
+		assert.ok(typeof cursor === "string");
+		assert.ok(cursor.length > 0);
+		assert.ok(/^[A-Za-z0-9_-]+$/.test(cursor));
+	});
+
+	it("decodeCursor throws on invalid cursor", () => {
+		assert.throws(() => decodeCursor("not-valid-base64-cursor"));
+	});
+});
+
+describe("Workspace pagination", () => {
+	let db: DbClient;
+
+	before(async () => {
+		db = createMemoryDb();
+		for (let i = 0; i < 5; i++) {
+			await createWorkspace(db, { name: `page-ws-${i}`, image: "alpine-v1" });
+		}
+	});
+
+	it("respects limit parameter", async () => {
+		const result = await listWorkspaces(db, { limit: 2 });
+		assert.equal(result.items.length, 2);
+		assert.ok(result.nextCursor);
+	});
+
+	it("returns no nextCursor when all results fit", async () => {
+		const result = await listWorkspaces(db, { limit: 100 });
+		assert.equal(result.nextCursor, undefined);
+	});
+
+	it("returns results ordered by createdAt descending", async () => {
+		const result = await listWorkspaces(db, { limit: 100 });
+		for (let i = 1; i < result.items.length; i++) {
+			assert.ok(result.items[i - 1].createdAt >= result.items[i].createdAt);
+		}
+	});
+
+	it("paginates through all results using cursor", async () => {
+		const allItems = [];
+		let cursor: string | undefined;
+
+		for (;;) {
+			const result = await listWorkspaces(db, { limit: 2, cursor });
+			allItems.push(...result.items);
+			if (!result.nextCursor) break;
+			cursor = result.nextCursor;
+		}
+
+		assert.equal(allItems.length, 5);
+		const names = new Set(allItems.map((w) => w.name));
+		assert.equal(names.size, 5);
+	});
+
+	it("defaults to limit 25 when no params provided", async () => {
+		const result = await listWorkspaces(db);
+		assert.ok(result.items.length <= 25);
+		assert.equal(result.nextCursor, undefined);
 	});
 });
 

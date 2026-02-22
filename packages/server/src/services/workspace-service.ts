@@ -1,4 +1,10 @@
-import type { DbClient, Workspace, WorkspaceStatus } from "@tdpl/db";
+import type {
+	DbClient,
+	PaginatedResult,
+	PaginationParams,
+	Workspace,
+	WorkspaceStatus,
+} from "@tdpl/db";
 import {
 	createWorkspace as dbCreateWorkspace,
 	getWorkspace,
@@ -25,8 +31,8 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 	const { db, queue } = deps;
 
 	return {
-		async list(): Promise<Workspace[]> {
-			return listWorkspaces(db);
+		async list(params?: PaginationParams): Promise<PaginatedResult<Workspace>> {
+			return listWorkspaces(db, params);
 		},
 
 		async get(id: string): Promise<Workspace | undefined> {

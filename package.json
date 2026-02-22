@@ -24,6 +24,8 @@
 		"mvp:caddy:add-route": "npm-scripts/caddy-add-workspace-route.sh",
 		"mvp:caddy:remove-route": "npm-scripts/caddy-remove-workspace-route.sh",
 		"chrome:debug": "npm-scripts/chrome-debug.sh",
+		"dev": "npm-scripts/dev.sh",
+		"dev:caddy": "npm-scripts/dev-caddy.sh",
 		"chrome:cdp": "node --experimental-websocket npm-scripts/chrome-cdp.mjs"
 	},
 	"devDependencies": {
