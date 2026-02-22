@@ -5,7 +5,6 @@
 		"moduleResolution": "NodeNext",
 		"resolveJsonModule": true,
 		"lib": ["es2022"],
-		"declaration": true,
 		"strict": true,
 		"noImplicitAny": true,
 		"strictNullChecks": true,
@@ -17,7 +16,10 @@
 		"noFallthroughCasesInSwitch": false,
 		"inlineSourceMap": true,
 		"inlineSources": true,
-		"skipLibCheck": true
+		"skipLibCheck": true,
+		"noEmit": true,
+		"allowImportingTsExtensions": true
 	},
-	"exclude": ["node_modules", "build", "packages", "typespec"]
+	"include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts"],
+	"exclude": ["node_modules", "**/node_modules", "**/dist", "packages/client"]
 }

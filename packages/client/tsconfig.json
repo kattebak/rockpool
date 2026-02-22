@@ -6,7 +6,6 @@
 		"jsx": "react-jsx",
 		"resolveJsonModule": true,
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
-		"declaration": true,
 		"strict": true,
 		"noImplicitAny": true,
 		"strictNullChecks": true,
@@ -16,12 +15,12 @@
 		"skipLibCheck": true,
 		"inlineSourceMap": true,
 		"inlineSources": true,
+		"noEmit": true,
 		"paths": {
 			"@/*": ["./src/*"]
 		},
 		"rootDir": ".",
-		"outDir": "./dist",
-		"noEmit": true
+		"outDir": "./dist"
 	},
 	"include": ["src/**/*.ts", "src/**/*.tsx"],
 	"exclude": ["node_modules", "dist"]
