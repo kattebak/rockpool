@@ -1,5 +1,5 @@
 {
-	"name": "@rockpool/server",
+	"name": "@rockpool/workspace-service",
 	"version": "0.0.1",
 	"private": true,
 	"type": "module",
@@ -11,23 +11,16 @@
 	},
 	"scripts": {
 		"test": "node --test --experimental-strip-types test/**/*.test.ts",
-		"check": "tsc --noEmit",
-		"start": "node --experimental-strip-types src/index.ts"
+		"check": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@rockpool/caddy": "*",
 		"@rockpool/db": "*",
 		"@rockpool/queue": "*",
 		"@rockpool/runtime": "*",
-		"@rockpool/worker": "*",
-		"@rockpool/workspace-service": "*",
-		"express": "^5.1.0",
-		"express-openapi-validator": "^5.4.6",
-		"pino": "^9.6.0",
-		"pino-http": "^10.4.0"
+		"pino": "^9.6.0"
 	},
 	"devDependencies": {
-		"@types/express": "^5.0.2",
 		"typescript": "*"
 	}
 }

@@ -19,6 +19,7 @@
 		"@rockpool/db": "*",
 		"@rockpool/queue": "*",
 		"@rockpool/runtime": "*",
+		"@rockpool/workspace-service": "*",
 		"pino": "^9.6.0"
 	},
 	"devDependencies": {

@@ -5,6 +5,7 @@ import type { CaddyRepository } from "@rockpool/caddy";
 import type { DbClient } from "@rockpool/db";
 import { createMemoryDb, createWorkspace, updateWorkspaceStatus } from "@rockpool/db";
 import { createMemoryQueue } from "@rockpool/queue";
+import type { RuntimeRepository } from "@rockpool/runtime";
 import pino from "pino";
 import { createApp } from "../src/app.ts";
 import { createPortService } from "../src/services/port-service.ts";
@@ -45,13 +46,30 @@ function request(
 	});
 }
 
+function createMockRuntime(): RuntimeRepository {
+	return {
+		async create() {},
+		async start() {},
+		async stop() {},
+		async remove() {},
+		async status() {
+			return "not_found";
+		},
+		async getIp() {
+			return "10.0.1.50";
+		},
+	};
+}
+
 describe("API", () => {
 	let server: http.Server;
 
 	before((_, done) => {
 		const db = createMemoryDb();
 		const queue = createMemoryQueue();
-		const workspaceService = createWorkspaceService({ db, queue });
+		const runtime = createMockRuntime();
+		const caddy = createMockCaddy();
+		const workspaceService = createWorkspaceService({ db, queue, runtime, caddy });
 		const logger = pino({ level: "silent" });
 		const app = createApp({ workspaceService, logger });
 		server = app.listen(0, done);
@@ -246,7 +264,8 @@ describe("Port API", () => {
 		db = createMemoryDb();
 		const queue = createMemoryQueue();
 		mockCaddy = createMockCaddy();
-		const workspaceService = createWorkspaceService({ db, queue });
+		const runtime = createMockRuntime();
+		const workspaceService = createWorkspaceService({ db, queue, runtime, caddy: mockCaddy });
 		const portService = createPortService({ db, caddy: mockCaddy });
 		const logger = pino({ level: "silent" });
 		const app = createApp({ workspaceService, portService, logger });
@@ -336,7 +355,9 @@ describe("Workspace limits", () => {
 	it("rejects create when concurrent starts limit is reached", async () => {
 		const db = createMemoryDb();
 		const queue = createMemoryQueue();
-		const service = createWorkspaceService({ db, queue });
+		const runtime = createMockRuntime();
+		const caddy = createMockCaddy();
+		const service = createWorkspaceService({ db, queue, runtime, caddy });
 
 		await service.create("limit-ws-1", "alpine-v1");
 		await service.create("limit-ws-2", "alpine-v1");
@@ -355,7 +376,9 @@ describe("Workspace limits", () => {
 	it("allows create after pending workspaces finish", async () => {
 		const db = createMemoryDb();
 		const queue = createMemoryQueue();
-		const service = createWorkspaceService({ db, queue });
+		const runtime = createMockRuntime();
+		const caddy = createMockCaddy();
+		const service = createWorkspaceService({ db, queue, runtime, caddy });
 
 		const ws1 = await service.create("finish-ws-1", "alpine-v1");
 		await service.create("finish-ws-2", "alpine-v1");
@@ -370,7 +393,9 @@ describe("Workspace limits", () => {
 	it("rejects start when concurrent starts limit is reached", async () => {
 		const db = createMemoryDb();
 		const queue = createMemoryQueue();
-		const service = createWorkspaceService({ db, queue });
+		const runtime = createMockRuntime();
+		const caddy = createMockCaddy();
+		const service = createWorkspaceService({ db, queue, runtime, caddy });
 
 		await service.create("start-limit-1", "alpine-v1");
 		await service.create("start-limit-2", "alpine-v1");
