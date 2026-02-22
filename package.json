@@ -19,6 +19,7 @@
 		"mvp:build-image": "npm-scripts/mvp-build-image.sh",
 		"mvp:start-vm": "npm-scripts/mvp-start-vm.sh",
 		"mvp:setup-vm": "npm-scripts/mvp-setup-vm.sh",
+		"mvp:verify": "npm-scripts/mvp-verify.sh",
 		"mvp:caddy:bootstrap": "npm-scripts/caddy-bootstrap.sh",
 		"mvp:caddy:add-route": "npm-scripts/caddy-add-workspace-route.sh",
 		"mvp:caddy:remove-route": "npm-scripts/caddy-remove-workspace-route.sh"

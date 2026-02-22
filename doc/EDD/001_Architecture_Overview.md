@@ -11,6 +11,28 @@
 
 Tidepool is a lightweight cloud IDE platform inspired by Cloud9. It provides isolated development environments running in microVMs, accessible through a web browser via a unified reverse proxy. The system runs on a single host (laptop or office server) with external ingress via a reverse proxy service like Cloudflare Tunnel.
 
+## Baseline Decisions (First Plan Anchors)
+
+These are the explicit starting decisions for production planning beyond the MVP. Everything else in the plan assumes these unless revised.
+
+- **Auth:** Single-user basic auth only (no external IdP, no multi-user login UI).
+- **Auth upgrade path:** Ory/JWT is the likely next step, but out of scope for now.
+- **Data retention:** Workspace disks persist on stop; delete is irreversible.
+- **Lifecycle controls:** Manual start/stop only; no idle auto-stop or schedules.
+- **Operations baseline:** Minimal local JSON logs only; no metrics, alerts, or centralized logging.
+- **Image distribution:** Local builds only, no shared registry or distribution pipeline.
+- **Routing scheme:** Path-based routing only; no subdomains.
+- **Logs location:** File-based logs in a `.logs/<workspace-name>/` directory (revisit later).
+- **Backups:** No backups or snapshot exports.
+- **Queue semantics:** Use DB-backed locks to prevent duplicate lifecycle operations.
+- **Workspace naming:** Unique per user; start with a single default user configuration.
+- **Resource exhaustion:** Reject new starts and guide the user to stop the least recently accessed workspace.
+- **Schema migrations:** Not a concern for now; revisit when multi-user or upgrades require it.
+- **Port registration behavior:** Allow registration even if the service is not listening; proxy returns 502 until the port is live.
+- **Audit trail:** Minimal activity log only.
+- **Workspace templates:** Start with a single default image template.
+- **Timestamps:** Store in UTC in the backend; UI handles localization and accessibility.
+
 ## System Topology
 
 ```
@@ -60,6 +82,7 @@ The root VM hosts both Caddy and the control plane. Everything runs on localhost
 Single entry point for all HTTP traffic. Configured dynamically via its admin API (`:2019`).
 
 Responsibilities:
+
 - Route requests to the correct VM based on URL path
 - Strip path prefixes before forwarding
 - Handle WebSocket upgrades (automatic in Caddy)
@@ -104,6 +127,7 @@ Composed of two services, a worker, and a message queue, all co-located in the r
 ### 2. Workspace VMs
 
 Each workspace is an isolated microVM running a custom lightweight Linux image with:
+
 - code-server (web IDE)
 - User's development tools and code
 
@@ -178,10 +202,10 @@ All VMs (root + workspaces) sit on an isolated bridge network. The root VM can r
 
 ## Deployment Targets
 
-| Target        | OS    | MicroVM Runtime | Notes                          |
-| ------------- | ----- | --------------- | ------------------------------ |
+| Target        | OS    | MicroVM Runtime | Notes                                     |
+| ------------- | ----- | --------------- | ----------------------------------------- |
 | Laptop (Mac)  | macOS | Tart            | Native via Apple Virtualization Framework |
-| Office server | Linux | Incus           | Native KVM, REST API, OVN networking |
+| Office server | Linux | Incus           | Native KVM, REST API, OVN networking      |
 
 See: [EDD 002: MicroVM Runtime](002_MicroVM_Runtime.md) for full evaluation.
 

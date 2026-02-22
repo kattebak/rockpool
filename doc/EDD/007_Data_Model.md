@@ -120,6 +120,58 @@ These were considered but deferred:
 
 No version prefix. The API is served at `/api/` directly. Versioning (e.g. `/api/v2/`) can be introduced if breaking changes are needed for external consumers.
 
+## API Standards
+
+These standards apply to all current and future endpoints. Prefer explicit, bespoke endpoints over flexible query parameters that create complex or ambiguous behavior.
+
+### Limits and Pagination
+
+- **All list endpoints must be paginated.** Use `limit` + `cursor` (opaque string) for pagination.
+- **Default `limit`: 25. Max `limit`: 100.** Defaults are soft limits intentionally below hard caps. Requests above max are clamped or rejected.
+- **Responses include `nextCursor` when more results are available.**
+
+### Rate Limiting
+
+- **All endpoints are rate-limited at the Caddy gateway.** Default: 60 requests per minute per client (soft), 300 requests per minute (hard).
+- **Lifecycle endpoints are stricter.** `start`, `stop`, `create`, `delete`: 10 requests per minute (soft), 30 per minute (hard).
+- **When exceeded:** return `429` with a JSON error body.
+
+### Max Counts and Enforcement
+
+- **Hard caps are enforced server-side.** Examples: max 5 ports per workspace, max N workspaces per host.
+- **Max workspaces per host: 999.** Requests beyond this cap are rejected.
+- **Soft limit for workspaces: 50.** Defaults and UI guidance should stay well below the hard cap.
+- **Max ports per workspace: 5.** Hard cap, enforced on registration.
+- **Max concurrent workspace starts per host: 3.** Additional start requests are queued or rejected.
+- **Max image list size: 20.** Lists beyond this are paginated with a default limit.
+- **Reject requests that exceed caps** with a clear error message and code.
+
+### Endpoint Design Bias
+
+- **Prefer bespoke endpoints** for specific user intents (e.g., `/start`, `/stop`, `/ports`) instead of generic query-based endpoints.
+- **Avoid filter explosion.** If a query requires multiple optional filters, add a purpose-built endpoint instead.
+
+### Error Response Standards
+
+- **All errors return JSON.** No HTML error pages.
+- **Validation errors use `400`** with a structured body that includes field-level details.
+- **Conflict errors use `409`** for invalid state transitions or duplicate names.
+- **Not found uses `404`,** unauthorized `401`, forbidden `403`.
+- **Rate limit uses `429`.**
+- **Server errors use `500`,** dependency failures use `503`.
+
+Error body shape:
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "Name is required",
+    "fields": [{ "field": "name", "message": "Required" }]
+  }
+}
+```
+
 ### Workspace CRUD
 
 | Method | Path                   | Description            |
@@ -138,11 +190,11 @@ No version prefix. The API is served at `/api/` directly. Versioning (e.g. `/api
 
 ### Port Forwarding
 
-| Method | Path                                | Description                   |
-| ------ | ----------------------------------- | ----------------------------- |
-| GET    | `/api/workspaces/{id}/ports`        | List registered ports         |
-| POST   | `/api/workspaces/{id}/ports`        | Register a port (max 5)       |
-| DELETE | `/api/workspaces/{id}/ports/{port}` | Unregister a forwarded port   |
+| Method | Path                                | Description                 |
+| ------ | ----------------------------------- | --------------------------- |
+| GET    | `/api/workspaces/{id}/ports`        | List registered ports       |
+| POST   | `/api/workspaces/{id}/ports`        | Register a port (max 5)     |
+| DELETE | `/api/workspaces/{id}/ports/{port}` | Unregister a forwarded port |
 
 Registering a port triggers a Caddy route creation; unregistering removes it. Ports can only be registered when the workspace is `running`.
 
@@ -152,13 +204,16 @@ TypeSpec source lives in `typespec/` at the repo root as its own npm workspace (
 
 ## Decisions
 
-| Question              | Decision                                                         | Rationale                                              |
-| --------------------- | ---------------------------------------------------------------- | ------------------------------------------------------ |
-| Workspace fields      | Minimal: id, name, status, image, vmIp, errorMessage, timestamps | Add fields when needed, not speculatively              |
-| Separate Image entity | No, string field on Workspace                                    | Single base image, no registry, no management UI       |
-| Workspace naming      | UUID `id` + user-provided `name` slug                            | `id` for internals, `name` for URLs and display        |
-| Status transitions    | Service layer                                                    | Model is pure data; service enforces the state machine |
+| Question              | Decision                                                         | Rationale                                                         |
+| --------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Workspace fields      | Minimal: id, name, status, image, vmIp, errorMessage, timestamps | Add fields when needed, not speculatively                         |
+| Separate Image entity | No, string field on Workspace                                    | Single base image, no registry, no management UI                  |
+| Workspace templates   | Single default image template                                    | Start simple, avoid template management UI                        |
+| Workspace naming      | UUID `id` + user-provided `name` slug                            | `id` for internals, `name` for URLs and display                   |
+| Status transitions    | Service layer                                                    | Model is pure data; service enforces the state machine            |
 | Port entity           | Yes, tracked sub-resource of Workspace                           | Dynamic port registration, Caddy routes created/removed on demand |
-| Runtime field         | No, inferred from host                                           | Adapter pattern keeps workspace runtime-agnostic       |
-| API versioning        | `/api/` (no version prefix)                                      | Single-user tool, no external consumers                |
-| TypeSpec location     | `typespec/` at repo root, own npm workspace                      | Matches ADR-003 and ADR-007                            |
+| Runtime field         | No, inferred from host                                           | Adapter pattern keeps workspace runtime-agnostic                  |
+| API versioning        | `/api/` (no version prefix)                                      | Single-user tool, no external consumers                           |
+| TypeSpec location     | `typespec/` at repo root, own npm workspace                      | Matches ADR-003 and ADR-007                                       |
+| Timestamps            | Stored in UTC                                                    | UI handles localization and accessibility                         |
+| Audit trail           | Minimal activity log only                                        | Basic history without heavy audit system                          |
