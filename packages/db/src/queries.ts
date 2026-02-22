@@ -168,13 +168,14 @@ export function countWorkspaces(db: DbClient): Promise<number> {
 		.then((rows) => rows[0].value);
 }
 
-export function countWorkspacesByStatus(
-	db: DbClient,
-	status: WorkspaceStatus,
-): Promise<number> {
+export function countWorkspacesByStatus(db: DbClient, status: WorkspaceStatus): Promise<number> {
 	return db
 		.select({ value: count() })
 		.from(workspaces)
 		.where(eq(workspaces.status, status))
 		.then((rows) => rows[0].value);
+}
+
+export function listWorkspacesByStatus(db: DbClient, status: WorkspaceStatus): Promise<Workspace[]> {
+	return db.select().from(workspaces).where(eq(workspaces.status, status));
 }

@@ -1,11 +1,8 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import type { CaddyRepository } from "@rockpool/caddy";
 import type { DbClient } from "@rockpool/db";
-import {
-	deleteWorkspace,
-	getWorkspace,
-	removeAllPorts,
-	updateWorkspaceStatus,
-} from "@rockpool/db";
+import { deleteWorkspace, getWorkspace, removeAllPorts, updateWorkspaceStatus } from "@rockpool/db";
 import type { WorkspaceJob } from "@rockpool/queue";
 import type { RuntimeRepository } from "@rockpool/runtime";
 import type { Logger } from "pino";
@@ -23,13 +20,19 @@ export interface ProcessorDeps {
 	healthCheck?: HealthCheckFn;
 }
 
+const execFileAsync = promisify(execFile);
+
+function curlHealthCheck(url: string, timeoutSec: number): Promise<boolean> {
+	return execFileAsync("curl", ["-sf", "--max-time", String(timeoutSec), "-o", "/dev/null", url])
+		.then(() => true)
+		.catch(() => false);
+}
+
 function defaultHealthCheck(logger: Logger): HealthCheckFn {
 	return async (vmIp: string): Promise<void> => {
 		const url = `http://${vmIp}:8080/healthz`;
 		for (let attempt = 0; attempt < HEALTH_POLL_MAX_ATTEMPTS; attempt++) {
-			const ok = await fetch(url)
-				.then((res) => res.ok)
-				.catch(() => false);
+			const ok = await curlHealthCheck(url, 5);
 			if (ok) {
 				return;
 			}
@@ -62,13 +65,23 @@ export function createProcessor(deps: ProcessorDeps) {
 
 		logger.info({ workspaceId, name: workspace.name }, "Creating workspace VM");
 
-		await runtime.create(workspace.name, workspace.image);
-		await runtime.start(workspace.name);
+		const vmStatus = await runtime.status(workspace.name);
+
+		if (vmStatus === "not_found") {
+			await runtime.create(workspace.name, workspace.image);
+			await runtime.start(workspace.name);
+		} else if (vmStatus === "stopped") {
+			logger.info({ workspaceId, name: workspace.name }, "VM exists but stopped, starting");
+			await runtime.start(workspace.name);
+		} else {
+			logger.info({ workspaceId, name: workspace.name }, "VM already running, resuming setup");
+		}
+
 		const vmIp = await runtime.getIp(workspace.name);
 
 		await configureAndWait(workspace.name, vmIp);
 		await caddy.addWorkspaceRoute(workspace.name, vmIp);
-		await updateWorkspaceStatus(db, workspaceId, "running", { vmIp });
+		await updateWorkspaceStatus(db, workspaceId, "running", { vmIp, errorMessage: null });
 
 		logger.info({ workspaceId, name: workspace.name, vmIp }, "Workspace running");
 	}
@@ -82,12 +95,17 @@ export function createProcessor(deps: ProcessorDeps) {
 
 		logger.info({ workspaceId, name: workspace.name }, "Starting workspace VM");
 
-		await runtime.start(workspace.name);
+		const vmStatus = await runtime.status(workspace.name);
+		if (vmStatus !== "running") {
+			await runtime.start(workspace.name);
+		} else {
+			logger.info({ workspaceId, name: workspace.name }, "VM already running, resuming setup");
+		}
 		const vmIp = await runtime.getIp(workspace.name);
 
 		await configureAndWait(workspace.name, vmIp);
 		await caddy.addWorkspaceRoute(workspace.name, vmIp);
-		await updateWorkspaceStatus(db, workspaceId, "running", { vmIp });
+		await updateWorkspaceStatus(db, workspaceId, "running", { vmIp, errorMessage: null });
 
 		logger.info({ workspaceId, name: workspace.name, vmIp }, "Workspace started");
 	}

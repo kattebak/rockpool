@@ -5,8 +5,10 @@ import {
 	createStubCaddy,
 	hashPassword,
 } from "@rockpool/caddy";
-import { createDb } from "@rockpool/db";
+import { createDb, listPorts, listWorkspacesByStatus, updateWorkspaceStatus } from "@rockpool/db";
+import type { QueueRepository } from "@rockpool/queue";
 import { createMemoryQueue, createSqsQueue } from "@rockpool/queue";
+import type { RuntimeRepository } from "@rockpool/runtime";
 import { createStubRuntime, createTartRuntime } from "@rockpool/runtime";
 import { createPollLoop, createProcessor } from "@rockpool/worker";
 import pino from "pino";
@@ -69,25 +71,68 @@ async function bootstrapCaddy(): Promise<void> {
 	);
 }
 
+async function recoverRunningWorkspaces(runtime: RuntimeRepository, q: QueueRepository): Promise<void> {
+	const running = await listWorkspacesByStatus(db, "running");
+	for (const ws of running) {
+		const vmStatus = await runtime.status(ws.name);
+
+		if (vmStatus === "running" && ws.vmIp) {
+			await caddy.addWorkspaceRoute(ws.name, ws.vmIp);
+			logger.info({ workspaceId: ws.id, name: ws.name, vmIp: ws.vmIp }, "Recovered Caddy route for running workspace");
+
+			const workspacePorts = await listPorts(db, ws.id);
+			for (const p of workspacePorts) {
+				await caddy.addPortRoute(ws.name, ws.vmIp, p.port);
+				logger.info({ workspaceId: ws.id, name: ws.name, port: p.port }, "Recovered Caddy port route");
+			}
+			continue;
+		}
+
+		logger.warn({ workspaceId: ws.id, name: ws.name, vmStatus }, "DB says running but VM is not, re-enqueuing start");
+		await updateWorkspaceStatus(db, ws.id, "stopped");
+		await q.send({ type: "start", workspaceId: ws.id });
+	}
+	if (running.length > 0) {
+		logger.info({ count: running.length }, "Running workspace recovery complete");
+	}
+}
+
+async function recoverOrphanedWorkspaces(q: QueueRepository): Promise<void> {
+	const orphaned = await listWorkspacesByStatus(db, "creating");
+	for (const ws of orphaned) {
+		logger.info({ workspaceId: ws.id, name: ws.name }, "Re-enqueuing orphaned workspace");
+		await q.send({ type: "create", workspaceId: ws.id });
+	}
+	if (orphaned.length > 0) {
+		logger.info({ count: orphaned.length }, "Orphaned workspace recovery complete");
+	}
+}
+
+const runtime = useStubVm
+	? createStubRuntime()
+	: createTartRuntime({ sshKeyPath: config.sshKeyPath });
+
 app.listen(config.port, () => {
 	logger.info({ port: config.port }, "Rockpool control plane started");
 
 	if (inlineWorker) {
-		const runtime = useStubVm
-			? createStubRuntime()
-			: createTartRuntime({ sshKeyPath: config.sshKeyPath });
 		const healthCheck = useStubVm ? async () => {} : undefined;
 		const processor = createProcessor({ db, runtime, caddy, logger, healthCheck });
 		const pollLoop = createPollLoop({ queue, processor, logger });
 
 		logger.info({ runtime: useStubVm ? "stub" : "tart" }, "Starting in-process worker");
+		recoverOrphanedWorkspaces(queue).catch((err) => {
+			logger.error(err, "Failed to recover orphaned workspaces");
+		});
 		pollLoop.start();
 	}
 
 	if (!useStubs) {
-		bootstrapCaddy().catch((err) => {
-			logger.error(err, "Failed to bootstrap Caddy");
-		});
+		bootstrapCaddy()
+			.then(() => recoverRunningWorkspaces(runtime, queue))
+			.catch((err) => {
+				logger.error(err, "Failed to bootstrap Caddy or recover workspaces");
+			});
 	}
 });
 

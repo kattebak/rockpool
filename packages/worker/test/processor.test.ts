@@ -7,7 +7,9 @@ import type { RuntimeRepository } from "@rockpool/runtime";
 import pino from "pino";
 import { createProcessor } from "../src/processor.ts";
 
-function createMockRuntime(): RuntimeRepository & { calls: string[] } {
+function createMockRuntime(
+	vmStatus: "running" | "stopped" | "not_found" = "not_found",
+): RuntimeRepository & { calls: string[] } {
 	const calls: string[] = [];
 	return {
 		calls,
@@ -24,7 +26,7 @@ function createMockRuntime(): RuntimeRepository & { calls: string[] } {
 			calls.push(`remove:${name}`);
 		},
 		async status(_name: string) {
-			return "running" as const;
+			return vmStatus;
 		},
 		async getIp(_name: string) {
 			return "10.0.1.50";
@@ -143,6 +145,37 @@ describe("Processor", () => {
 
 		assert.deepEqual(runtime.calls, []);
 		assert.deepEqual(caddy.calls, []);
+	});
+
+	it("skips clone and start when VM already running (idempotent recovery)", async () => {
+		const ws = await createWorkspace(db, { name: "proc-recover-running", image: "alpine-v1" });
+		const runtime = createMockRuntime("running");
+		const caddy = createMockCaddy();
+		const processor = createProcessor({ db, runtime, caddy, logger, healthCheck: noopHealthCheck });
+
+		await processor.process({ type: "create", workspaceId: ws.id });
+
+		assert.deepEqual(runtime.calls, ["configure:proc-recover-running"]);
+		assert.deepEqual(caddy.calls, ["addRoute:proc-recover-running"]);
+
+		const updated = await getWorkspace(db, ws.id);
+		assert.equal(updated?.status, "running");
+		assert.equal(updated?.vmIp, "10.0.1.50");
+	});
+
+	it("skips clone but starts VM when stopped (idempotent recovery)", async () => {
+		const ws = await createWorkspace(db, { name: "proc-recover-stopped", image: "alpine-v1" });
+		const runtime = createMockRuntime("stopped");
+		const caddy = createMockCaddy();
+		const processor = createProcessor({ db, runtime, caddy, logger, healthCheck: noopHealthCheck });
+
+		await processor.process({ type: "create", workspaceId: ws.id });
+
+		assert.deepEqual(runtime.calls, ["start:proc-recover-stopped", "configure:proc-recover-stopped"]);
+		assert.deepEqual(caddy.calls, ["addRoute:proc-recover-stopped"]);
+
+		const updated = await getWorkspace(db, ws.id);
+		assert.equal(updated?.status, "running");
 	});
 
 	it("handles stop job: cascades port cleanup via workspace route removal", async () => {
