@@ -26,3 +26,8 @@ export interface AddPortRequest {
 	port: number;
 	label?: string;
 }
+
+export interface PaginatedResponse<T> {
+	items: T[];
+	nextCursor?: string;
+}

@@ -29,8 +29,13 @@ function createMockRuntime(): RuntimeRepository & { calls: string[] } {
 		async getIp(_name: string) {
 			return "10.0.1.50";
 		},
+		async configure(name: string, _env: Record<string, string>) {
+			calls.push(`configure:${name}`);
+		},
 	};
 }
+
+async function noopHealthCheck(_vmIp: string): Promise<void> {}
 
 function createMockCaddy(): CaddyRepository & { calls: string[] } {
 	const calls: string[] = [];
@@ -66,11 +71,15 @@ describe("Processor", () => {
 		const ws = await createWorkspace(db, { name: "proc-create", image: "alpine-v1" });
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const processor = createProcessor({ db, runtime, caddy, logger });
+		const processor = createProcessor({ db, runtime, caddy, logger, healthCheck: noopHealthCheck });
 
 		await processor.process({ type: "create", workspaceId: ws.id });
 
-		assert.deepEqual(runtime.calls, ["create:proc-create", "start:proc-create"]);
+		assert.deepEqual(runtime.calls, [
+			"create:proc-create",
+			"start:proc-create",
+			"configure:proc-create",
+		]);
 		assert.deepEqual(caddy.calls, ["addRoute:proc-create"]);
 
 		const updated = await getWorkspace(db, ws.id);
@@ -82,7 +91,7 @@ describe("Processor", () => {
 		const ws = await createWorkspace(db, { name: "proc-stop", image: "alpine-v1" });
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const processor = createProcessor({ db, runtime, caddy, logger });
+		const processor = createProcessor({ db, runtime, caddy, logger, healthCheck: noopHealthCheck });
 
 		await processor.process({ type: "stop", workspaceId: ws.id });
 
@@ -98,7 +107,7 @@ describe("Processor", () => {
 		const ws = await createWorkspace(db, { name: "proc-delete", image: "alpine-v1" });
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const processor = createProcessor({ db, runtime, caddy, logger });
+		const processor = createProcessor({ db, runtime, caddy, logger, healthCheck: noopHealthCheck });
 
 		await processor.process({ type: "delete", workspaceId: ws.id });
 
@@ -116,7 +125,7 @@ describe("Processor", () => {
 			throw new Error("VM creation failed");
 		};
 		const caddy = createMockCaddy();
-		const processor = createProcessor({ db, runtime, caddy, logger });
+		const processor = createProcessor({ db, runtime, caddy, logger, healthCheck: noopHealthCheck });
 
 		await processor.process({ type: "create", workspaceId: ws.id });
 
@@ -128,7 +137,7 @@ describe("Processor", () => {
 	it("skips job when workspace not found", async () => {
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const processor = createProcessor({ db, runtime, caddy, logger });
+		const processor = createProcessor({ db, runtime, caddy, logger, healthCheck: noopHealthCheck });
 
 		await processor.process({ type: "create", workspaceId: "nonexistent" });
 
@@ -136,37 +145,34 @@ describe("Processor", () => {
 		assert.deepEqual(caddy.calls, []);
 	});
 
-	it("handles stop job: removes port routes, stops VM, removes workspace route", async () => {
+	it("handles stop job: cascades port cleanup via workspace route removal", async () => {
 		const ws = await createWorkspace(db, { name: "proc-stop-ports", image: "alpine-v1" });
 		await addPort(db, { workspaceId: ws.id, port: 3000 });
 		await addPort(db, { workspaceId: ws.id, port: 5000 });
 
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const processor = createProcessor({ db, runtime, caddy, logger });
+		const processor = createProcessor({ db, runtime, caddy, logger, healthCheck: noopHealthCheck });
 
 		await processor.process({ type: "stop", workspaceId: ws.id });
 
-		assert.ok(caddy.calls.includes("removePort:proc-stop-ports:3000"));
-		assert.ok(caddy.calls.includes("removePort:proc-stop-ports:5000"));
-		assert.ok(caddy.calls.includes("removeRoute:proc-stop-ports"));
+		assert.deepEqual(caddy.calls, ["removeRoute:proc-stop-ports"]);
 
 		const remainingPorts = await listPorts(db, ws.id);
 		assert.deepEqual(remainingPorts, []);
 	});
 
-	it("handles delete job: removes port routes before deleting workspace", async () => {
+	it("handles delete job: cascades port cleanup via workspace route removal", async () => {
 		const ws = await createWorkspace(db, { name: "proc-del-ports", image: "alpine-v1" });
 		await addPort(db, { workspaceId: ws.id, port: 4000 });
 
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const processor = createProcessor({ db, runtime, caddy, logger });
+		const processor = createProcessor({ db, runtime, caddy, logger, healthCheck: noopHealthCheck });
 
 		await processor.process({ type: "delete", workspaceId: ws.id });
 
-		assert.ok(caddy.calls.includes("removePort:proc-del-ports:4000"));
-		assert.ok(caddy.calls.includes("removeRoute:proc-del-ports"));
+		assert.deepEqual(caddy.calls, ["removeRoute:proc-del-ports"]);
 
 		const deleted = await getWorkspace(db, ws.id);
 		assert.equal(deleted, undefined);

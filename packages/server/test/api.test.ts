@@ -2,13 +2,20 @@ import assert from "node:assert/strict";
 import http from "node:http";
 import { after, before, describe, it } from "node:test";
 import type { CaddyRepository } from "@tdpl/caddy";
-import { createMemoryDb, createWorkspace, updateWorkspaceStatus } from "@tdpl/db";
 import type { DbClient } from "@tdpl/db";
+import {
+	createMemoryDb,
+	createWorkspace,
+	updateWorkspaceStatus,
+} from "@tdpl/db";
 import { createMemoryQueue } from "@tdpl/queue";
 import pino from "pino";
 import { createApp } from "../src/app.ts";
 import { createPortService } from "../src/services/port-service.ts";
-import { createWorkspaceService } from "../src/services/workspace-service.ts";
+import {
+	ConflictError,
+	createWorkspaceService,
+} from "../src/services/workspace-service.ts";
 
 function request(
 	server: http.Server,
@@ -67,10 +74,12 @@ describe("API", () => {
 		assert.deepEqual(res.body, { status: "ok" });
 	});
 
-	it("GET /api/workspaces returns empty list", async () => {
+	it("GET /api/workspaces returns empty paginated result", async () => {
 		const res = await request(server, "GET", "/api/workspaces");
 		assert.equal(res.status, 200);
-		assert.deepEqual(res.body, []);
+		const body = res.body as { items: unknown[]; nextCursor?: string };
+		assert.deepEqual(body.items, []);
+		assert.equal(body.nextCursor, undefined);
 	});
 
 	it("POST /api/workspaces creates a workspace", async () => {
@@ -89,21 +98,21 @@ describe("API", () => {
 	it("GET /api/workspaces lists the created workspace", async () => {
 		const res = await request(server, "GET", "/api/workspaces");
 		assert.equal(res.status, 200);
-		const list = res.body as Array<Record<string, unknown>>;
-		assert.ok(list.length >= 1);
-		assert.ok(list.some((ws) => ws.name === "test-ws"));
+		const body = res.body as { items: Array<Record<string, unknown>> };
+		assert.ok(body.items.length >= 1);
+		assert.ok(body.items.some((ws) => ws.name === "test-ws"));
 	});
 
 	it("GET /api/workspaces/:id returns the workspace", async () => {
 		const listRes = await request(server, "GET", "/api/workspaces");
-		const list = listRes.body as Array<Record<string, unknown>>;
-		const ws = list.find((w) => w.name === "test-ws");
+		const listBody = listRes.body as { items: Array<Record<string, unknown>> };
+		const ws = listBody.items.find((w) => w.name === "test-ws");
 		assert.ok(ws, "Expected to find test-ws in list");
 
 		const res = await request(server, "GET", `/api/workspaces/${ws.id}`);
 		assert.equal(res.status, 200);
-		const body = res.body as Record<string, unknown>;
-		assert.equal(body.name, "test-ws");
+		const detail = res.body as Record<string, unknown>;
+		assert.equal(detail.name, "test-ws");
 	});
 
 	it("GET /api/workspaces/:id returns 404 for missing workspace", async () => {
@@ -164,6 +173,51 @@ describe("API", () => {
 		assert.equal(res.status, 400);
 		const body = res.body as Record<string, Record<string, unknown>>;
 		assert.equal(body.error.code, "validation_error");
+	});
+
+	it("GET /api/workspaces respects limit query param", async () => {
+		const res = await request(server, "GET", "/api/workspaces?limit=1");
+		assert.equal(res.status, 200);
+		const body = res.body as { items: unknown[]; nextCursor?: string };
+		assert.equal(body.items.length, 1);
+		assert.ok(body.nextCursor);
+	});
+
+	it("GET /api/workspaces paginates with cursor", async () => {
+		const firstPage = await request(server, "GET", "/api/workspaces?limit=1");
+		assert.equal(firstPage.status, 200);
+		const firstBody = firstPage.body as {
+			items: Array<Record<string, unknown>>;
+			nextCursor?: string;
+		};
+		assert.ok(firstBody.nextCursor);
+
+		const secondPage = await request(
+			server,
+			"GET",
+			`/api/workspaces?limit=1&cursor=${firstBody.nextCursor}`,
+		);
+		assert.equal(secondPage.status, 200);
+		const secondBody = secondPage.body as {
+			items: Array<Record<string, unknown>>;
+			nextCursor?: string;
+		};
+		assert.equal(secondBody.items.length, 1);
+		assert.notEqual(firstBody.items[0].id, secondBody.items[0].id);
+	});
+
+	it("GET /api/workspaces clamps limit above 100 to 100", async () => {
+		const res = await request(server, "GET", "/api/workspaces?limit=999");
+		assert.equal(res.status, 200);
+		const body = res.body as { items: unknown[] };
+		assert.ok(body.items.length <= 100);
+	});
+
+	it("GET /api/workspaces defaults limit when not provided", async () => {
+		const res = await request(server, "GET", "/api/workspaces");
+		assert.equal(res.status, 200);
+		const body = res.body as { items: unknown[] };
+		assert.ok(body.items.length <= 25);
 	});
 });
 
@@ -258,11 +312,7 @@ describe("Port API", () => {
 	});
 
 	it("DELETE /api/workspaces/:id/ports/:port removes a port", async () => {
-		const res = await request(
-			server,
-			"DELETE",
-			`/api/workspaces/${runningWorkspaceId}/ports/3000`,
-		);
+		const res = await request(server, "DELETE", `/api/workspaces/${runningWorkspaceId}/ports/3000`);
 		assert.equal(res.status, 204);
 		assert.ok(mockCaddy.calls.includes("removePort:port-test-ws:3000"));
 	});
@@ -286,5 +336,65 @@ describe("Port API", () => {
 			port: 3000,
 		});
 		assert.equal(res.status, 409);
+	});
+});
+
+describe("Workspace limits", () => {
+	it("rejects create when concurrent starts limit is reached", async () => {
+		const db = createMemoryDb();
+		const queue = createMemoryQueue();
+		const service = createWorkspaceService({ db, queue });
+
+		await service.create("limit-ws-1", "alpine-v1");
+		await service.create("limit-ws-2", "alpine-v1");
+		await service.create("limit-ws-3", "alpine-v1");
+
+		await assert.rejects(
+			() => service.create("limit-ws-4", "alpine-v1"),
+			(err: Error) => {
+				assert.ok(err instanceof ConflictError);
+				assert.match(err.message, /concurrent workspace starts/);
+				return true;
+			},
+		);
+	});
+
+	it("allows create after pending workspaces finish", async () => {
+		const db = createMemoryDb();
+		const queue = createMemoryQueue();
+		const service = createWorkspaceService({ db, queue });
+
+		const ws1 = await service.create("finish-ws-1", "alpine-v1");
+		await service.create("finish-ws-2", "alpine-v1");
+		await service.create("finish-ws-3", "alpine-v1");
+
+		await updateWorkspaceStatus(db, ws1.id, "running", { vmIp: "10.0.1.1" });
+
+		const ws4 = await service.create("finish-ws-4", "alpine-v1");
+		assert.equal(ws4.name, "finish-ws-4");
+	});
+
+	it("rejects start when concurrent starts limit is reached", async () => {
+		const db = createMemoryDb();
+		const queue = createMemoryQueue();
+		const service = createWorkspaceService({ db, queue });
+
+		await service.create("start-limit-1", "alpine-v1");
+		await service.create("start-limit-2", "alpine-v1");
+		await service.create("start-limit-3", "alpine-v1");
+
+		const ws = await createWorkspace(db, { name: "start-limit-stopped", image: "alpine-v1" });
+		await updateWorkspaceStatus(db, ws.id, "running", { vmIp: "10.0.1.1" });
+		await updateWorkspaceStatus(db, ws.id, "stopping");
+		await updateWorkspaceStatus(db, ws.id, "stopped", { vmIp: null });
+
+		await assert.rejects(
+			() => service.start(ws.id),
+			(err: Error) => {
+				assert.ok(err instanceof ConflictError);
+				assert.match(err.message, /concurrent workspace starts/);
+				return true;
+			},
+		);
 	});
 });

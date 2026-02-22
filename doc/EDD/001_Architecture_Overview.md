@@ -139,7 +139,7 @@ Each workspace is an isolated microVM running a custom lightweight Linux image w
 - code-server (web IDE)
 - User's development tools and code
 
-Base image is Alpine Linux, pre-built with Packer. Workspaces can be cloned via runtime-native snapshots.
+Base image is Debian minimal, pre-built with Packer. Workspaces can be cloned via runtime-native snapshots.
 
 See: [EDD 005: Workspace Image Pipeline](005_Workspace_Image_Pipeline.md)
 
@@ -213,7 +213,7 @@ All VMs (root + workspaces) sit on an isolated bridge network. The root VM can r
 | Target        | OS    | MicroVM Runtime | Notes                                     |
 | ------------- | ----- | --------------- | ----------------------------------------- |
 | Laptop (Mac)  | macOS | Tart            | Native via Apple Virtualization Framework |
-| Office server | Linux | Incus           | Native KVM, REST API, OVN networking      |
+| Office server | Linux | (deferred)      | Incus planned for later                   |
 
 See: [EDD 002: MicroVM Runtime](002_MicroVM_Runtime.md) for full evaluation.
 
@@ -221,6 +221,6 @@ See: [EDD 002: MicroVM Runtime](002_MicroVM_Runtime.md) for full evaluation.
 
 - [x] Authentication strategy -- basic auth in Caddy to start, upgradable to `forward_auth`
 - [x] Workspace persistence -- persistent VM disk, runtime-native snapshots for cloning (see [EDD 005](005_Workspace_Image_Pipeline.md))
-- [x] Resource limits -- defaults: 2 CPU cores, 4 GB RAM per workspace. Both Tart (`--cpu`, `--memory`) and Incus (`limits.cpu`, `limits.memory`) support this at VM creation. Configurable per-workspace later if needed.
+- [x] Resource limits -- defaults: 2 CPU cores, 4 GB RAM per workspace. Tart supports `--cpu` and `--memory`; Incus support is planned. Configurable per-workspace later if needed.
 - [ ] Auto-shutdown -- idle detection and automatic VM stop?
 - [ ] Multi-user -- single user initially, but design for future multi-user?
