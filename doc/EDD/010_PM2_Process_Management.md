@@ -3,7 +3,7 @@
 | Field        | Value                                                                                                     |
 | ------------ | --------------------------------------------------------------------------------------------------------- |
 | Author       | mvhenten                                                                                                  |
-| Status       | Draft                                                                                                     |
+| Status       | Phase 1 Implemented                                                                                       |
 | Created      | 2026-02-22                                                                                                |
 | Updated      | 2026-02-22                                                                                                |
 | Related ADRs | [ADR-005](../ADR/005-node22-esm.md), [ADR-014](../ADR/014-build-tooling-conventions.md)                   |

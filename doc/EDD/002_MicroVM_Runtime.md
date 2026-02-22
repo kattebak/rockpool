@@ -13,16 +13,16 @@ Evaluation of microVM and lightweight VM runtimes for hosting isolated Tidepool 
 
 ## Requirements
 
-| Requirement            | Priority | Notes                                        |
-| ---------------------- | -------- | -------------------------------------------- |
-| macOS support          | Must     | Dev on Apple Silicon laptop                  |
-| Linux support          | Should   | Production on office server (later phase)    |
-| Network isolation      | Must     | No LAN access, NAT egress only              |
-| Programmatic control   | Must     | API or scriptable CLI for lifecycle mgmt     |
-| Lightweight Linux      | Must     | Slim custom image with code-server           |
-| Fast boot              | Should   | Sub-30s acceptable, sub-5s ideal             |
-| Low memory overhead    | Should   | Multiple workspaces on a single host         |
-| Custom images          | Must     | Lightweight custom-built VM images           |
+| Requirement          | Priority | Notes                                     |
+| -------------------- | -------- | ----------------------------------------- |
+| macOS support        | Must     | Dev on Apple Silicon laptop               |
+| Linux support        | Should   | Production on office server (later phase) |
+| Network isolation    | Must     | No LAN access, NAT egress only            |
+| Programmatic control | Must     | API or scriptable CLI for lifecycle mgmt  |
+| Lightweight Linux    | Must     | Slim custom image with code-server        |
+| Fast boot            | Should   | Sub-30s acceptable, sub-5s ideal          |
+| Low memory overhead  | Should   | Multiple workspaces on a single host      |
+| Custom images        | Must     | Lightweight custom-built VM images        |
 
 ## Options Evaluated
 
@@ -30,15 +30,15 @@ Evaluation of microVM and lightweight VM runtimes for hosting isolated Tidepool 
 
 AWS-developed microVM monitor. Powers Lambda and Fargate.
 
-| Aspect          | Assessment                                                    |
-| --------------- | ------------------------------------------------------------- |
-| macOS           | Only via nested KVM in a Linux VM (requires M3+ for nested virt) |
-| Linux           | Native, first-class. KVM required.                           |
-| Boot time       | ~125ms                                                        |
-| API             | REST API, excellent                                           |
-| Network         | TAP devices, isolation by default                            |
-| Coder/IDE       | Hard -- requires custom rootfs images                        |
-| Maturity        | Production-grade (AWS Lambda)                                |
+| Aspect    | Assessment                                                       |
+| --------- | ---------------------------------------------------------------- |
+| macOS     | Only via nested KVM in a Linux VM (requires M3+ for nested virt) |
+| Linux     | Native, first-class. KVM required.                               |
+| Boot time | ~125ms                                                           |
+| API       | REST API, excellent                                              |
+| Network   | TAP devices, isolation by default                                |
+| Coder/IDE | Hard -- requires custom rootfs images                            |
+| Maturity  | Production-grade (AWS Lambda)                                    |
 
 **Verdict:** Gold standard on Linux. Painful on macOS -- double-nested VM layer. Custom rootfs is significant effort.
 
@@ -46,14 +46,14 @@ AWS-developed microVM monitor. Powers Lambda and Fargate.
 
 Intel-initiated Rust VMM, similar to Firecracker with more features (hotplug, broader device support).
 
-| Aspect          | Assessment                                                    |
-| --------------- | ------------------------------------------------------------- |
-| macOS           | None. Same nested-VM workaround as Firecracker.              |
-| Linux           | Native, KVM required.                                        |
-| Boot time       | ~100-150ms                                                    |
-| API             | REST API                                                      |
-| Network         | TAP devices                                                   |
-| Maturity        | Production (Intel, Kata Containers)                          |
+| Aspect    | Assessment                                      |
+| --------- | ----------------------------------------------- |
+| macOS     | None. Same nested-VM workaround as Firecracker. |
+| Linux     | Native, KVM required.                           |
+| Boot time | ~100-150ms                                      |
+| API       | REST API                                        |
+| Network   | TAP devices                                     |
+| Maturity  | Production (Intel, Kata Containers)             |
 
 **Verdict:** Similar to Firecracker, more features, same macOS limitation.
 
@@ -61,15 +61,15 @@ Intel-initiated Rust VMM, similar to Firecracker with more features (hotplug, br
 
 CNCF Incubating project. Linux VMs on macOS and Linux.
 
-| Aspect          | Assessment                                                    |
-| --------------- | ------------------------------------------------------------- |
-| macOS           | Native via Apple Virtualization Framework                    |
-| Linux           | Supported via QEMU                                           |
-| Boot time       | ~10-30s                                                       |
-| API             | `limactl` CLI, scriptable, YAML config                      |
-| Network         | NAT, vzNAT, socket_vmnet, user-v2                           |
-| Coder/IDE       | Easy -- full distro with systemd, cloud-init support         |
-| Maturity        | CNCF Incubating, v2.0 (Dec 2025)                            |
+| Aspect    | Assessment                                           |
+| --------- | ---------------------------------------------------- |
+| macOS     | Native via Apple Virtualization Framework            |
+| Linux     | Supported via QEMU                                   |
+| Boot time | ~10-30s                                              |
+| API       | `limactl` CLI, scriptable, YAML config               |
+| Network   | NAT, vzNAT, socket_vmnet, user-v2                    |
+| Coder/IDE | Easy -- full distro with systemd, cloud-init support |
+| Maturity  | CNCF Incubating, v2.0 (Dec 2025)                     |
 
 **Verdict:** Best cross-platform story. Full Linux VMs, easy provisioning. Slower boot but most ergonomic. Good network isolation via NAT modes.
 
@@ -77,15 +77,15 @@ CNCF Incubating project. Linux VMs on macOS and Linux.
 
 Community fork of Canonical's LXD. Manages system containers and full VMs. REST API-first.
 
-| Aspect          | Assessment                                                    |
-| --------------- | ------------------------------------------------------------- |
-| macOS           | Client only (remote management via TLS)                      |
-| Linux           | Native, first-class. Containers + VMs.                       |
-| Boot time       | Containers: ~2s. VMs: ~5-15s.                                |
-| API             | REST API, excellent. Best-in-class.                          |
-| Network         | OVN, bridge ACLs, isolated networks. Best networking story.  |
-| Coder/IDE       | Official Coder template exists                               |
-| Maturity        | Very mature (10+ years of LXC/LXD heritage)                 |
+| Aspect    | Assessment                                                  |
+| --------- | ----------------------------------------------------------- |
+| macOS     | Client only (remote management via TLS)                     |
+| Linux     | Native, first-class. Containers + VMs.                      |
+| Boot time | Containers: ~2s. VMs: ~5-15s.                               |
+| API       | REST API, excellent. Best-in-class.                         |
+| Network   | OVN, bridge ACLs, isolated networks. Best networking story. |
+| Coder/IDE | Official Coder template exists                              |
+| Maturity  | Very mature (10+ years of LXC/LXD heritage)                 |
 
 **Verdict:** Strongest option for the Linux server. Best networking (OVN), best API, official Coder integration. No local execution on macOS.
 
@@ -93,15 +93,15 @@ Community fork of Canonical's LXD. Manages system containers and full VMs. REST 
 
 Cirrus Labs CLI for Apple Virtualization Framework. macOS-native.
 
-| Aspect          | Assessment                                                    |
-| --------------- | ------------------------------------------------------------- |
-| macOS           | Native. Apple Virtualization Framework.                      |
-| Linux           | None.                                                         |
-| Boot time       | Fast, a few seconds.                                         |
-| API             | `tart` CLI, OCI image support                                |
-| Network         | NAT default, `--net-softnet` for isolation                   |
-| Coder/IDE       | Full ARM64 Linux VMs                                         |
-| Maturity        | Active, used in CI pipelines                                 |
+| Aspect    | Assessment                                 |
+| --------- | ------------------------------------------ |
+| macOS     | Native. Apple Virtualization Framework.    |
+| Linux     | None.                                      |
+| Boot time | Fast, a few seconds.                       |
+| API       | `tart` CLI, OCI image support              |
+| Network   | NAT default, `--net-softnet` for isolation |
+| Coder/IDE | Full ARM64 Linux VMs                       |
+| Maturity  | Active, used in CI pipelines               |
 
 **Verdict:** Most native macOS option. OCI images for reproducibility. Cannot run on Linux.
 
@@ -109,14 +109,14 @@ Cirrus Labs CLI for Apple Virtualization Framework. macOS-native.
 
 QEMU's lightweight machine type with minimal device emulation.
 
-| Aspect          | Assessment                                                    |
-| --------------- | ------------------------------------------------------------- |
-| macOS           | QEMU runs on macOS (HVF), but `microvm` machine type is x86-only |
-| Linux           | Native. ~10ms kernel boot with KVM.                          |
-| Boot time       | 10ms (Linux/KVM), 10-30s (macOS/standard)                   |
-| API             | QMP (JSON socket), powerful but complex                      |
-| Network         | Full control: TAP, SLIRP, bridges                            |
-| Maturity        | QEMU is extremely mature                                     |
+| Aspect    | Assessment                                                       |
+| --------- | ---------------------------------------------------------------- |
+| macOS     | QEMU runs on macOS (HVF), but `microvm` machine type is x86-only |
+| Linux     | Native. ~10ms kernel boot with KVM.                              |
+| Boot time | 10ms (Linux/KVM), 10-30s (macOS/standard)                        |
+| API       | QMP (JSON socket), powerful but complex                          |
+| Network   | Full control: TAP, SLIRP, bridges                                |
+| Maturity  | QEMU is extremely mature                                         |
 
 **Verdict:** Maximum flexibility, minimum opinions. More DIY work required.
 
@@ -134,16 +134,16 @@ Commercial macOS app for Docker + Linux VMs.
 
 ## Comparison Matrix
 
-| Option          | macOS | Linux | Boot   | API     | Net Isolation | IDE Ease | Cross-platform |
-| --------------- | ----- | ----- | ------ | ------- | ------------- | -------- | -------------- |
-| Firecracker     | M3+*  | Yes   | 125ms  | REST    | Excellent     | Hard     | No             |
-| Cloud Hypervisor| M3+*  | Yes   | 150ms  | REST    | Excellent     | Hard     | No             |
-| Lima            | Yes   | Yes   | 10-30s | CLI     | Good          | Easy     | Yes            |
-| Incus           | Remote| Yes   | 2-15s  | REST    | Excellent     | Easy     | Partial        |
-| Tart            | Yes   | No    | ~3s    | CLI/OCI | Good          | Good     | No             |
-| QEMU microvm    | Partial| Yes  | 10ms   | QMP     | Excellent     | Medium   | Partial        |
+| Option           | macOS   | Linux | Boot   | API     | Net Isolation | IDE Ease | Cross-platform |
+| ---------------- | ------- | ----- | ------ | ------- | ------------- | -------- | -------------- |
+| Firecracker      | M3+\*   | Yes   | 125ms  | REST    | Excellent     | Hard     | No             |
+| Cloud Hypervisor | M3+\*   | Yes   | 150ms  | REST    | Excellent     | Hard     | No             |
+| Lima             | Yes     | Yes   | 10-30s | CLI     | Good          | Easy     | Yes            |
+| Incus            | Remote  | Yes   | 2-15s  | REST    | Excellent     | Easy     | Partial        |
+| Tart             | Yes     | No    | ~3s    | CLI/OCI | Good          | Good     | No             |
+| QEMU microvm     | Partial | Yes   | 10ms   | QMP     | Excellent     | Medium   | Partial        |
 
-*Via nested KVM in a Linux VM
+\*Via nested KVM in a Linux VM
 
 ## Recommended Approaches
 
@@ -174,17 +174,18 @@ Run Incus on the Linux server. Use macOS only as a remote client. All VMs live o
 
 Incus remains the likely Linux runtime but is explicitly deferred to a later phase. The current implementation targets Tart only to unblock the macOS path and the vertical slice.
 
-| Question | Decision | Rationale |
-|---|---|---|
-| Mac chip | M4 | Nested virt available but not needed -- Tart is native |
-| Boot time | Not a differentiator | All runtimes converge once booting a full userspace |
-| Platform strategy | macOS-first | Dev on laptop (Tart); Linux runtime deferred |
-| VM images | Custom lightweight Linux | Debian minimal, baked with code-server (see [EDD 005](005_Workspace_Image_Pipeline.md)) |
-| Abstraction level | Thin wrappers | Service repository pattern, shared interface per runtime |
+| Question          | Decision                 | Rationale                                                                               |
+| ----------------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| Mac chip          | M4                       | Nested virt available but not needed -- Tart is native                                  |
+| Boot time         | Not a differentiator     | All runtimes converge once booting a full userspace                                     |
+| Platform strategy | macOS-first              | Dev on laptop (Tart); Linux runtime deferred                                            |
+| VM images         | Custom lightweight Linux | Debian minimal, baked with code-server (see [EDD 005](005_Workspace_Image_Pipeline.md)) |
+| Abstraction level | Thin wrappers            | Service repository pattern, shared interface per runtime                                |
 
 ### Why not Lima?
 
 Lima offers the simplest cross-platform story (one tool everywhere), but:
+
 - No OCI image support -- custom images require building QCOW2s with external tooling
 - CLI-only, no REST API
 - Less mature on Linux than on macOS
@@ -192,6 +193,7 @@ Lima offers the simplest cross-platform story (one tool everywhere), but:
 ### Why not Firecracker / Cloud Hypervisor?
 
 Gold standard for boot time on Linux, but:
+
 - No macOS support without double-nested VMs
 - Custom rootfs image building is significant effort
 - Boot time advantage disappears once a full userspace is required

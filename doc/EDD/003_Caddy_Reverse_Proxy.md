@@ -21,16 +21,28 @@ Caddy is the API gateway for all inbound traffic. It is responsible for:
 - Rate limiting at the edge (see [EDD 007](007_Data_Model.md))
 - Routing and path prefix handling
 
-Rate limiting may require a Caddy module; treat it as a required gateway capability even if the first implementation is minimal.
+Rate limiting requires a Caddy module; treat it as a required gateway capability even if the first implementation is minimal.
 
-### Rate Limiting Module Candidates
+### Rate Limiting Module
 
-Preferred options based on popularity, fit, and stability:
+- Use **`github.com/mholt/caddy-ratelimit`**.
+- Build the Caddy binary with `xcaddy` so the module is compiled in.
+- Apply rate limiting at the edge for both `srv0` (API + SPA) and `srv1` (workspace routes).
 
-- **Greenpau caddy-security** — broader gateway features with rate limiting.
-- **Greenpau caddy-limiter** — focused rate limiting module.
+### Rate Limiting Policy
 
-Plan: use both. `caddy-security` covers gateway auth and broader policy, while `caddy-limiter` provides explicit rate limiting controls.
+Default limits (per identity):
+
+- 10 requests per minute
+- 100 requests per hour
+- 300 requests per day
+
+Identity key order:
+
+1. Basic auth username (when present)
+2. Client IP (fallback)
+
+These limits are intentionally conservative for a single-user system and can be raised once real usage data is available.
 
 ## Admin API Basics
 
@@ -354,10 +366,10 @@ The base image's code-server init script reads `TIDEPOOL_WORKSPACE_NAME` to set 
 - **Caddy runs in the root VM** alongside the control plane — admin API on localhost only, network-isolated from host LAN
 - **Two-port origin isolation**: `:8080` for control plane + SPA, `:8081` for all workspace traffic — prevents workspace JS from reaching the API ([ADR-015](../ADR/015-two-port-origin-isolation.md))
 - **Basic auth in Caddy** as the initial auth mechanism; can upgrade to `forward_auth` later. **Implemented** in `@tdpl/caddy`: `hashPassword()` generates bcrypt hashes, `buildBootstrapConfig({ auth })` adds authentication handlers to srv0 protecting `/api/*` and `/app/*` with a health check bypass on `/api/health`. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars — server bootstraps Caddy with auth on startup when not in stub mode.
+- **Rate limiting via `caddy-ratelimit`** compiled into Caddy with `xcaddy`. Default policy: 10/min, 100/hour, 300/day per identity (basic auth user, then IP fallback).
 - **Unambiguous URL scheme**: `/api/*` for control plane, `/app/*` for SPA, `/workspace/{name}/*` for IDE sessions
 - **Dynamic port forwarding**: user registers actual app ports (e.g. 3000, 5000) via API, Caddy routes created/removed on demand, max 5 per workspace
 
 ## Open Questions
 
-- [ ] Rate limiting on workspace routes?
 - [ ] Health check routes for upstreams (auto-remove dead workspaces)?

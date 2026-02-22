@@ -18,16 +18,16 @@ Defines how Tidepool builds, stores, and distributes custom lightweight Linux VM
 
 ## Image Requirements
 
-| Requirement | Priority | Notes |
-|---|---|---|
-| Lightweight base | Must | Debian minimal (systemd, code-server compatible) |
-| code-server pre-installed | Must | Ready to serve IDE on boot |
-| No Docker dependency | Must | Use Podman/Buildah if container tooling is needed |
-| Tart-compatible output (OCI) | Must | For macOS dev environments |
-| Incus-compatible output | Later | For Linux production (deferred) |
-| Single base image to start | Must | Add more image variants later |
-| Cloneable workspaces | Should | Clone via runtime-native snapshots |
-| Reproducible builds | Should | Same input produces same image |
+| Requirement                  | Priority | Notes                                             |
+| ---------------------------- | -------- | ------------------------------------------------- |
+| Lightweight base             | Must     | Debian minimal (systemd, code-server compatible)  |
+| code-server pre-installed    | Must     | Ready to serve IDE on boot                        |
+| No Docker dependency         | Must     | Use Podman/Buildah if container tooling is needed |
+| Tart-compatible output (OCI) | Must     | For macOS dev environments                        |
+| Incus-compatible output      | Later    | For Linux production (deferred)                   |
+| Single base image to start   | Must     | Add more image variants later                     |
+| Cloneable workspaces         | Should   | Clone via runtime-native snapshots                |
+| Reproducible builds          | Should   | Same input produces same image                    |
 
 ## Decision
 
@@ -37,10 +37,10 @@ Debian minimal provides systemd and broad binary compatibility. The previous Alp
 
 ### Build Tool: Packer + Shared Provisioning Script
 
-Single `alpine-setup.sh` provisioning script (kept for now), Packer builds platform-specific outputs:
+Single provisioning script (`alpine-setup.sh`, legacy name) for the Debian base, Packer builds platform-specific outputs:
 
 ```
-alpine-setup.sh (shared provisioning script)
+alpine-setup.sh (shared provisioning script, legacy name)
         |
    ┌────┴────┐
    |  Packer |
@@ -68,8 +68,8 @@ Kitchen sink -- workspaces should be productive out of the box:
 
 The worker sets these env vars at VM creation/start. The base image's init scripts consume them:
 
-| Variable | Description |
-|----------|-------------|
+| Variable                  | Description                                                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `TIDEPOOL_WORKSPACE_NAME` | Workspace slug. code-server's OpenRC service uses this for `--abs-proxy-base-path /workspace/${TIDEPOOL_WORKSPACE_NAME}`. |
 
 Port forwarding is dynamic -- apps bind to any port they want, then the user registers it via the API. No port-related env vars are needed in the image. See [EDD 003: Caddy Reverse Proxy](003_Caddy_Reverse_Proxy.md) for how port routes are managed.
