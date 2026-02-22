@@ -11,15 +11,48 @@ import type { WorkspaceJob } from "@tdpl/queue";
 import type { RuntimeRepository } from "@tdpl/runtime";
 import type { Logger } from "pino";
 
+const HEALTH_POLL_INTERVAL_MS = 1000;
+const HEALTH_POLL_MAX_ATTEMPTS = 60;
+
+type HealthCheckFn = (vmIp: string) => Promise<void>;
+
 export interface ProcessorDeps {
 	db: DbClient;
 	runtime: RuntimeRepository;
 	caddy: CaddyRepository;
 	logger: Logger;
+	healthCheck?: HealthCheckFn;
+}
+
+function defaultHealthCheck(logger: Logger): HealthCheckFn {
+	return async (vmIp: string): Promise<void> => {
+		const url = `http://${vmIp}:8080/healthz`;
+		for (let attempt = 0; attempt < HEALTH_POLL_MAX_ATTEMPTS; attempt++) {
+			const ok = await fetch(url)
+				.then((res) => res.ok)
+				.catch(() => false);
+			if (ok) {
+				return;
+			}
+			logger.debug({ vmIp, attempt }, "Waiting for code-server");
+			await new Promise((resolve) => setTimeout(resolve, HEALTH_POLL_INTERVAL_MS));
+		}
+		throw new Error(`Timed out waiting for code-server at ${url}`);
+	};
 }
 
 export function createProcessor(deps: ProcessorDeps) {
 	const { db, runtime, caddy, logger } = deps;
+	const healthCheck = deps.healthCheck ?? defaultHealthCheck(logger);
+
+	async function configureAndWait(workspaceName: string, vmIp: string): Promise<void> {
+		if (runtime.configure) {
+			await runtime.configure(workspaceName, {
+				TIDEPOOL_WORKSPACE_NAME: workspaceName,
+			});
+		}
+		await healthCheck(vmIp);
+	}
 
 	async function handleCreate(workspaceId: string): Promise<void> {
 		const workspace = await getWorkspace(db, workspaceId);
@@ -34,6 +67,7 @@ export function createProcessor(deps: ProcessorDeps) {
 		await runtime.start(workspace.name);
 		const vmIp = await runtime.getIp(workspace.name);
 
+		await configureAndWait(workspace.name, vmIp);
 		await caddy.addWorkspaceRoute(workspace.name, vmIp);
 		await updateWorkspaceStatus(db, workspaceId, "running", { vmIp });
 
@@ -52,6 +86,7 @@ export function createProcessor(deps: ProcessorDeps) {
 		await runtime.start(workspace.name);
 		const vmIp = await runtime.getIp(workspace.name);
 
+		await configureAndWait(workspace.name, vmIp);
 		await caddy.addWorkspaceRoute(workspace.name, vmIp);
 		await updateWorkspaceStatus(db, workspaceId, "running", { vmIp });
 

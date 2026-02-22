@@ -29,4 +29,5 @@ export interface BootstrapOptions {
 	auth?: BasicAuthCredentials;
 	controlPlaneUrl?: string;
 	spaRoot?: string;
+	srv1Port?: number;
 }

@@ -232,9 +232,9 @@ Keep the UI minimal and rely on shadcn built-in components with default variants
 |                                                                                |
 | Name        Status     Image           Updated          Actions                |
 | ----------  ---------  --------------  ---------------  --------------------- |
-| demo        Running    alpine:latest   2 min ago        [Open] [Stop] [More]   |
+| demo        Running    debian:latest   2 min ago        [Open] [Stop] [More]   |
 | api-test    Stopped    debian:12       Yesterday        [Open] [Start] [More]  |
-| broken      Error      alpine:latest   5 min ago        [View error] [More]    |
+| broken      Error      debian:latest   5 min ago        [View error] [More]    |
 +--------------------------------------------------------------------------------+
 ```
 
@@ -263,7 +263,7 @@ Keep the UI minimal and rely on shadcn built-in components with default variants
 | [Open IDE]  [Stop]  [Delete]                                                     |
 |--------------------------------------------------------------------------------|
 | Details                                 | Ports                                 |
-| Image: alpine:latest                    | 3000  app-server   [Open] [Remove]    |
+| Image: debian:latest                    | 3000  app-server   [Open] [Remove]    |
 | CPU: 2   Memory: 4 GB                   | 5173  ui-preview   [Open] [Remove]    |
 | Created: 2026-02-22 09:10               | [Add port]                             |
 | Updated: 2 min ago                      |                                       |

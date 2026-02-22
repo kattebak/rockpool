@@ -5,7 +5,7 @@
 | Author  | mvhenten   |
 | Status  | Accepted   |
 | Created | 2026-02-21 |
-| Updated | 2026-02-21 |
+| Updated | 2026-02-22 |
 
 ## Summary
 
@@ -16,7 +16,7 @@ Evaluation of microVM and lightweight VM runtimes for hosting isolated Tidepool 
 | Requirement            | Priority | Notes                                        |
 | ---------------------- | -------- | -------------------------------------------- |
 | macOS support          | Must     | Dev on Apple Silicon laptop                  |
-| Linux support          | Must     | Production on office server                  |
+| Linux support          | Should   | Production on office server (later phase)    |
 | Network isolation      | Must     | No LAN access, NAT egress only              |
 | Programmatic control   | Must     | API or scriptable CLI for lifecycle mgmt     |
 | Lightweight Linux      | Must     | Slim custom image with code-server           |
@@ -170,16 +170,16 @@ Run Incus on the Linux server. Use macOS only as a remote client. All VMs live o
 
 ## Decision
 
-**Selected: Option B -- Tart (macOS) + Incus (Linux)**
+**Selected (now): Tart on macOS.**
 
-Best-of-breed runtime per platform, unified behind thin service wrappers using the repository pattern.
+Incus remains the likely Linux runtime but is explicitly deferred to a later phase. The current implementation targets Tart only to unblock the macOS path and the vertical slice.
 
 | Question | Decision | Rationale |
 |---|---|---|
 | Mac chip | M4 | Nested virt available but not needed -- Tart is native |
 | Boot time | Not a differentiator | All runtimes converge once booting a full userspace |
-| Platform strategy | Cross-platform day one | Dev on laptop (Tart), production on Linux server (Incus) |
-| VM images | Custom lightweight Linux | Alpine Linux, baked with code-server (see [EDD 005](005_Workspace_Image_Pipeline.md)) |
+| Platform strategy | macOS-first | Dev on laptop (Tart); Linux runtime deferred |
+| VM images | Custom lightweight Linux | Debian minimal, baked with code-server (see [EDD 005](005_Workspace_Image_Pipeline.md)) |
 | Abstraction level | Thin wrappers | Service repository pattern, shared interface per runtime |
 
 ### Why not Lima?
@@ -196,27 +196,36 @@ Gold standard for boot time on Linux, but:
 - Custom rootfs image building is significant effort
 - Boot time advantage disappears once a full userspace is required
 
-### Architecture
+### Architecture (current)
 
 ```
 ┌─────────────────────────────────┐
 │        Workspace Service        │
 │   (runtime-agnostic interface)  │
-├────────────────┬────────────────┤
-│  TartAdapter   │  IncusAdapter  │
-│  (macOS)       │  (Linux)       │
-│  CLI wrapper   │  REST client   │
-└────────────────┴────────────────┘
+├───────────────────────────────┤
+│  TartAdapter (macOS)           │
+│  CLI wrapper                   │
+└───────────────────────────────┘
 ```
 
-Each adapter implements the same interface: create, start, stop, delete, status, get IP.
+Each adapter implements the same interface: create, start, stop, delete, status, getIp, and optionally configure. The `configure()` method is called after VM boot to set up workspace-specific settings (e.g., code-server base path). It is optional — `StubRuntime` omits it.
 
 See: [EDD 005: Workspace Image Pipeline](005_Workspace_Image_Pipeline.md) for image build and distribution strategy.
+
+## Implementation Notes
+
+### Non-blocking start()
+
+`TartRuntime.start()` uses `spawn()` (detached, unref'd) rather than `execFile()` to launch the VM. Tart's `run` command blocks until the VM shuts down, so a blocking call would hang the worker. The spawned process is detached and unreferenced so it outlives the parent. After spawning, `start()` polls `tart list` until the VM status reaches "running".
+
+### Optional configure()
+
+The `RuntimeRepository` interface marks `configure?()` as optional. When present, the worker calls it after `start()` + `getIp()` to inject workspace-specific configuration into the running VM. For `TartRuntime`, this SSH's into the VM to write code-server's YAML config and restart the service via `systemctl`. SSH is used instead of `tart exec` because the Tart Guest Agent is unreliable on Linux VMs (control socket connection failures). SSH connects as soon as `sshd` starts (~2-3s), with a retry loop for the brief boot window. Requires `sshKeyPath` in runtime options. `StubRuntime` does not implement it.
 
 ## Resolved Questions
 
 - [x] Which Mac chip? **M4** -- nested virt available, Tart makes it irrelevant.
 - [x] Is 10-30s boot time acceptable? **Yes** -- all runtimes converge for full userspace boot.
-- [x] Single platform first or cross-platform? **Cross-platform day one** -- dev on laptop, run on server.
+- [x] Single platform first or cross-platform? **macOS-first** -- dev on laptop, defer Linux runtime until later.
 - [x] Custom VM images or standard distro? **Custom lightweight Linux** -- slim base, baked images.
 - [x] How much abstraction? **Thin wrappers** -- service repository pattern, shared interface.

@@ -9,12 +9,12 @@ packer {
 
 variable "vm_base_name" {
   type    = string
-  default = "ghcr.io/cirruslabs/alpine:latest"
+  default = "ghcr.io/cirruslabs/debian:latest"
 }
 
 variable "vm_name" {
   type    = string
-  default = "tidepool-alpine"
+  default = "tidepool-workspace"
 }
 
 variable "cpu_count" {
@@ -29,7 +29,7 @@ variable "memory_gb" {
 
 variable "disk_size_gb" {
   type    = number
-  default = 12
+  default = 20
 }
 
 variable "ssh_username" {
@@ -42,7 +42,7 @@ variable "ssh_password" {
   default = "admin"
 }
 
-source "tart-cli" "alpine" {
+source "tart-cli" "workspace" {
   vm_base_name = var.vm_base_name
   vm_name      = var.vm_name
   cpu_count    = var.cpu_count
@@ -55,7 +55,7 @@ source "tart-cli" "alpine" {
 }
 
 build {
-  sources = ["source.tart-cli.alpine"]
+  sources = ["source.tart-cli.workspace"]
 
   provisioner "shell" {
     script = "${path.root}/scripts/alpine-setup.sh"

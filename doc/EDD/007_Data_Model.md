@@ -26,7 +26,7 @@ The central entity. Represents a running or stopped development environment.
 - `id` (uuid, auto-generated) -- internal primary key, used for DB references and service-layer lookups.
 - `name` (string, user-provided slug) -- appears in URLs (`/workspace/{name}/*`). Validated: lowercase `[a-z0-9-]`, 3-63 characters, unique.
 - `status` (enum) -- lifecycle state, see state machine below.
-- `image` (string) -- base image identifier (e.g. `alpine-codeserver-v1`). No separate Image entity; promote to its own model when multiple managed images are needed.
+- `image` (string) -- base image identifier (e.g. `debian-codeserver-v1`). No separate Image entity; promote to its own model when multiple managed images are needed.
 - `vmIp` (string, nullable) -- populated when the VM is running, null when stopped or pending.
 - `errorMessage` (string, nullable) -- populated when status is `error`, null otherwise.
 - `createdAt` / `updatedAt` (datetime) -- standard timestamps.
@@ -114,7 +114,7 @@ When a port is registered, the worker creates a Caddy route: `/workspace/{name}/
 These were considered but deferred:
 
 - **Image** -- image is a string field on Workspace. A dedicated Image entity adds schema and API surface with no current benefit. Single base image built locally per [EDD-005](005_Workspace_Image_Pipeline.md). Promote when multiple managed images are needed.
-- **Runtime** -- runtime (Tart/Incus) is a host-level property, not per-workspace data. The adapter pattern ([EDD-002](002_MicroVM_Runtime.md)) handles platform differences. Workspace entity stays runtime-agnostic.
+- **Runtime** -- runtime (Tart now, Incus later) is a host-level property, not per-workspace data. The adapter pattern ([EDD-002](002_MicroVM_Runtime.md)) handles platform differences. Workspace entity stays runtime-agnostic.
 
 ## API Surface
 

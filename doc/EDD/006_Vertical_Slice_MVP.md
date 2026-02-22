@@ -5,18 +5,18 @@
 | Author  | mvhenten   |
 | Status  | Draft      |
 | Created | 2026-02-21 |
-| Updated | 2026-02-23 |
+| Updated | 2026-02-22 |
 
 ## Summary
 
-Minimal end-to-end proof of the Tidepool concept on macOS: a browser request hits Caddy, gets routed by path to a Tart VM running code-server, and the user lands in a working IDE. Three components, no control plane services, no async workers -- just the critical path. A local fast path uses a public Ubuntu runner image while the Alpine Packer path is blocked by registry access.
+Minimal end-to-end proof of the Tidepool concept on macOS: a browser request hits Caddy, gets routed by path to a Tart VM running code-server, and the user lands in a working IDE. Three components, no control plane services, no async workers -- just the critical path. A local fast path can use a public Ubuntu runner image to avoid registry auth, while the Debian Packer path remains the intended base.
 
 ## Prerequisites
 
 - [EDD 002: MicroVM Runtime](002_MicroVM_Runtime.md) -- Tart selected for macOS
 - [EDD 003: Caddy Reverse Proxy](003_Caddy_Reverse_Proxy.md) -- path-based routing, admin API
 - [EDD 004: Web IDE](004_Web_IDE.md) -- code-server selected
-- [EDD 005: Workspace Image Pipeline](005_Workspace_Image_Pipeline.md) -- Alpine, Packer, local builds
+- [EDD 005: Workspace Image Pipeline](005_Workspace_Image_Pipeline.md) -- Debian, Packer, local builds
 - [EDD 007: Data Model](007_Data_Model.md) -- workspace entity, status model, API surface
 - [EDD 008: Package Structure](008_Package_Structure.md) -- monorepo layout, repository pattern
 
@@ -31,7 +31,7 @@ Browser
   │
   ▼
 ┌──────────┐     ┌───────────────────────┐
-│  Caddy   │────▶│  Tart VM (Alpine)     │
+│  Caddy   │────▶│  Tart VM (Debian)     │
 │  :8080   │     │  code-server :8080    │
 │          │     │  git, bash, node, etc │
 └──────────┘     └───────────────────────┘
@@ -53,7 +53,7 @@ This slice intentionally simplifies the production architecture (see [EDD 001](0
 
 ### In scope
 
-- Packer template for Alpine + code-server Tart image
+- Packer template for Debian + code-server Tart image
 - Shared provisioning script (`alpine-setup.sh`)
 - Local fast path using a public Tart Ubuntu runner image to avoid registry auth
 - Scripted VM start and setup via npm scripts
@@ -89,9 +89,9 @@ images/
 
 ### Provisioning Script (`alpine-setup.sh`)
 
-Installs everything on a vanilla Alpine base:
+Installs everything on a vanilla Debian base:
 
-1. Update apk, install base packages: bash, curl, wget, jq, git, openssh, make
+1. Update apt, install base packages: bash, curl, wget, jq, git, openssh, make
 2. Install Node.js (via apk or nvm)
 3. Install Python 3
 4. Install code-server (standalone release from GitHub)
@@ -100,7 +100,7 @@ Installs everything on a vanilla Alpine base:
    - Disable built-in auth (`--auth none`, auth lives in Caddy)
    - Set `--abs-proxy-base-path /workspace/test` (hardcoded for MVP; production uses env var)
    - Disable telemetry
-6. Create an OpenRC service for code-server (Alpine uses OpenRC, not systemd)
+6. Create a systemd service for code-server
 7. Create a default workspace user (non-root)
 
 ### Build Command
@@ -109,11 +109,11 @@ Installs everything on a vanilla Alpine base:
 npm run build:image
 ```
 
-Output: a Tart VM image named `tidepool-alpine` available via `tart list`.
+Output: a Tart VM image named `tidepool-workspace` available via `tart list`.
 
-### Local Fast Path (Ubuntu Runner)
+### Base Image
 
-If the Alpine base image is not accessible, use the public Ubuntu runner image and configure code-server in-place. This is the current working path on macOS.
+Uses `ghcr.io/cirruslabs/debian:latest` as the base (Debian minimal, 0.6GB compressed). The Cirrus Labs Alpine image returns 403; Ubuntu runner works but is 20GB+ and bloated. Debian is the best balance of size, compatibility, and systemd support.
 
 ## Component 2: Tart VM
 
@@ -181,10 +181,18 @@ Open `http://localhost:8080/workspace/test/` in a browser. code-server IDE shoul
 
 ## What Was Implemented (Record)
 
-- Packer template and Alpine provisioning script for a future baked image
+- Packer template and Debian provisioning script for a future baked image
 - Local fast path using public Tart Ubuntu runner image to avoid registry auth
 - Helper scripts to bootstrap Caddy, start VM, and configure code-server
 - Makefile and npm scripts wired for MVP tasks
+
+### Real VM Integration (Tart)
+
+- `runtime.configure()` writes code-server YAML config and restarts via `systemctl` inside the VM
+- Worker calls `configure()` + health check (polls `/healthz`) after VM boot, before adding Caddy route
+- Full end-to-end lifecycle verified with real Tart VMs: create → clone → boot → configure → health check → Caddy route → running
+- code-server IDE accessible at `http://localhost:8081/workspace/{name}/` (srv1, two-port isolation)
+- VM boots in ~7s total (clone + start + configure + health check)
 
 ### Relevant Files
 
@@ -203,7 +211,7 @@ Open `http://localhost:8080/workspace/test/` in a browser. code-server IDE shoul
 
 ## Validation Checklist
 
-- [ ] Packer builds the Alpine image without errors
+- [ ] Packer builds the Debian image without errors
 - [ ] Tart VM boots and code-server is accessible on :8080
 - [ ] Caddy routes `/workspace/test/*` to the VM
 - [ ] code-server loads in the browser at the subpath
@@ -216,8 +224,7 @@ Open `http://localhost:8080/workspace/test/` in a browser. code-server IDE shoul
 
 | Risk                                                  | Impact  | Mitigation                                                                                                                            |
 | ----------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Alpine + musl breaks code-server                      | Blocker | code-server ships standalone musl-compatible builds; fall back to Debian if needed                                                    |
-| Tart registry access returns 403 for Alpine base      | High    | Use public Ubuntu runner image until a public Alpine base is available                                                                |
+| Base image registry access fails                      | High    | Use public Ubuntu runner image until registry access is available                                                                    |
 | Tart Packer builder issues                            | Low     | [cirruslabs/packer-plugin-tart](https://github.com/cirruslabs/packer-plugin-tart) v1.19.0, actively maintained, on HashiCorp registry |
 | code-server subfolder mounting breaks with WebSockets | High    | `--abs-proxy-base-path` is designed for this; test early                                                                              |
 | Caddy and Tart compete for port 8080                  | Low     | Different networks -- Caddy on host :8080, code-server on VM :8080                                                                    |
@@ -230,14 +237,14 @@ All control plane packages have been built on top of this vertical slice. See [E
 
 | Package | Status | Tests | Description |
 |---------|--------|-------|-------------|
-| `@tdpl/runtime` | Done | 10 | TartRuntime adapter wrapping `tart` CLI (create, start, stop, remove, status, getIp with polling). Injectable exec for testing. StubRuntime for dev mode (in-memory VM simulation). |
+| `@tdpl/runtime` | Done | 12 | TartRuntime adapter wrapping `tart` CLI (create, start, stop, remove, status, getIp with polling, configure). `configure()` writes code-server YAML config and restarts via systemctl. Injectable exec for testing. StubRuntime for dev mode (in-memory VM simulation). |
 | `@tdpl/caddy` | Done | 21 | Caddy admin API client via native fetch. Two-port routing: workspace + port routes go to srv1 (:8081). Full bootstrap config with auth, API proxy, SPA serving, root redirect. StubCaddy for dev mode. |
 | `@tdpl/queue` | Done | 5 | SQS-compatible queue client + in-memory implementation for dev/testing. |
 | `@tdpl/db` | Done | 25 | SQLite + Drizzle ORM. Hand-written schema (generated Drizzle emitter targets Postgres, not usable). Workspace + Port tables with cascade delete. Cursor-based pagination on workspace listing. |
 | `@tdpl/server` | Done | 25 | Express control plane with express-openapi-validator. Workspace CRUD + lifecycle + port forwarding endpoints. State machine enforcement. Paginated list endpoint (limit/cursor). In-process worker for dev mode. |
-| `@tdpl/worker` | Done | 7 | Async job processor: create/start/stop/delete lifecycle. Cleans up port routes on stop/delete. Poll loop with configurable idle delay. Standalone production entrypoint. |
+| `@tdpl/worker` | Done | 7 | Async job processor: create/start/stop/delete lifecycle. Calls `runtime.configure()` + health check after VM boot. Cleans up port routes on stop/delete. Poll loop with configurable idle delay. Standalone production entrypoint. |
 
-**Total: 93 tests, all passing.**
+**Total: 96 tests, all passing.**
 
 ### Key Integration Points
 
@@ -249,7 +256,7 @@ All control plane packages have been built on top of this vertical slice. See [E
 ### Lifecycle Flow (End-to-End)
 
 1. `POST /api/workspaces {name, image}` → validates, inserts DB (status: creating), enqueues create job
-2. Worker picks up job → `tart clone` + `tart run` + poll for IP → `caddy.addWorkspaceRoute` to srv1 → DB status: running
+2. Worker picks up job → `tart clone` + `tart run` + poll for IP → `runtime.configure()` (writes code-server config, restarts service) → health check (poll code-server `/healthz` up to 60s) → `caddy.addWorkspaceRoute` to srv1 → DB status: running
 3. `POST /api/workspaces/:id/ports {port, label?}` → validates running, inserts DB, `caddy.addPortRoute` to srv1
 4. `POST /api/workspaces/:id/stop` → validates state, DB status: stopping, enqueues stop job
 5. Worker picks up job → removes all port routes + records → `tart stop` → `caddy.removeWorkspaceRoute` → DB status: stopped
@@ -264,13 +271,13 @@ All control plane packages have been built on top of this vertical slice. See [E
 | esbuild bundling | Done | ADR-011. Client builds via esbuild (503kb JS, 39kb CSS, ~300ms). Makefile target `build-client`. |
 | Root dev/test scripts | Done | `npm run dev` starts API server + worker (in-process) + client dev server concurrently. `npm test` aggregates all packages. |
 | Pagination (cursor-based) | Done | TypeSpec → OpenAPI → DB → service → routes. `limit`/`cursor` query params, `WorkspaceListResponse` model, base64url cursor encoding. |
-| Auth (basic auth in Caddy) | Done | `hashPassword()` (bcrypt) + `buildBootstrapConfig({ auth })`. Protects `/api/*` and `/app/*` on srv0, health check bypasses auth. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars. |
+| Auth (basic auth in Caddy) | Done | `hashPassword()` (bcrypt) + `buildBootstrapConfig({ auth })`. Protects `/api/*` and `/app/*` on srv0 and `/workspace/*` on srv1, health check bypasses auth. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars. |
 | Dev mode stubs | Done | `StubRuntime` (in-memory VM sim) and `StubCaddy` (no-op) for local dev without real VMs or Caddy. Server embeds worker in-process when `NODE_ENV=test`. |
 | Client pagination | Done | `useInfiniteQuery` with cursor-based pagination. "Load more" button when `hasNextPage` is true. |
 | End-to-end Caddy integration | Done | Server bootstraps Caddy on startup (when not in stub mode). `buildBootstrapConfig` generates srv0 routes: API proxy, SPA file server, root redirect. `npm run dev:caddy` runs full stack. Browser-verified via Chrome DevTools. |
 | Rate limiting (Caddy) | TODO | EDD-003 specifies Caddy-level rate limiting |
 | IncusRuntime adapter | TODO | Linux support via Incus REST API |
-| Alpine image access | TODO | Tart registry 403 for Alpine base, using Ubuntu runner |
+| Base image access | TODO | Use Ubuntu runner image if registry access fails |
 | Network isolation | TODO | Bridge network, firewall rules, NAT egress |
 
 ## Lessons Learned
@@ -298,6 +305,14 @@ The initial `buildBootstrapConfig` only handled auth. The full localhost setup n
 ### Client response shape must match server
 
 When the server changed from returning `Workspace[]` to `{ items, nextCursor }`, the client broke silently (TanStack Query returned undefined). The fix was straightforward (`select: response => response.items` initially, then `useInfiniteQuery` for proper pagination), but highlights the need for client-side type safety against the API contract.
+
+### Base image: Debian, not Alpine or Ubuntu
+
+The `tidepool-workspace` VM image uses `ghcr.io/cirruslabs/debian:latest` as base. The Cirrus Labs Alpine image is blocked by registry 403; Ubuntu runner works but is bloated (20GB+). Debian is minimal (0.6GB compressed), uses systemd with a `code-server@admin` template service unit and YAML config at `~/.config/code-server/config.yaml`.
+
+### SSH for VM configuration, not `tart exec`
+
+The Tart Guest Agent doesn't work reliably on Linux VMs — `tart exec` fails with "Failed to connect to the VM using its control socket" even when the agent service is running. Switched `configure()` to use SSH with a pre-shared ed25519 key pair (`images/ssh/tidepool_ed25519`). SSH connects as soon as `sshd` starts (~2-3s), much faster than the guest agent on restart.
 
 ## What Was Implemented: React SPA (`@tdpl/client`)
 

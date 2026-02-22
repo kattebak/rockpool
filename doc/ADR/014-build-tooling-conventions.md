@@ -16,7 +16,7 @@ We want a consistent answer to "how do I build X" and "how do I do Y" across the
 All build artifacts are defined as Makefile targets with proper dependency tracking:
 
 ```makefile
-images/tidepool-alpine: images/alpine-workspace.pkr.hcl images/scripts/alpine-setup.sh
+images/tidepool-workspace: images/alpine-workspace.pkr.hcl images/scripts/alpine-setup.sh
 	packer build images/alpine-workspace.pkr.hcl
 ```
 
@@ -47,7 +47,7 @@ When a task is done more than once, it becomes a script in `npm-scripts/` or a M
 {
   "scripts": {
     "build": "make all",
-    "build:image": "make images/tidepool-alpine"
+    "build:image": "make images/tidepool-workspace"
   }
 }
 ```
