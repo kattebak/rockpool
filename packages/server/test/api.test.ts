@@ -3,19 +3,12 @@ import http from "node:http";
 import { after, before, describe, it } from "node:test";
 import type { CaddyRepository } from "@rockpool/caddy";
 import type { DbClient } from "@rockpool/db";
-import {
-	createMemoryDb,
-	createWorkspace,
-	updateWorkspaceStatus,
-} from "@rockpool/db";
+import { createMemoryDb, createWorkspace, updateWorkspaceStatus } from "@rockpool/db";
 import { createMemoryQueue } from "@rockpool/queue";
 import pino from "pino";
 import { createApp } from "../src/app.ts";
 import { createPortService } from "../src/services/port-service.ts";
-import {
-	ConflictError,
-	createWorkspaceService,
-} from "../src/services/workspace-service.ts";
+import { ConflictError, createWorkspaceService } from "../src/services/workspace-service.ts";
 
 function request(
 	server: http.Server,

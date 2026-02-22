@@ -24,7 +24,7 @@ const VALID_TRANSITIONS: Record<string, WorkspaceStatus[]> = {
 	running: ["stopping", "error"],
 	stopping: ["stopped", "error"],
 	stopped: ["creating"],
-	error: [],
+	error: ["creating"],
 };
 
 export interface WorkspaceServiceDeps {
@@ -52,9 +52,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 
 			const total = await countWorkspaces(db);
 			if (total >= MAX_WORKSPACES) {
-				throw new ConflictError(
-					`Maximum of ${MAX_WORKSPACES} workspaces reached`,
-				);
+				throw new ConflictError(`Maximum of ${MAX_WORKSPACES} workspaces reached`);
 			}
 
 			const creating = await countWorkspacesByStatus(db, "creating");

@@ -13,6 +13,7 @@ export {
 	getWorkspaceByName,
 	listPorts,
 	listWorkspaces,
+	listWorkspacesByStatus,
 	removeAllPorts,
 	removePort,
 	updateWorkspaceStatus,

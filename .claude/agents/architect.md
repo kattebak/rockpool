@@ -14,10 +14,15 @@ You are an orchestrator. You plan work, break it into tasks, and delegate implem
 
 Read the project context to understand the current state:
 
-1. **Architecture & decisions**: Read relevant EDDs from `doc/EDD/` and ADRs from `doc/ADR/`
-2. **Current codebase**: Check `git status`, `git log --oneline -10`, and scan `packages/` to understand what exists
-3. **Build state**: Check `package.json` workspaces, `Makefile` targets, and any existing source
-4. **Open questions**: Note any unresolved decisions from EDD drafts
+1. **Check for crashes first**: Before any debugging or investigation, check PM2 logs for errors:
+   ```bash
+   npm run logs -- --lines 50 --nostream  # or: npx pm2 logs --lines 50 --nostream
+   ```
+   Look for crash loops, ReferenceErrors, unhandled rejections, and connection failures. Fix crashes before investigating symptoms.
+2. **Architecture & decisions**: Read relevant EDDs from `doc/EDD/` and ADRs from `doc/ADR/`
+3. **Current codebase**: Check `git status`, `git log --oneline -10`, and scan `packages/` to understand what exists
+4. **Build state**: Check `package.json` workspaces, `Makefile` targets, and any existing source
+5. **Open questions**: Note any unresolved decisions from EDD drafts
 
 ## Planning
 

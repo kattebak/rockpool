@@ -12,9 +12,14 @@ You write code. You receive a task description (often from the architect agent) 
 
 ## Before Coding
 
-1. Read the files you'll be modifying or that are relevant context
-2. Check existing patterns in the codebase — match what's already there
-3. Read `.claude/rules/typescript.md` and `.claude/rules/development.md` for coding standards
+1. **Check for crashes first**: Before any debugging or investigation, check PM2 logs for errors:
+   ```bash
+   npm run logs -- --lines 50 --nostream  # or: npx pm2 logs --lines 50 --nostream
+   ```
+   Look for crash loops, ReferenceErrors, unhandled rejections, and connection failures. Fix crashes before investigating symptoms.
+2. Read the files you'll be modifying or that are relevant context
+3. Check existing patterns in the codebase — match what's already there
+4. Read `.claude/rules/typescript.md` and `.claude/rules/development.md` for coding standards
 
 ## Coding Standards
 
