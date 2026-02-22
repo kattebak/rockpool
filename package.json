@@ -8,7 +8,7 @@
 	],
 	"scripts": {
 		"preinstall": "make && echo 'Build complete'",
-		"test": "echo \"No tests configured yet\"",
+		"test": "npm run test --workspaces --if-present",
 		"lint": "biome lint .",
 		"format": "biome format --write .",
 		"format:check": "biome format .",
@@ -22,7 +22,9 @@
 		"mvp:verify": "npm-scripts/mvp-verify.sh",
 		"mvp:caddy:bootstrap": "npm-scripts/caddy-bootstrap.sh",
 		"mvp:caddy:add-route": "npm-scripts/caddy-add-workspace-route.sh",
-		"mvp:caddy:remove-route": "npm-scripts/caddy-remove-workspace-route.sh"
+		"mvp:caddy:remove-route": "npm-scripts/caddy-remove-workspace-route.sh",
+		"chrome:debug": "npm-scripts/chrome-debug.sh",
+		"chrome:cdp": "node --experimental-websocket npm-scripts/chrome-cdp.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",

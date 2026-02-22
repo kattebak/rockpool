@@ -43,21 +43,26 @@ These are the explicit starting decisions for production planning beyond the MVP
                     ┌─────────┴──────────┐
                     │      Root VM       │
                     │                    │
-                    │  Caddy (:8080)     │
+                    │  Caddy             │
+                    │  :8080 (API + SPA) │
+                    │  :8081 (workspaces)│
                     │  + basic auth      │
                     │  + admin API       │
                     │    (:2019,         │
                     │     localhost only) │
                     │                    │
                     │  Control Plane     │
-                    │  (:3000,           │
+                    │  (:7163,           │
                     │   localhost only)  │
                     │                    │
                     │  ElasticMQ         │
                     └─────────┬──────────┘
                               │
-  /app/*            ──► localhost:3000
-  /api/*            ──► localhost:3000
+  :8080                       │
+  /app/*            ──► localhost:7163
+  /api/*            ──► localhost:7163
+                              │
+  :8081                       │
   /workspace/foo/*  ──► VM-foo:8080      Workspace VM
   /workspace/bar/*  ──► VM-bar:8080      Workspace VM
   /workspace/X/port/N/* ──► VM-X:N       Dynamic, registered via API
@@ -71,18 +76,21 @@ These are the explicit starting decisions for production planning beyond the MVP
                     └────────────────────┘
 ```
 
+Ports `:8080` and `:8081` are separate browser origins, providing origin isolation between the control plane and workspace content. See [ADR-015](../ADR/015-two-port-origin-isolation.md).
+
 ## Components
 
 ### 1. Root VM
 
-The root VM hosts both Caddy and the control plane. Everything runs on localhost — Caddy proxies `/app/*` and `/api/*` to the control plane on `localhost:3000`, while workspace routes proxy to workspace VM IPs on the isolated bridge network. The Caddy admin API (`:2019`) is only accessible from localhost, so the control plane can configure routes directly.
+The root VM hosts both Caddy and the control plane. Everything runs on localhost — Caddy listens on two ports for origin isolation: `:8080` proxies `/app/*` and `/api/*` to the control plane on `localhost:7163`, while `:8081` proxies workspace routes to workspace VM IPs on the isolated bridge network. This split prevents workspace-hosted JavaScript from reaching the control plane API (different browser origin, no shared cookies). The Caddy admin API (`:2019`) is only accessible from localhost, so the control plane can configure routes directly.
 
 #### Caddy (Reverse Proxy)
 
-Single entry point for all HTTP traffic. Configured dynamically via its admin API (`:2019`).
+Entry point for all HTTP traffic, split across two ports for origin isolation. Configured dynamically via its admin API (`:2019`).
 
 Responsibilities:
 
+- Origin isolation between control plane (`:8080`) and workspaces (`:8081`)
 - Route requests to the correct VM based on URL path
 - Strip path prefixes before forwarding
 - Handle WebSocket upgrades (automatic in Caddy)
@@ -99,9 +107,9 @@ Composed of two services, a worker, and a message queue, all co-located in the r
 ┌─────────────────────────────────────────────┐
 │                  Root VM                    │
 │                                             │
-│  ┌──────────┐                               │
-│  │  Caddy   │ :8080 (public), :2019 (local) │
-│  └────┬─────┘                               │
+│  ┌──────────┐                                          │
+│  │  Caddy   │ :8080 (API+SPA), :8081 (ws), :2019 (adm) │
+│  └────┬─────┘                                          │
 │       │ localhost                            │
 │  ┌────┴─────────────┐  ┌─────────────────┐  │
 │  │ Workspace Service│  │ Caddy Service   │  │

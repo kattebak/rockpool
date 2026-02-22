@@ -222,21 +222,110 @@ Open `http://localhost:8080/workspace/test/` in a browser. code-server IDE shoul
 | code-server subfolder mounting breaks with WebSockets | High    | `--abs-proxy-base-path` is designed for this; test early                                                                              |
 | Caddy and Tart compete for port 8080                  | Low     | Different networks -- Caddy on host :8080, code-server on VM :8080                                                                    |
 
-## What Comes After
+## What Was Implemented: Control Plane Packages
 
-Once this vertical slice works, the next steps build out the package structure defined in [EDD 008](008_Package_Structure.md):
+All control plane packages have been built on top of this vertical slice. See [EDD 008](008_Package_Structure.md) for the package structure.
 
-1. **`@tidepool/runtime`** -- `RuntimeRepository` with `TartRuntime` adapter wrapping the `tart` CLI (create, start, stop, delete, ip)
-2. **`@tidepool/caddy`** -- `CaddyRepository` wrapping the Caddy admin API (add/remove workspace routes)
-3. **`@tidepool/db`** -- Drizzle schema and connection, workspace persistence
-4. **`@tidepool/queue`** -- `QueueRepository` wrapping ElasticMQ (SQS-compatible)
-5. **`@tidepool/server`** -- Express control plane composing the above, workspace CRUD at `/api/workspaces` (see [EDD 007](007_Data_Model.md))
-6. **`@tidepool/worker`** -- async workspace lifecycle (create VM, configure routes, update status)
-7. **`@tidepool/client`** -- React SPA for workspace management at `/app/*`
-8. **`@tidepool/runtime` Incus adapter** -- `IncusRuntime` for Linux support
+### Packages (all under `@tdpl/*` scope)
 
-## Next (MVP Followups)
+| Package | Status | Tests | Description |
+|---------|--------|-------|-------------|
+| `@tdpl/runtime` | Done | 10 | TartRuntime adapter wrapping `tart` CLI (create, start, stop, remove, status, getIp with polling). Injectable exec for testing. |
+| `@tdpl/caddy` | Done | 7 | Caddy admin API client via native fetch. Two-port routing: workspace + port routes go to srv1 (:8081), bootstrap creates both srv0 and srv1. |
+| `@tdpl/queue` | Done | 5 | SQS-compatible queue client + in-memory implementation for dev/testing. |
+| `@tdpl/db` | Done | 17 | SQLite + Drizzle ORM. Hand-written schema (generated Drizzle emitter targets Postgres, not usable). Workspace + Port tables with cascade delete. |
+| `@tdpl/server` | Done | 21 | Express control plane with express-openapi-validator. Workspace CRUD + lifecycle + port forwarding endpoints. State machine enforcement. |
+| `@tdpl/worker` | Done | 7 | Async job processor: create/start/stop/delete lifecycle. Cleans up port routes on stop/delete. |
 
-- Resolve Alpine Tart base image access (public registry or authenticated pull)
-- Run the Packer path end-to-end and switch default image back to Alpine
-- Add cleanup/stop script for VM and Caddy route removal
+**Total: 67 tests, all passing.**
+
+### Key Integration Points
+
+- **OpenAPI validation**: express-openapi-validator wired against the generated OpenAPI spec. Request bodies validated automatically (name pattern, required fields, port range).
+- **Two-port origin isolation (ADR-015)**: Caddy bootstrap creates srv0 (:8080) for API/SPA and srv1 (:8081) for workspace content. Workspace and port routes go to srv1.
+- **Port forwarding**: Full vertical — TypeSpec model, DB table, API endpoints (GET/POST/DELETE), Caddy route management, worker cleanup on stop/delete. Max 5 ports per workspace, range 1024-65535.
+- **State machine**: Service layer enforces valid transitions. Ports can only be registered on running workspaces.
+
+### Lifecycle Flow (End-to-End)
+
+1. `POST /api/workspaces {name, image}` → validates, inserts DB (status: creating), enqueues create job
+2. Worker picks up job → `tart clone` + `tart run` + poll for IP → `caddy.addWorkspaceRoute` to srv1 → DB status: running
+3. `POST /api/workspaces/:id/ports {port, label?}` → validates running, inserts DB, `caddy.addPortRoute` to srv1
+4. `POST /api/workspaces/:id/stop` → validates state, DB status: stopping, enqueues stop job
+5. Worker picks up job → removes all port routes + records → `tart stop` → `caddy.removeWorkspaceRoute` → DB status: stopped
+6. `DELETE /api/workspaces/:id` → validates stopped/error, enqueues delete job
+7. Worker picks up job → removes port routes → stops VM → removes VM → removes workspace route → deletes from DB
+
+## What Comes Next
+
+| Item | Status | Notes |
+|------|--------|-------|
+| `@tdpl/client` (React SPA) | Done | React + shadcn/ui + TanStack Query/Router at `/app/*`. See below. |
+| esbuild bundling | Done | ADR-011. Client builds via esbuild (503kb JS, 39kb CSS, ~300ms). Makefile target `build-client`. |
+| Root dev/test scripts | TODO | `npm run dev` (API + client), `npm test` (aggregate all packages) |
+| One-line installer & CLI | RFC | See [RFC-001](../RFC/001_One_Line_Installer_and_CLI.md) |
+| Pagination (cursor-based) | TODO | EDD-007 specifies limit + cursor |
+| Rate limiting (Caddy) | TODO | EDD-003 specifies Caddy-level rate limiting |
+| IncusRuntime adapter | TODO | Linux support via Incus REST API |
+| Alpine image access | TODO | Tart registry 403 for Alpine base, using Ubuntu runner |
+| Auth (basic auth in Caddy) | TODO | Single-user basic auth |
+| Network isolation | TODO | Bridge network, firewall rules, NAT egress |
+
+## What Was Implemented: React SPA (`@tdpl/client`)
+
+The full React SPA has been implemented at `packages/client/`. Browser-verified end-to-end.
+
+### Tech Stack
+
+- **React** with **TanStack Router** (basepath `/app`) and **TanStack Query** (data fetching)
+- **shadcn/ui** components (13 components copied in: button, table, badge, dialog, input, select, dropdown-menu, skeleton, alert, tooltip, separator, card, sonner)
+- **Tailwind CSS v4** with design tokens from EDD-009
+- **esbuild** for production bundling + dev server with API proxy
+- **lucide-react** for icons
+
+### Routes
+
+- `/app/workspaces` — Workspace list (table, search/filter, empty state, skeleton loading)
+- `/app/workspaces/:id` — Workspace detail (header, status badge, actions, details panel, ports panel)
+- `/app/settings` — Placeholder
+
+### Features
+
+- **Workspace list**: Table with columns (Name, Status, Image, Updated, Actions). Search/filter by name or image. Status badges with colors (Creating, Running, Stopping, Stopped, Error). Row-level actions via dropdown menu.
+- **Create workspace modal**: Name field with validation (3-63 chars, lowercase alphanumeric + hyphens). Image field (read-only default). Cancel/Create buttons.
+- **Workspace detail**: Breadcrumb navigation. Header with name, status badge, action buttons (Open IDE, Stop, Delete). Details card (image, created date, relative timestamp). Ports panel with add/remove and links to workspace port routes.
+- **Confirmation dialogs**: Stop and delete workspace with warning messages.
+- **Error states**: Alert with retry button when API is unreachable.
+- **Loading states**: Skeleton UI while data is fetching.
+
+### API Integration
+
+All 9 API operations wired via TanStack Query with auto-refetch and cache invalidation:
+- List workspaces (5s refetch), Get workspace (3s refetch)
+- Create, Delete, Start, Stop workspace
+- List ports, Add port, Remove port
+
+### Build & Dev
+
+- **Production build**: `npm run build -w packages/client` → `build/client/` (assets/main.js + main.css)
+- **Dev server**: `npm run dev -w packages/client` → port 5173 with API proxy to port 7163
+- **Makefile target**: `make build-client` (depends on `build-typespec`)
+
+### Design System (from EDD-009)
+
+- Colors: Background #F7F8FA, Surface #FFFFFF, Accent #137CBD, Success #0F9960, Warning #D9822B, Danger #C23030
+- Fonts: Source Sans 3 (body), IBM Plex Mono (code)
+- Max content width: 1200px, 8px spacing scale
+- Light theme only
+
+### Relevant Files
+
+- `packages/client/package.json`
+- `packages/client/src/main.tsx` — App entry point
+- `packages/client/src/router.tsx` — TanStack Router with basepath `/app`
+- `packages/client/src/routes/` — Page components
+- `packages/client/src/hooks/` — TanStack Query hooks
+- `packages/client/src/lib/api.ts` — Typed fetch client
+- `packages/client/src/components/` — UI components
+- `packages/client/src/build.ts` — esbuild production build
+- `packages/client/src/dev-server.ts` — Dev server with API proxy

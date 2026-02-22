@@ -52,6 +52,19 @@ model Workspace {
   updatedAt: utcDateTime;
 }
 
+model Port {
+  @visibility(Lifecycle.Create, Lifecycle.Read)
+  @TypeSpec.minValue(1024)
+  @TypeSpec.maxValue(65535)
+  port: int32;
+
+  @visibility(Lifecycle.Create, Lifecycle.Read)
+  label?: string;
+
+  @visibility(Lifecycle.Read)
+  createdAt: utcDateTime;
+}
+
 @route("/api/workspaces")
 interface Workspaces {
   @get list(): Workspace[];
@@ -74,4 +87,21 @@ interface Workspaces {
   @route("{id}/stop")
   @post
   stop(@path id: string): Workspace;
+
+  @route("{id}/ports")
+  @get
+  listPorts(@path id: string): Port[];
+
+  @route("{id}/ports")
+  @post
+  addPort(@path id: string, @body port: Port): {
+    @statusCode statusCode: 201;
+    @body port: Port;
+  };
+
+  @route("{id}/ports/{port}")
+  @delete
+  removePort(@path id: string, @path port: int32): {
+    @statusCode statusCode: 204;
+  };
 }
