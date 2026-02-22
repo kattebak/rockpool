@@ -5,7 +5,6 @@ import "@kattebak/typespec-drizzle-orm-generator";
 
 using Http;
 using TypeSpec.Rest;
-using DrizzleEmitter;
 
 @service(#{ title: "Tidepool Control Plane" })
 @server("http://localhost:3000", "Development server")
@@ -21,35 +20,35 @@ enum WorkspaceStatus {
 
 @table("workspaces", "tidepool")
 model Workspace {
-  @TypeSpec.visibility(Lifecycle.Read)
+  @visibility(Lifecycle.Read)
   @pk @uuid("base36", true)
   id: string;
 
-  @TypeSpec.visibility(Lifecycle.Create, Lifecycle.Read)
+  @visibility(Lifecycle.Create, Lifecycle.Read)
   @unique
   @minLength(3)
   @maxLength(63)
   @pattern("^[a-z0-9-]+$")
   name: string;
 
-  @TypeSpec.visibility(Lifecycle.Read)
+  @visibility(Lifecycle.Read)
   status: WorkspaceStatus;
 
-  @TypeSpec.visibility(Lifecycle.Create, Lifecycle.Read)
+  @visibility(Lifecycle.Create, Lifecycle.Read)
   image: string;
 
-  @TypeSpec.visibility(Lifecycle.Read)
+  @visibility(Lifecycle.Read)
   vmIp?: string;
 
-  @TypeSpec.visibility(Lifecycle.Read)
+  @visibility(Lifecycle.Read)
   errorMessage?: string;
 
   @createdAt
-  @TypeSpec.visibility(Lifecycle.Read)
+  @visibility(Lifecycle.Read)
   createdAt: utcDateTime;
 
   @updatedAt
-  @TypeSpec.visibility(Lifecycle.Read)
+  @visibility(Lifecycle.Read)
   updatedAt: utcDateTime;
 }
 

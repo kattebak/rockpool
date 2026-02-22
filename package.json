@@ -8,7 +8,6 @@
 	],
 	"scripts": {
 		"preinstall": "make && echo 'Build complete'",
-
 		"test": "echo \"No tests configured yet\"",
 		"lint": "biome lint .",
 		"format": "biome format --write .",
@@ -19,20 +18,25 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",
-		"@kattebak/typespec-drizzle-orm-generator": "^3.0.0",
+		"@kattebak/typespec-drizzle-orm-generator": "^3.0.2",
 		"@kattebak/typespec-enum-emitter": "^1.2.2",
 		"@kattebak/typespec-zod-emitter": "^1.2.2",
 		"@tdpl/db-schema": "file:build/db-schema",
 		"@tdpl/enums": "file:build/enums",
 		"@tdpl/openapi": "file:build/openapi",
 		"@tdpl/validators": "file:build/validators",
+		"@typescript/native-preview": "^7.0.0-dev.20260221.1",
 		"@typespec/compiler": "^1.9.0",
 		"@typespec/http": "^1.9.0",
 		"@typespec/openapi3": "^1.9.0",
 		"@typespec/rest": "^0.79.0",
-		"@typescript/native-preview": "^7.0.0-dev.20260221.1",
+		"drizzle-orm": "1.0.0-beta.15-859cf75",
+		"short-uuid": "^5.2.0",
 		"tsx": "^4.19.3",
 		"typescript": "*"
+	},
+	"overrides": {
+		"drizzle-orm": "1.0.0-beta.15-859cf75"
 	},
 	"engines": {
 		"node": ">=22.0.0"
