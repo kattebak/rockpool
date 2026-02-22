@@ -12,7 +12,7 @@ npx ts-openapi-generator generate \
   -i "$OPENAPI_SPEC" \
   -g typescript-fetch \
   -o "$OUTPUT_DIR" \
-  --additional-properties npmName=@tdpl/sdk,npmVersion=0.0.1
+  --additional-properties npmName=@rockpool/sdk,npmVersion=0.0.1
 
 # Patch package.json for ESM + workspace compatibility
 node -e "
@@ -27,4 +27,4 @@ pkg.exports = { '.': './index.ts' };
 fs.writeFileSync('${OUTPUT_DIR}/package.json', JSON.stringify(pkg, null, 2) + '\n');
 "
 
-echo "Generated @tdpl/sdk in $OUTPUT_DIR"
+echo "Generated @rockpool/sdk in $OUTPUT_DIR"

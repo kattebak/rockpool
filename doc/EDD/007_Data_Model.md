@@ -9,7 +9,7 @@
 
 ## Summary
 
-TypeSpec-first data model for the Tidepool control plane. Defines the core entities, their relationships, and the API surface. TypeSpec compiles to OpenAPI, Zod schemas, TypeScript types, and Drizzle ORM table definitions (see [ADR-003](../ADR/003-typespec-api-first.md), [ADR-009](../ADR/009-sqlite-drizzle-orm.md)).
+TypeSpec-first data model for the Rockpool control plane. Defines the core entities, their relationships, and the API surface. TypeSpec compiles to OpenAPI, Zod schemas, TypeScript types, and Drizzle ORM table definitions (see [ADR-003](../ADR/003-typespec-api-first.md), [ADR-009](../ADR/009-sqlite-drizzle-orm.md)).
 
 ## Prerequisites
 

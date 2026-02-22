@@ -152,4 +152,4 @@ tsp-output/
 *.sqlite-wal
 
 # VM SSH keys (private key only, public key is checked in)
-images/ssh/tidepool_ed25519
+images/ssh/rockpool_ed25519

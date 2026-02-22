@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import http from "node:http";
 import { after, before, describe, it } from "node:test";
-import type { CaddyRepository } from "@tdpl/caddy";
-import type { DbClient } from "@tdpl/db";
+import type { CaddyRepository } from "@rockpool/caddy";
+import type { DbClient } from "@rockpool/db";
 import {
 	createMemoryDb,
 	createWorkspace,
 	updateWorkspaceStatus,
-} from "@tdpl/db";
-import { createMemoryQueue } from "@tdpl/queue";
+} from "@rockpool/db";
+import { createMemoryQueue } from "@rockpool/queue";
 import pino from "pino";
 import { createApp } from "../src/app.ts";
 import { createPortService } from "../src/services/port-service.ts";

@@ -1,6 +1,6 @@
-import type { CaddyRepository } from "@tdpl/caddy";
-import type { DbClient, Port, Workspace } from "@tdpl/db";
-import { addPort, getWorkspace, listPorts, removePort } from "@tdpl/db";
+import type { CaddyRepository } from "@rockpool/caddy";
+import type { DbClient, Port, Workspace } from "@rockpool/db";
+import { addPort, getWorkspace, listPorts, removePort } from "@rockpool/db";
 import { ConflictError, NotFoundError } from "./workspace-service.ts";
 
 const MAX_PORTS_PER_WORKSPACE = 5;

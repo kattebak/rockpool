@@ -19,7 +19,7 @@ while getopts ":i:n:h" opt; do
 done
 
 tart clone "$IMAGE_NAME" "$VM_NAME"
-tart run "$VM_NAME" >/tmp/tidepool-${VM_NAME}.log 2>&1 &
+tart run "$VM_NAME" >/tmp/rockpool-${VM_NAME}.log 2>&1 &
 
 sleep 2
 

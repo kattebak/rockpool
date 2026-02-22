@@ -134,7 +134,7 @@ export function createTartRuntime(options: TartRuntimeOptions = {}): RuntimeRepo
 		getIp: getIpForVm,
 
 		async configure(name: string, env: Record<string, string>): Promise<void> {
-			const workspaceName = env.TIDEPOOL_WORKSPACE_NAME;
+			const workspaceName = env.ROCKPOOL_WORKSPACE_NAME;
 			if (!workspaceName) {
 				return;
 			}

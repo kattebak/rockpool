@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the Tidepool project are documented here.
+All notable changes to the Rockpool project are documented here.
 
 ## [Unreleased]
 
@@ -13,12 +13,12 @@ cascades to all its port routes automatically.
 
 #### Changed
 
-- **`addPortRoute()`** in `@tdpl/caddy` — POSTs to
+- **`addPortRoute()`** in `@rockpool/caddy` — POSTs to
   `/id/workspace-{name}/handle/0/routes` (the workspace's nested subroute array)
   instead of `/config/apps/http/servers/srv1/routes` (top-level).
-- **`buildWorkspaceRoute()`** in `@tdpl/caddy` — Added `X-Forwarded-Prefix` header
+- **`buildWorkspaceRoute()`** in `@rockpool/caddy` — Added `X-Forwarded-Prefix` header
   on the workspace reverse proxy handler, matching what port routes already had.
-- **`handleStop()` / `handleDelete()`** in `@tdpl/worker` — Removed explicit
+- **`handleStop()` / `handleDelete()`** in `@rockpool/worker` — Removed explicit
   `removePortRoutes()` loop. Caddy cascades port route deletion when the parent
   workspace route is removed.
 
@@ -61,7 +61,7 @@ other backends) their path context so they can generate correct URLs.
 
 #### Fixed
 
-- **`buildWorkspaceRoute()`** in `@tdpl/caddy` now sets
+- **`buildWorkspaceRoute()`** in `@rockpool/caddy` now sets
   `X-Forwarded-Prefix: ["/workspace/{name}"]` on the `reverse_proxy` handler
   inside the subroute. Previously only port routes had this header, meaning
   code-server relied solely on `--abs-proxy-base-path` for URL generation.
@@ -74,27 +74,27 @@ concurrent workspace starts. Requests that exceed these caps are rejected with
 
 #### Added
 
-- **`countWorkspaces()`** query in `@tdpl/db` -- Returns total workspace count.
-- **`countWorkspacesByStatus()`** query in `@tdpl/db` -- Returns count of
+- **`countWorkspaces()`** query in `@rockpool/db` -- Returns total workspace count.
+- **`countWorkspacesByStatus()`** query in `@rockpool/db` -- Returns count of
   workspaces in a given status (e.g. "creating").
 - **Max workspace count check** -- `workspace-service.create()` rejects with
   409 when 999 workspaces exist.
 - **Max concurrent starts check** -- `workspace-service.create()` and
   `workspace-service.start()` reject with 409 when 3 workspaces are already in
   "creating" status.
-- **7 new tests** -- 4 in `@tdpl/db` (count queries), 3 in `@tdpl/server`
+- **7 new tests** -- 4 in `@rockpool/db` (count queries), 3 in `@rockpool/server`
   (concurrency limits, cap recovery after pending workspaces finish).
 
 #### Test Summary
 
 | Package | Tests |
 |---------|-------|
-| `@tdpl/runtime` | 14 |
-| `@tdpl/caddy` | 25 |
-| `@tdpl/queue` | 5 |
-| `@tdpl/db` | 29 |
-| `@tdpl/server` | 28 |
-| `@tdpl/worker` | 7 |
+| `@rockpool/runtime` | 14 |
+| `@rockpool/caddy` | 25 |
+| `@rockpool/queue` | 5 |
+| `@rockpool/db` | 29 |
+| `@rockpool/server` | 28 |
+| `@rockpool/worker` | 7 |
 | **Total** | **108** |
 
 ---
@@ -127,9 +127,9 @@ into the client — hand-written `api.ts` / `api-types.ts` remain the source of 
   Generator, generates fetch-based client SDK from OpenAPI YAML.
 - **`npm-scripts/generate-sdk.sh`** — Generation script, patches output for ESM
   and workspace compatibility.
-- **`make build-sdk` Makefile target** — Generates `@tdpl/sdk` in `build/sdk/`
+- **`make build-sdk` Makefile target** — Generates `@rockpool/sdk` in `build/sdk/`
   after TypeSpec compilation.
-- **`@tdpl/sdk` workspace reference** — Registered in root `package.json` as
+- **`@rockpool/sdk` workspace reference** — Registered in root `package.json` as
   `file:build/sdk`.
 
 ### Real VM Integration
@@ -149,8 +149,8 @@ real Tart VMs with code-server accessible through Caddy.
   `systemctl restart code-server@admin`, ensuring `abs-proxy-base-path` matches
   `/workspace/{name}`. SSH is more reliable than `tart exec` because `sshd` starts
   before the Tart Guest Agent, critical for VM restarts.
-- **SSH key pair** — `images/ssh/tidepool_ed25519` key pair for VM access. Public key
-  baked into the `tidepool-workspace` base image's `authorized_keys`.
+- **SSH key pair** — `images/ssh/rockpool_ed25519` key pair for VM access. Public key
+  baked into the `rockpool-workspace` base image's `authorized_keys`.
 - **Code-server health check** — Worker polls `http://{vmIp}:8080/healthz` after VM
   boot and configuration, waiting for code-server to be ready before marking the
   workspace as "running". Injectable via `ProcessorDeps.healthCheck`.
@@ -163,8 +163,8 @@ real Tart VMs with code-server accessible through Caddy.
 - **Open IDE button** — URL now points to `http://{hostname}:8081/workspace/{name}/`
   (srv1) instead of same-origin `/workspace/{name}/` (srv0), matching ADR-015
   two-port origin isolation.
-- **Default image** — Create workspace dialog uses `tidepool-workspace` (local Tart VM
-  name from Packer build). Image renamed from `tidepool-alpine`.
+- **Default image** — Create workspace dialog uses `rockpool-workspace` (local Tart VM
+  name from Packer build). Image renamed from `rockpool-alpine`.
 - **Base image switched to Debian** — Base image changed from `ubuntu-runner-arm64` to
   `ghcr.io/cirruslabs/debian:latest`. Smaller (0.6GB compressed vs 20GB), faster to
   clone, and minimal. Setup script uses `apt-get`, `systemctl`, and writes YAML config
@@ -178,7 +178,7 @@ real Tart VMs with code-server accessible through Caddy.
   with a dedicated key pair, which connects as soon as `sshd` starts (~2-3 seconds).
   Retry loop handles the brief window before SSH is ready.
 - **`dev-caddy.sh` exports `SSH_KEY_PATH`** — Absolute path to the SSH key, since the
-  server CWD is `packages/server/` but the key is at `images/ssh/tidepool_ed25519`.
+  server CWD is `packages/server/` but the key is at `images/ssh/rockpool_ed25519`.
 
 #### Fixed
 
@@ -187,26 +187,26 @@ real Tart VMs with code-server accessible through Caddy.
 - **Init system mismatch** — `configure()` was using Alpine/OpenRC commands
   (`/etc/conf.d/code-server`, `rc-service`) on an Ubuntu/systemd VM. Fixed to use
   `systemctl restart code-server@admin` and YAML config format.
-- **SSH key in base image** — `tidepool-workspace` base image (Debian) has the SSH
+- **SSH key in base image** — `rockpool-workspace` base image (Debian) has the SSH
   public key in `~/.ssh/authorized_keys`, baked in during Packer provisioning.
 
 #### Test Summary
 
 | Package | Tests |
 |---------|-------|
-| `@tdpl/runtime` | 14 |
-| `@tdpl/caddy` | 22 |
-| `@tdpl/queue` | 5 |
-| `@tdpl/db` | 25 |
-| `@tdpl/server` | 25 |
-| `@tdpl/worker` | 7 |
+| `@rockpool/runtime` | 14 |
+| `@rockpool/caddy` | 22 |
+| `@rockpool/queue` | 5 |
+| `@rockpool/db` | 25 |
+| `@rockpool/server` | 25 |
+| `@rockpool/worker` | 7 |
 | **Total** | **98** |
 
 ---
 
 ### End-to-End Localhost Integration
 
-The full Tidepool stack now runs on localhost with a single command. Browser-verified:
+The full Rockpool stack now runs on localhost with a single command. Browser-verified:
 create a workspace, watch it transition through the lifecycle, and manage it from the SPA.
 
 **Two dev modes:**
@@ -250,17 +250,17 @@ npm run dev:caddy    # Full stack with Caddy (ports 8080/8081/7163)
 
 ### Changed
 
-- **`@tdpl/caddy`** — 7 -> 21 tests. Added auth, bootstrap config, API proxy, SPA
+- **`@rockpool/caddy`** — 7 -> 21 tests. Added auth, bootstrap config, API proxy, SPA
   serving, and root redirect functionality.
-- **`@tdpl/db`** — 17 -> 25 tests. Added cursor encoding/decoding and pagination
+- **`@rockpool/db`** — 17 -> 25 tests. Added cursor encoding/decoding and pagination
   query logic.
-- **`@tdpl/server`** — 21 -> 25 tests. Paginated list endpoint, decoupled startup
+- **`@rockpool/server`** — 21 -> 25 tests. Paginated list endpoint, decoupled startup
   into independent concerns (stubs, inline worker, Caddy bootstrap).
-- **`@tdpl/server` config** — Added `caddyUsername`, `caddyPassword`, `spaRoot` config
+- **`@rockpool/server` config** — Added `caddyUsername`, `caddyPassword`, `spaRoot` config
   fields from env vars.
-- **`@tdpl/client` API layer** — `listWorkspaces()` accepts `limit`/`cursor` params,
+- **`@rockpool/client` API layer** — `listWorkspaces()` accepts `limit`/`cursor` params,
   returns `PaginatedResponse<Workspace>`.
-- **`@tdpl/client` hooks** — `useWorkspaces()` switched from `useQuery` to
+- **`@rockpool/client` hooks** — `useWorkspaces()` switched from `useQuery` to
   `useInfiniteQuery` with cursor pagination.
 - **TypeSpec** — `Workspaces.list` now accepts `@query limit?: int32` and
   `@query cursor?: string`, returns `WorkspaceListResponse` model.
@@ -279,10 +279,10 @@ npm run dev:caddy    # Full stack with Caddy (ports 8080/8081/7163)
 
 | Package | Tests |
 |---------|-------|
-| `@tdpl/runtime` | 10 |
-| `@tdpl/caddy` | 21 |
-| `@tdpl/queue` | 5 |
-| `@tdpl/db` | 25 |
-| `@tdpl/server` | 25 |
-| `@tdpl/worker` | 7 |
+| `@rockpool/runtime` | 10 |
+| `@rockpool/caddy` | 21 |
+| `@rockpool/queue` | 5 |
+| `@rockpool/db` | 25 |
+| `@rockpool/server` | 25 |
+| `@rockpool/worker` | 7 |
 | **Total** | **93** |

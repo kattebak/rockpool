@@ -11,7 +11,7 @@
 
 ## Summary
 
-Replace the hand-rolled bash PID management in `dev.sh` and `dev-caddy.sh` with PM2 and an ecosystem config file. PM2 gives us unified process lifecycle (start, stop, restart, logs) for all root VM services — Caddy, API server, worker, client dev server — through a single `pm2 start ecosystem.config.cjs` command. This also lays the groundwork for production process management inside the root VM, and is a prerequisite for the Tidepool-on-Tidepool demo ([RFC-002](../RFC/002_Tidepool_On_Tidepool.md)) where reliable process supervision inside a nested host VM is essential.
+Replace the hand-rolled bash PID management in `dev.sh` and `dev-caddy.sh` with PM2 and an ecosystem config file. PM2 gives us unified process lifecycle (start, stop, restart, logs) for all root VM services — Caddy, API server, worker, client dev server — through a single `pm2 start ecosystem.config.cjs` command. This also lays the groundwork for production process management inside the root VM, and is a prerequisite for the Rockpool-on-Rockpool demo ([RFC-002](../RFC/002_Rockpool_On_Rockpool.md)) where reliable process supervision inside a nested host VM is essential.
 
 ## Problem
 
@@ -50,7 +50,7 @@ Problems with this approach:
 3. **Fragile cleanup** — orphaned processes on unclean exit (SIGKILL, terminal close).
 4. **No status visibility** — can't check which processes are running without `ps aux | grep`.
 5. **Dev/prod divergence** — production will need a proper process manager anyway; the bash approach doesn't scale to the root VM.
-6. **Tidepool-on-Tidepool** — RFC-002 requires running a full stack (Caddy + server + worker + queue) inside a nested host VM with reliable lifecycle management.
+6. **Rockpool-on-Rockpool** — RFC-002 requires running a full stack (Caddy + server + worker + queue) inside a nested host VM with reliable lifecycle management.
 
 ## Prerequisites
 
@@ -77,7 +77,7 @@ PM2 is the standard Node.js process manager. It handles exactly the problem spac
 | -------------- | ------------------------------------------------------------------------------------------- |
 | bash scripts   | Current approach. No logs, no restart, fragile cleanup.                                     |
 | systemd        | Linux-only. Not available on macOS. Can't use for dev mode.                                 |
-| docker-compose | Adds container overhead. Tidepool runs on bare metal / inside VMs, not in containers.       |
+| docker-compose | Adds container overhead. Rockpool runs on bare metal / inside VMs, not in containers.       |
 | supervisord    | Python dependency. PM2 is already in the Node ecosystem.                                    |
 | nodemon        | Dev-only, single process. Not a process manager.                                            |
 
@@ -178,7 +178,7 @@ module.exports = {
       name: "server",
       script: "npm",
       args: "run start -w packages/server",
-      cwd: "/opt/tidepool",
+      cwd: "/opt/rockpool",
       env: {
         NODE_ENV: "production",
         PORT: "7163",
@@ -193,7 +193,7 @@ module.exports = {
       name: "worker",
       script: "npm",
       args: "run start -w packages/worker",
-      cwd: "/opt/tidepool",
+      cwd: "/opt/rockpool",
       env: {
         NODE_ENV: "production",
       },
@@ -293,7 +293,7 @@ After `pm2 start ecosystem.caddy.config.cjs`:
 └────┘─────────┴──────┴───────┴────────┴─────────┴────────┘
 ```
 
-## Startup Script (Production / Tidepool-on-Tidepool)
+## Startup Script (Production / Rockpool-on-Rockpool)
 
 For the production root VM and the nested host in RFC-002, PM2 must start on boot:
 
@@ -303,7 +303,7 @@ pm2 start ecosystem.prod.config.cjs
 pm2 save             # persists process list for reboot
 ```
 
-After reboot, PM2 resurrects all saved processes automatically. This is critical for the inner host in the Tidepool-on-Tidepool demo where the developer expects services to be running after VM boot.
+After reboot, PM2 resurrects all saved processes automatically. This is critical for the inner host in the Rockpool-on-Rockpool demo where the developer expects services to be running after VM boot.
 
 ## Implementation Plan
 
@@ -323,7 +323,7 @@ After reboot, PM2 resurrects all saved processes automatically. This is critical
 3. Document `pm2 startup` + `pm2 save` for boot persistence.
 4. Add to the workspace image build (EDD-005) so PM2 is preinstalled in the root VM.
 
-### Phase 3: Tidepool-on-Tidepool Integration
+### Phase 3: Rockpool-on-Rockpool Integration
 
 1. Include PM2 and the production ecosystem config in the nested host image (RFC-002).
 2. Add a boot script that runs `pm2 start ecosystem.prod.config.cjs` on VM init.
@@ -332,7 +332,7 @@ After reboot, PM2 resurrects all saved processes automatically. This is critical
 ## File Layout
 
 ```
-tidepool/
+rockpool/
   ecosystem.config.cjs          # dev mode (server + client)
   ecosystem.caddy.config.cjs    # dev + caddy mode
   ecosystem.prod.config.cjs     # production (root VM)

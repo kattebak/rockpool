@@ -3,11 +3,11 @@ set -euo pipefail
 
 usage() {
   echo "Usage: $0 [-b <vm_base_name>] [-n <vm_name>] [-u <ssh_user>] [-p <ssh_pass>]"
-  echo "Defaults: vm_base_name=ghcr.io/cirruslabs/debian:latest, vm_name=tidepool-workspace, ssh_user=admin, ssh_pass=admin"
+  echo "Defaults: vm_base_name=ghcr.io/cirruslabs/debian:latest, vm_name=rockpool-workspace, ssh_user=admin, ssh_pass=admin"
 }
 
 VM_BASE_NAME="ghcr.io/cirruslabs/debian:latest"
-VM_NAME="tidepool-workspace"
+VM_NAME="rockpool-workspace"
 SSH_USER="admin"
 SSH_PASS="admin"
 

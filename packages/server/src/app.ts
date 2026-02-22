@@ -9,7 +9,7 @@ import type { createPortService } from "./services/port-service.ts";
 import type { createWorkspaceService } from "./services/workspace-service.ts";
 
 const require = createRequire(import.meta.url);
-const apiSpec = require.resolve("@tdpl/openapi");
+const apiSpec = require.resolve("@rockpool/openapi");
 
 export interface AppDeps {
 	workspaceService: ReturnType<typeof createWorkspaceService>;

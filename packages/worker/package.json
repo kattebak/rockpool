@@ -1,5 +1,5 @@
 {
-	"name": "@tdpl/worker",
+	"name": "@rockpool/worker",
 	"version": "0.0.1",
 	"private": true,
 	"type": "module",
@@ -15,10 +15,10 @@
 		"start": "node --experimental-strip-types src/main.ts"
 	},
 	"dependencies": {
-		"@tdpl/caddy": "*",
-		"@tdpl/db": "*",
-		"@tdpl/queue": "*",
-		"@tdpl/runtime": "*",
+		"@rockpool/caddy": "*",
+		"@rockpool/db": "*",
+		"@rockpool/queue": "*",
+		"@rockpool/runtime": "*",
 		"pino": "^9.6.0"
 	},
 	"devDependencies": {

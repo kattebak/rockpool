@@ -9,7 +9,7 @@
 
 ## Summary
 
-Caddy serves as the HTTP entry point for Tidepool, running inside the root VM alongside the control plane. Traffic is split across two listeners for origin isolation: `:8080` serves the control plane API and SPA, `:8081` serves all workspace traffic. This prevents workspace-hosted JavaScript from reaching the control plane (different browser origin, no shared cookies). See [ADR-015](../ADR/015-two-port-origin-isolation.md).
+Caddy serves as the HTTP entry point for Rockpool, running inside the root VM alongside the control plane. Traffic is split across two listeners for origin isolation: `:8080` serves the control plane API and SPA, `:8081` serves all workspace traffic. This prevents workspace-hosted JavaScript from reaching the control plane (different browser origin, no shared cookies). See [ADR-015](../ADR/015-two-port-origin-isolation.md).
 
 The control plane configures Caddy's routes via its admin API on localhost as workspaces are created and destroyed. All routing is path-based (no subdomains). The root VM is network-isolated from the host LAN; workspace VMs are further isolated from each other.
 
@@ -95,11 +95,11 @@ security {
     client_secret {env.GITHUB_OAUTH_CLIENT_SECRET}
   }
 
-  authentication portal tidepool {
+  authentication portal rockpool {
     enable identity provider github
   }
 
-  authorization policy tidepool {
+  authorization policy rockpool {
     set auth url /auth
     default deny
     # allow rules for authenticated users go here
@@ -107,8 +107,8 @@ security {
 }
 
 :8080 {
-  authenticate with tidepool
-  authorize with tidepool
+  authenticate with rockpool
+  authorize with rockpool
   reverse_proxy /api/* localhost:7163
   reverse_proxy /app/* localhost:7163
 }
@@ -429,15 +429,15 @@ Workspace identity is communicated to the VM via environment variables, set by t
 
 | Variable                  | Example | Description                                                                                                                      |
 | ------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `TIDEPOOL_WORKSPACE_NAME` | `alice` | Workspace slug. Used by code-server for `--abs-proxy-base-path /workspace/alice` and by apps that need to know their URL prefix. |
+| `ROCKPOOL_WORKSPACE_NAME` | `alice` | Workspace slug. Used by code-server for `--abs-proxy-base-path /workspace/alice` and by apps that need to know their URL prefix. |
 
-The base image's code-server init script reads `TIDEPOOL_WORKSPACE_NAME` to set the base path (see [EDD 005](005_Workspace_Image_Pipeline.md)). Port forwarding is managed dynamically via the API -- apps bind to whatever port they want, then the user registers it through the control plane.
+The base image's code-server init script reads `ROCKPOOL_WORKSPACE_NAME` to set the base path (see [EDD 005](005_Workspace_Image_Pipeline.md)). Port forwarding is managed dynamically via the API -- apps bind to whatever port they want, then the user registers it through the control plane.
 
 ## Decisions
 
 - **Caddy runs in the root VM** alongside the control plane — admin API on localhost only, network-isolated from host LAN
 - **Two-port origin isolation**: `:8080` for control plane + SPA, `:8081` for all workspace traffic — prevents workspace JS from reaching the API ([ADR-015](../ADR/015-two-port-origin-isolation.md))
-- **Basic auth in Caddy** as the initial auth mechanism; can upgrade to `forward_auth` later. **Implemented** in `@tdpl/caddy`: `hashPassword()` generates bcrypt hashes, `buildBootstrapConfig({ auth })` adds authentication handlers to srv0 protecting `/api/*` and `/app/*` with a health check bypass on `/api/health`. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars — server bootstraps Caddy with auth on startup when not in stub mode.
+- **Basic auth in Caddy** as the initial auth mechanism; can upgrade to `forward_auth` later. **Implemented** in `@rockpool/caddy`: `hashPassword()` generates bcrypt hashes, `buildBootstrapConfig({ auth })` adds authentication handlers to srv0 protecting `/api/*` and `/app/*` with a health check bypass on `/api/health`. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars — server bootstraps Caddy with auth on startup when not in stub mode.
 - **OAuth-ready path** via `caddy-security` (AuthCrunch) with GitHub OAuth provider, authentication portal, and authorization policy. Use for production when a public callback URL is available.
 - **Rate limiting via `caddy-ratelimit`** compiled into Caddy with `xcaddy`. Default policy: 10/min, 100/hour, 300/day per identity (basic auth user, then IP fallback).
 - **Unambiguous URL scheme**: `/api/*` for control plane, `/app/*` for SPA, `/workspace/{name}/*` for IDE sessions

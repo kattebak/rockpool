@@ -1,13 +1,13 @@
-import type { CaddyRepository } from "@tdpl/caddy";
-import type { DbClient } from "@tdpl/db";
+import type { CaddyRepository } from "@rockpool/caddy";
+import type { DbClient } from "@rockpool/db";
 import {
 	deleteWorkspace,
 	getWorkspace,
 	removeAllPorts,
 	updateWorkspaceStatus,
-} from "@tdpl/db";
-import type { WorkspaceJob } from "@tdpl/queue";
-import type { RuntimeRepository } from "@tdpl/runtime";
+} from "@rockpool/db";
+import type { WorkspaceJob } from "@rockpool/queue";
+import type { RuntimeRepository } from "@rockpool/runtime";
 import type { Logger } from "pino";
 
 const HEALTH_POLL_INTERVAL_MS = 1000;
@@ -47,7 +47,7 @@ export function createProcessor(deps: ProcessorDeps) {
 	async function configureAndWait(workspaceName: string, vmIp: string): Promise<void> {
 		if (runtime.configure) {
 			await runtime.configure(workspaceName, {
-				TIDEPOOL_WORKSPACE_NAME: workspaceName,
+				ROCKPOOL_WORKSPACE_NAME: workspaceName,
 			});
 		}
 		await healthCheck(vmIp);

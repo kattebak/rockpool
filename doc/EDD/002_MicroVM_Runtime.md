@@ -9,7 +9,7 @@
 
 ## Summary
 
-Evaluation of microVM and lightweight VM runtimes for hosting isolated Tidepool workspaces. The runtime must support macOS (laptop dev) and Linux (server), provide strong network isolation, and allow running a full Linux userspace with a web IDE.
+Evaluation of microVM and lightweight VM runtimes for hosting isolated Rockpool workspaces. The runtime must support macOS (laptop dev) and Linux (server), provide strong network isolation, and allow running a full Linux userspace with a web IDE.
 
 ## Requirements
 

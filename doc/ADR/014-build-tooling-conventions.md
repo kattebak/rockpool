@@ -5,7 +5,7 @@
 
 ## Context
 
-Tidepool has multiple build artifacts (VM images, TypeSpec outputs, bundled services) and operational utilities (start a VM, configure Caddy, run health checks). Without a clear convention, these end up as scattered one-liners in READMEs, undocumented shell history, or ad-hoc npm scripts.
+Rockpool has multiple build artifacts (VM images, TypeSpec outputs, bundled services) and operational utilities (start a VM, configure Caddy, run health checks). Without a clear convention, these end up as scattered one-liners in READMEs, undocumented shell history, or ad-hoc npm scripts.
 
 We want a consistent answer to "how do I build X" and "how do I do Y" across the project.
 
@@ -16,7 +16,7 @@ We want a consistent answer to "how do I build X" and "how do I do Y" across the
 All build artifacts are defined as Makefile targets with proper dependency tracking:
 
 ```makefile
-images/tidepool-workspace: images/alpine-workspace.pkr.hcl images/scripts/alpine-setup.sh
+images/rockpool-workspace: images/alpine-workspace.pkr.hcl images/scripts/alpine-setup.sh
 	packer build images/alpine-workspace.pkr.hcl
 ```
 
@@ -47,7 +47,7 @@ When a task is done more than once, it becomes a script in `npm-scripts/` or a M
 {
   "scripts": {
     "build": "make all",
-    "build:image": "make images/tidepool-workspace"
+    "build:image": "make images/rockpool-workspace"
   }
 }
 ```
@@ -59,4 +59,4 @@ Use `npm run <script>` as the user-facing interface. Use `-w` for workspace-scop
 - Clear separation: Makefile owns the dependency graph, bash scripts own the logic.
 - `make` provides incremental builds and parallelism for free.
 - New contributors can run `npm run` to see all available commands, or `make -n` to see what a build will do.
-- Bash scripts may need to be ported or shimmed if Windows support is ever needed — acceptable since Tidepool runs on macOS and Linux.
+- Bash scripts may need to be ported or shimmed if Windows support is ever needed — acceptable since Rockpool runs on macOS and Linux.

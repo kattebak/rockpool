@@ -1,4 +1,4 @@
-# Tidepool
+# Rockpool
 
 Cloud9-style cloud IDE — isolated microVM workspaces behind Caddy reverse proxy.
 
@@ -8,7 +8,7 @@ Do NOT use `EnterPlanMode`. Use the **architect** agent for multi-step work, **d
 
 ## Structure
 
-- `typespec/main.tsp` → `build/` (`@tdpl/openapi`, `@tdpl/validators`, `@tdpl/enums`, `@tdpl/db-schema`) — generated, do not edit
+- `typespec/main.tsp` → `build/` (`@rockpool/openapi`, `@rockpool/validators`, `@rockpool/enums`, `@rockpool/db-schema`) — generated, do not edit
 - `packages/` — source: `server`, `worker`, `db`, `queue`, `runtime`, `caddy`
 - `doc/ADR/`, `doc/EDD/` — design docs, read before architectural changes
 - `npm-scripts/` — operational scripts
@@ -18,4 +18,4 @@ Do NOT use `EnterPlanMode`. Use the **architect** agent for multi-step work, **d
 
 - Coding standards: `.claude/rules/typescript.md`, `.claude/rules/development.md`
 - Agent details: `.claude/agents/architect.md`, `.claude/agents/developer.md`
-- Scope: `@tdpl/*`, path-based routing only, Node >= 22, ES modules
+- Scope: `@rockpool/*`, path-based routing only, Node >= 22, ES modules

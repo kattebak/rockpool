@@ -9,7 +9,7 @@
 
 ## Summary
 
-This EDD specifies the UX for the Tidepool web client (workspace management SPA). It provides information architecture, interaction flows, mockups, and UX guidelines grounded in common patterns from Material Design, Apple HIG, Microsoft Fluent, and GitHub Primer.
+This EDD specifies the UX for the Rockpool web client (workspace management SPA). It provides information architecture, interaction flows, mockups, and UX guidelines grounded in common patterns from Material Design, Apple HIG, Microsoft Fluent, and GitHub Primer.
 
 ## Prerequisites
 
@@ -114,7 +114,7 @@ Suggested palette (can be refined in implementation):
 
 ### App Shell
 
-- Top bar with Tidepool brand on left.
+- Top bar with Rockpool brand on left.
 - Nav links: Workspaces, Settings.
 - Primary action button on right: New Workspace.
 
@@ -211,7 +211,7 @@ Keep the UI minimal and rely on shadcn built-in components with default variants
 
 ```
 +--------------------------------------------------------------------------------+
-| Tidepool                                    Workspaces   Settings   [New]     |
+| Rockpool                                    Workspaces   Settings   [New]     |
 +--------------------------------------------------------------------------------+
 |                                                                                |
 |  No workspaces yet                                                             |
@@ -226,7 +226,7 @@ Keep the UI minimal and rely on shadcn built-in components with default variants
 
 ```
 +--------------------------------------------------------------------------------+
-| Tidepool                                    Workspaces   Settings   [New]     |
+| Rockpool                                    Workspaces   Settings   [New]     |
 +--------------------------------------------------------------------------------+
 | Search: [ name or image ]                                                      |
 |                                                                                |
@@ -257,7 +257,7 @@ Keep the UI minimal and rely on shadcn built-in components with default variants
 
 ```
 +--------------------------------------------------------------------------------+
-| Tidepool                                    Workspaces   Settings   [New]     |
+| Rockpool                                    Workspaces   Settings   [New]     |
 +--------------------------------------------------------------------------------+
 | demo                                                                    Running |
 | [Open IDE]  [Stop]  [Delete]                                                     |

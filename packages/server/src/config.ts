@@ -16,7 +16,7 @@ export function loadConfig(): ServerConfig {
 	return {
 		port: Number.parseInt(process.env.PORT ?? "7163", 10),
 		srv1Port: Number.parseInt(process.env.SRV1_PORT ?? "8081", 10),
-		dbPath: process.env.DB_PATH ?? "tidepool.db",
+		dbPath: process.env.DB_PATH ?? "rockpool.db",
 		caddyAdminUrl: process.env.CADDY_ADMIN_URL ?? "http://localhost:2019",
 		caddyUsername: process.env.CADDY_USERNAME ?? "",
 		caddyPassword: process.env.CADDY_PASSWORD ?? "",
@@ -24,6 +24,6 @@ export function loadConfig(): ServerConfig {
 		queueEndpoint: process.env.QUEUE_ENDPOINT ?? "http://localhost:9324",
 		queueUrl: process.env.QUEUE_URL ?? "http://localhost:9324/000000000000/workspace-jobs",
 		platform: (process.env.PLATFORM ?? process.platform) as "darwin" | "linux",
-		sshKeyPath: process.env.SSH_KEY_PATH ?? "images/ssh/tidepool_ed25519",
+		sshKeyPath: process.env.SSH_KEY_PATH ?? "images/ssh/rockpool_ed25519",
 	};
 }
