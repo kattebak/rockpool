@@ -42,6 +42,7 @@ async function bootstrapCaddy(): Promise<void> {
 
 	const bootstrapOptions: BootstrapOptions = {
 		controlPlaneUrl,
+		srv1Port: config.srv1Port,
 	};
 
 	if (config.spaRoot) {
@@ -72,8 +73,11 @@ app.listen(config.port, () => {
 	logger.info({ port: config.port }, "Tidepool control plane started");
 
 	if (inlineWorker) {
-		const runtime = useStubVm ? createStubRuntime() : createTartRuntime();
-		const processor = createProcessor({ db, runtime, caddy, logger });
+		const runtime = useStubVm
+			? createStubRuntime()
+			: createTartRuntime({ sshKeyPath: config.sshKeyPath });
+		const healthCheck = useStubVm ? async () => {} : undefined;
+		const processor = createProcessor({ db, runtime, caddy, logger, healthCheck });
 		const pollLoop = createPollLoop({ queue, processor, logger });
 
 		logger.info({ runtime: useStubVm ? "stub" : "tart" }, "Starting in-process worker");

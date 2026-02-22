@@ -68,7 +68,11 @@ export function WorkspaceDetailPage() {
 				<div className="flex items-center gap-2">
 					{isRunning && (
 						<Button asChild>
-							<a href={`/workspace/${workspace.name}/`} target="_blank" rel="noopener noreferrer">
+							<a
+								href={`${window.location.protocol}//${window.location.hostname}:8081/workspace/${workspace.name}/`}
+								target="_blank"
+								rel="noopener noreferrer"
+							>
 								<ExternalLink />
 								Open IDE
 							</a>

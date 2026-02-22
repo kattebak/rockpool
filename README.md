@@ -4,7 +4,7 @@ Cloud IDE platform. Isolated development environments in microVMs, accessible vi
 
 ## Architecture
 
-- **Workspace VMs**: Tart (macOS) / Incus (Linux) microVMs running Alpine Linux with code-server
+- **Workspace VMs**: Tart (macOS) microVMs running Debian minimal with code-server (Incus planned for later)
 - **Reverse proxy**: Caddy with path-based routing, dynamically configured via admin API
 - **Control plane**: Workspace Service (CRUD), Caddy Service (routing), Workspace Worker (async jobs via ElasticMQ)
 - **Frontend**: React SPA for workspace management
@@ -48,4 +48,4 @@ This is the vertical slice described in [doc/EDD/006_Vertical_Slice_MVP.md](doc/
 	- `npm run mvp:caddy:add-route -- -n test -i <VM_IP>`
 5. Open `http://localhost:8080/workspace/test/`
 
-If you want to use the custom Alpine image, run `npm run mvp:build-image` first and pass its name to `mvp:start-vm` with `-i`.
+If you want to use the custom Debian image, run `npm run mvp:build-image` first and pass its name to `mvp:start-vm` with `-i`.

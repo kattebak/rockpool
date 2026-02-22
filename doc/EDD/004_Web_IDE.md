@@ -5,7 +5,7 @@
 | Author  | mvhenten   |
 | Status  | Draft      |
 | Created | 2026-02-21 |
-| Updated | 2026-02-21 |
+| Updated | 2026-02-22 |
 
 ## Summary
 
@@ -163,6 +163,16 @@ code-server --install-extension ms-python.python
 ```
 
 Pre-install common extensions in the VM base image.
+
+### Two-Port Origin Isolation (ADR-015)
+
+In production, the IDE runs on srv1 (`:8081`) rather than sharing srv0 (`:8080`) with the API and SPA. This prevents workspace code from accessing the API's authentication cookies via same-origin requests.
+
+- **srv0 (`:8080`)**: API (`/api/*`), SPA (`/app/*`), basic auth gate
+- **srv1 (`:8081`)**: Workspace content (`/workspace/{name}/*`), separate auth gate
+- **Open IDE URL**: `http://hostname:8081/workspace/{name}/`
+
+Caddy strips the `/workspace/{name}` prefix before proxying to the VM's code-server on port 8080. code-server's `--abs-proxy-base-path` generates correct browser URLs.
 
 ## Open Questions
 

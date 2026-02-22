@@ -121,12 +121,24 @@ describe("buildBootstrapConfig", () => {
 		assert.equal(accounts[0].password, "$2a$10$specificHash");
 	});
 
-	it("does not add auth routes to srv1", () => {
+	it("adds auth gate to srv1 for /workspace/* when credentials provided", () => {
 		const auth: BasicAuthCredentials = {
 			username: "admin",
 			passwordHash: "$2a$10$fakehashvalue",
 		};
 		const config = buildBootstrapConfig({ auth });
+		const routes = getSrv1Routes(config);
+
+		assert.equal(routes.length, 1);
+		assert.equal(routes[0]["@id"], "srv1-auth-gate");
+		assert.deepEqual(routes[0].match, [{ path: ["/workspace/*"] }]);
+
+		const handles = routes[0].handle as Array<Record<string, unknown>>;
+		assert.equal(handles[0].handler, "authentication");
+	});
+
+	it("does not add auth routes to srv1 when no credentials provided", () => {
+		const config = buildBootstrapConfig({});
 
 		assert.deepEqual(getSrv1Routes(config), []);
 	});
@@ -161,6 +173,44 @@ describe("buildBootstrapConfig", () => {
 		assert.equal(fallbackRoute.terminal, true);
 	});
 
+	it("adds workspace redirect to srv1 when srv1Port is provided", () => {
+		const config = buildBootstrapConfig({ srv1Port: 8081 });
+		const routes = getSrv0Routes(config);
+
+		const redirect = findRoute(routes, "workspace-redirect");
+		assert.deepEqual(redirect.match, [{ path: ["/workspace/*"] }]);
+		assert.equal(redirect.terminal, true);
+
+		const handles = redirect.handle as Array<Record<string, unknown>>;
+		const staticResponse = handles[0] as CaddyConfig;
+		assert.equal(staticResponse.status_code, 302);
+		const headers = staticResponse.headers as Record<string, string[]>;
+		assert.deepEqual(headers.Location, [
+			"{http.request.scheme}://{http.request.hostname}:8081{http.request.uri}",
+		]);
+	});
+
+	it("uses configured srv1Port in workspace redirect", () => {
+		const config = buildBootstrapConfig({ srv1Port: 9999 });
+		const routes = getSrv0Routes(config);
+
+		const redirect = findRoute(routes, "workspace-redirect");
+		const handles = redirect.handle as Array<Record<string, unknown>>;
+		const staticResponse = handles[0] as CaddyConfig;
+		const headers = staticResponse.headers as Record<string, string[]>;
+		assert.deepEqual(headers.Location, [
+			"{http.request.scheme}://{http.request.hostname}:9999{http.request.uri}",
+		]);
+	});
+
+	it("does not add workspace redirect when srv1Port is not set", () => {
+		const config = buildBootstrapConfig({ controlPlaneUrl: "http://localhost:7163" });
+		const routes = getSrv0Routes(config);
+		const ids = routes.map((r) => r["@id"]);
+
+		assert.ok(!ids.includes("workspace-redirect"));
+	});
+
 	it("adds root redirect when controlPlaneUrl is provided", () => {
 		const config = buildBootstrapConfig({ controlPlaneUrl: "http://localhost:7163" });
 		const routes = getSrv0Routes(config);
@@ -176,11 +226,12 @@ describe("buildBootstrapConfig", () => {
 		assert.deepEqual(headers.Location, ["/app/workspaces"]);
 	});
 
-	it("combines auth, API proxy, SPA, and redirect routes in order", () => {
+	it("combines auth, API proxy, SPA, workspace redirect, and root redirect in order", () => {
 		const config = buildBootstrapConfig({
 			auth: { username: "admin", passwordHash: "$2a$10$hash" },
 			controlPlaneUrl: "http://localhost:7163",
 			spaRoot: "/opt/tidepool/client",
+			srv1Port: 8081,
 		});
 		const routes = getSrv0Routes(config);
 
@@ -191,6 +242,7 @@ describe("buildBootstrapConfig", () => {
 			"api-proxy",
 			"spa-assets",
 			"spa-fallback",
+			"workspace-redirect",
 			"root-redirect",
 		]);
 	});

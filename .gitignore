@@ -147,3 +147,6 @@ tsp-output/
 *.db
 *.db-shm
 *.db-wal
+
+# VM SSH keys (private key only, public key is checked in)
+images/ssh/tidepool_ed25519

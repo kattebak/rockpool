@@ -89,6 +89,25 @@ function buildSpaRoutes(spaRoot: string): unknown[] {
 	];
 }
 
+function buildWorkspaceRedirect(srv1Port: number): Record<string, unknown> {
+	return {
+		"@id": "workspace-redirect",
+		match: [{ path: ["/workspace/*"] }],
+		handle: [
+			{
+				handler: "static_response",
+				status_code: 302,
+				headers: {
+					Location: [
+						`{http.request.scheme}://{http.request.hostname}:${srv1Port}{http.request.uri}`,
+					],
+				},
+			},
+		],
+		terminal: true,
+	};
+}
+
 function buildRootRedirect(): Record<string, unknown> {
 	return {
 		"@id": "root-redirect",
@@ -119,8 +138,22 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 		srv0Routes.push(...buildSpaRoutes(options.spaRoot));
 	}
 
+	if (options.srv1Port) {
+		srv0Routes.push(buildWorkspaceRedirect(options.srv1Port));
+	}
+
 	if (options.controlPlaneUrl || options.spaRoot) {
 		srv0Routes.push(buildRootRedirect());
+	}
+
+	const srv1Routes: unknown[] = [];
+
+	if (options.auth) {
+		srv1Routes.push({
+			"@id": "srv1-auth-gate",
+			match: [{ path: ["/workspace/*"] }],
+			handle: [buildBasicAuthHandler(options.auth)],
+		});
 	}
 
 	return {
@@ -133,7 +166,7 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 					},
 					srv1: {
 						listen: [":8081"],
-						routes: [],
+						routes: srv1Routes,
 					},
 				},
 			},

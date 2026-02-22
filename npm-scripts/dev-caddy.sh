@@ -26,6 +26,7 @@ if ! command -v caddy &>/dev/null; then
 fi
 
 export SPA_ROOT="$PROJECT_ROOT/build/client"
+export SSH_KEY_PATH="$PROJECT_ROOT/images/ssh/tidepool_ed25519"
 export WORKER_INLINE=true
 
 echo "Building client SPA..."
@@ -50,6 +51,9 @@ cleanup() {
 }
 
 trap cleanup EXIT INT TERM
+
+echo "Stopping any existing Caddy..."
+caddy stop 2>/dev/null || true
 
 echo "Starting Caddy..."
 caddy start --config "" --adapter "" 2>/dev/null || true
