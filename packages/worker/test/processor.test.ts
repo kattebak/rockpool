@@ -145,7 +145,7 @@ describe("Processor", () => {
 		assert.deepEqual(caddy.calls, []);
 	});
 
-	it("handles stop job: removes port routes, stops VM, removes workspace route", async () => {
+	it("handles stop job: cascades port cleanup via workspace route removal", async () => {
 		const ws = await createWorkspace(db, { name: "proc-stop-ports", image: "alpine-v1" });
 		await addPort(db, { workspaceId: ws.id, port: 3000 });
 		await addPort(db, { workspaceId: ws.id, port: 5000 });
@@ -156,15 +156,13 @@ describe("Processor", () => {
 
 		await processor.process({ type: "stop", workspaceId: ws.id });
 
-		assert.ok(caddy.calls.includes("removePort:proc-stop-ports:3000"));
-		assert.ok(caddy.calls.includes("removePort:proc-stop-ports:5000"));
-		assert.ok(caddy.calls.includes("removeRoute:proc-stop-ports"));
+		assert.deepEqual(caddy.calls, ["removeRoute:proc-stop-ports"]);
 
 		const remainingPorts = await listPorts(db, ws.id);
 		assert.deepEqual(remainingPorts, []);
 	});
 
-	it("handles delete job: removes port routes before deleting workspace", async () => {
+	it("handles delete job: cascades port cleanup via workspace route removal", async () => {
 		const ws = await createWorkspace(db, { name: "proc-del-ports", image: "alpine-v1" });
 		await addPort(db, { workspaceId: ws.id, port: 4000 });
 
@@ -174,8 +172,7 @@ describe("Processor", () => {
 
 		await processor.process({ type: "delete", workspaceId: ws.id });
 
-		assert.ok(caddy.calls.includes("removePort:proc-del-ports:4000"));
-		assert.ok(caddy.calls.includes("removeRoute:proc-del-ports"));
+		assert.deepEqual(caddy.calls, ["removeRoute:proc-del-ports"]);
 
 		const deleted = await getWorkspace(db, ws.id);
 		assert.equal(deleted, undefined);

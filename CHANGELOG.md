@@ -4,6 +4,101 @@ All notable changes to the Tidepool project are documented here.
 
 ## [Unreleased]
 
+### Nested Subroutes for Port Forwarding
+
+Refactored Caddy port forwarding routes from flat top-level srv1 routes to nested
+subroutes inside the workspace route, matching the EDD-003 specification. Port routes
+are now children of the workspace's subroute handler, so deleting a workspace route
+cascades to all its port routes automatically.
+
+#### Changed
+
+- **`addPortRoute()`** in `@tdpl/caddy` — POSTs to
+  `/id/workspace-{name}/handle/0/routes` (the workspace's nested subroute array)
+  instead of `/config/apps/http/servers/srv1/routes` (top-level).
+- **`buildWorkspaceRoute()`** in `@tdpl/caddy` — Added `X-Forwarded-Prefix` header
+  on the workspace reverse proxy handler, matching what port routes already had.
+- **`handleStop()` / `handleDelete()`** in `@tdpl/worker` — Removed explicit
+  `removePortRoutes()` loop. Caddy cascades port route deletion when the parent
+  workspace route is removed.
+
+### PM2 Process Management
+
+Replaced bash-based dev process management with PM2 ecosystem config files
+per EDD-010. Dev workflows now use `pm2 start` / `pm2 logs` instead of
+hand-rolled PID arrays and trap handlers.
+
+#### Added
+
+- **`ecosystem.config.cjs`** -- PM2 dev mode config (server + client). Server
+  runs with `NODE_ENV=test` (MemoryQueue, StubRuntime, StubCaddy, in-process
+  worker). Client dev server proxies `/api/*` to `:7163`. Both processes
+  auto-restart on crash with file watching on `packages/server/src`.
+- **`ecosystem.caddy.config.cjs`** -- PM2 dev+caddy mode config (caddy + server).
+  Caddy runs as a non-Node process (`interpreter: "none"`). Server runs with
+  `WORKER_INLINE=true`, `SPA_ROOT`, and `SSH_KEY_PATH` resolved to absolute paths.
+- **`dev:stop`** script -- `pm2 delete all` for clean shutdown.
+- **`dev:status`** script -- `pm2 status` for process table view.
+- **`dev:logs`** script -- `pm2 logs` for tailing process output.
+- **`pm2` devDependency** -- Added to root `package.json`.
+
+#### Removed
+
+- **`npm-scripts/dev.sh`** -- Replaced by `ecosystem.config.cjs`.
+- **`npm-scripts/dev-caddy.sh`** -- Replaced by `ecosystem.caddy.config.cjs`.
+
+#### Changed
+
+- **`npm run dev`** -- Now runs `pm2 start ecosystem.config.cjs && pm2 logs`.
+- **`npm run dev:caddy`** -- Now builds client, then runs
+  `pm2 start ecosystem.caddy.config.cjs && pm2 logs`.
+
+### X-Forwarded-Prefix on Workspace Routes
+
+Added `X-Forwarded-Prefix` header to workspace routes in the Caddy client,
+matching what was already done for port routes. This tells code-server (and
+other backends) their path context so they can generate correct URLs.
+
+#### Fixed
+
+- **`buildWorkspaceRoute()`** in `@tdpl/caddy` now sets
+  `X-Forwarded-Prefix: ["/workspace/{name}"]` on the `reverse_proxy` handler
+  inside the subroute. Previously only port routes had this header, meaning
+  code-server relied solely on `--abs-proxy-base-path` for URL generation.
+
+### Workspace Caps and Concurrency Limits
+
+Enforced server-side limits from EDD-007: max 999 workspaces per host, max 3
+concurrent workspace starts. Requests that exceed these caps are rejected with
+409 Conflict.
+
+#### Added
+
+- **`countWorkspaces()`** query in `@tdpl/db` -- Returns total workspace count.
+- **`countWorkspacesByStatus()`** query in `@tdpl/db` -- Returns count of
+  workspaces in a given status (e.g. "creating").
+- **Max workspace count check** -- `workspace-service.create()` rejects with
+  409 when 999 workspaces exist.
+- **Max concurrent starts check** -- `workspace-service.create()` and
+  `workspace-service.start()` reject with 409 when 3 workspaces are already in
+  "creating" status.
+- **7 new tests** -- 4 in `@tdpl/db` (count queries), 3 in `@tdpl/server`
+  (concurrency limits, cap recovery after pending workspaces finish).
+
+#### Test Summary
+
+| Package | Tests |
+|---------|-------|
+| `@tdpl/runtime` | 14 |
+| `@tdpl/caddy` | 25 |
+| `@tdpl/queue` | 5 |
+| `@tdpl/db` | 29 |
+| `@tdpl/server` | 28 |
+| `@tdpl/worker` | 7 |
+| **Total** | **108** |
+
+---
+
 ### Workspace Redirect on srv0
 
 Added a redirect route on srv0 (:8080) so that `/workspace/*` requests are redirected

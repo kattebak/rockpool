@@ -58,6 +58,9 @@ describe("CaddyClient", () => {
 		assert.equal((innerHandles[0] as Record<string, string>).strip_path_prefix, "/workspace/alice");
 		assert.equal(innerHandles[1].handler, "reverse_proxy");
 		assert.deepEqual(innerHandles[1].upstreams, [{ dial: "10.0.1.50:8080" }]);
+
+		const proxyHeaders = innerHandles[1].headers as Record<string, Record<string, Record<string, string[]>>>;
+		assert.deepEqual(proxyHeaders.request.set["X-Forwarded-Prefix"], ["/workspace/alice"]);
 	});
 
 	it("removeWorkspaceRoute sends DELETE by route id", async () => {
@@ -78,14 +81,17 @@ describe("CaddyClient", () => {
 		await caddy.removeWorkspaceRoute("nonexistent");
 	});
 
-	it("addPortRoute sends POST with correct port route structure", async () => {
+	it("addPortRoute sends POST to workspace subroute path", async () => {
 		const { fetch, requests } = createMockFetch();
 		const caddy = createCaddyClient({ adminUrl: "http://caddy:2019", fetch });
 
 		await caddy.addPortRoute("alice", "10.0.1.50", 3000);
 
 		assert.equal(requests.length, 1);
-		assert.equal(requests[0].url, "http://caddy:2019/config/apps/http/servers/srv1/routes");
+		assert.equal(
+			requests[0].url,
+			"http://caddy:2019/id/workspace-alice/handle/0/routes",
+		);
 		const route = requests[0].body as Record<string, unknown>;
 		assert.equal(route["@id"], "workspace-alice-port-3000");
 		assert.deepEqual(route.match, [{ path: ["/workspace/alice/port/3000/*"] }]);

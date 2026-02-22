@@ -11,6 +11,10 @@ function portRouteId(workspaceName: string, port: number): string {
 	return `workspace-${workspaceName}-port-${port}`;
 }
 
+function workspaceSubroutePath(name: string): string {
+	return `/id/${workspaceRouteId(name)}/handle/0/routes`;
+}
+
 function buildWorkspaceRoute(name: string, vmIp: string): unknown {
 	const pathPrefix = `/workspace/${name}`;
 	return {
@@ -29,6 +33,13 @@ function buildWorkspaceRoute(name: string, vmIp: string): unknown {
 								flush_interval: -1,
 								stream_timeout: "24h",
 								stream_close_delay: "5s",
+								headers: {
+									request: {
+										set: {
+											"X-Forwarded-Prefix": [pathPrefix],
+										},
+									},
+								},
 							},
 						],
 					},
@@ -103,7 +114,8 @@ export function createCaddyClient(options: CaddyClientOptions = {}): CaddyReposi
 
 		async addPortRoute(workspaceName: string, vmIp: string, port: number): Promise<void> {
 			const route = buildPortRoute(workspaceName, vmIp, port);
-			const response = await fetchFn(`${adminUrl}${SRV1_ROUTES_PATH}`, {
+			const subroutePath = workspaceSubroutePath(workspaceName);
+			const response = await fetchFn(`${adminUrl}${subroutePath}`, {
 				method: "POST",
 				headers: adminHeaders,
 				body: JSON.stringify(route),

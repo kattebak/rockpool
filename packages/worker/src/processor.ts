@@ -3,7 +3,6 @@ import type { DbClient } from "@tdpl/db";
 import {
 	deleteWorkspace,
 	getWorkspace,
-	listPorts,
 	removeAllPorts,
 	updateWorkspaceStatus,
 } from "@tdpl/db";
@@ -93,13 +92,6 @@ export function createProcessor(deps: ProcessorDeps) {
 		logger.info({ workspaceId, name: workspace.name, vmIp }, "Workspace started");
 	}
 
-	async function removePortRoutes(workspaceId: string, workspaceName: string): Promise<void> {
-		const registeredPorts = await listPorts(db, workspaceId);
-		for (const p of registeredPorts) {
-			await caddy.removePortRoute(workspaceName, p.port);
-		}
-	}
-
 	async function handleStop(workspaceId: string): Promise<void> {
 		const workspace = await getWorkspace(db, workspaceId);
 		if (!workspace) {
@@ -109,7 +101,6 @@ export function createProcessor(deps: ProcessorDeps) {
 
 		logger.info({ workspaceId, name: workspace.name }, "Stopping workspace VM");
 
-		await removePortRoutes(workspaceId, workspace.name);
 		await removeAllPorts(db, workspaceId);
 		await runtime.stop(workspace.name);
 		await caddy.removeWorkspaceRoute(workspace.name);
@@ -127,7 +118,6 @@ export function createProcessor(deps: ProcessorDeps) {
 
 		logger.info({ workspaceId, name: workspace.name }, "Deleting workspace");
 
-		await removePortRoutes(workspaceId, workspace.name);
 		await runtime.stop(workspace.name).catch(() => {});
 		await runtime.remove(workspace.name).catch(() => {});
 		await caddy.removeWorkspaceRoute(workspace.name);
