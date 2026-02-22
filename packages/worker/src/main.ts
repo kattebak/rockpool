@@ -2,6 +2,7 @@ import { createCaddyClient } from "@rockpool/caddy";
 import { createDb } from "@rockpool/db";
 import { createSqsQueue } from "@rockpool/queue";
 import { createTartRuntime } from "@rockpool/runtime";
+import { createWorkspaceService } from "@rockpool/workspace-service";
 import pino from "pino";
 import { createPollLoop } from "./poll-loop.ts";
 import { createProcessor } from "./processor.ts";
@@ -21,7 +22,8 @@ const caddy = createCaddyClient({
 
 const runtime = createTartRuntime();
 
-const processor = createProcessor({ db, runtime, caddy, logger });
+const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger });
+const processor = createProcessor({ workspaceService, logger });
 const pollLoop = createPollLoop({ queue, processor, logger });
 
 logger.info("Worker starting");
