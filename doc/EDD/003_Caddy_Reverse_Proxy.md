@@ -11,18 +11,37 @@
 
 Caddy serves as the single HTTP entry point for Tidepool, running inside the root VM alongside the control plane. The control plane configures Caddy's routes via its admin API on localhost as workspaces are created and destroyed. All routing is path-based (no subdomains). The root VM is network-isolated from the host LAN; workspace VMs are further isolated from each other.
 
+## API Gateway Responsibilities
+
+Caddy is the API gateway for all inbound traffic. It is responsible for:
+
+- Basic auth (current)
+- Rate limiting at the edge (see [EDD 007](007_Data_Model.md))
+- Routing and path prefix handling
+
+Rate limiting may require a Caddy module; treat it as a required gateway capability even if the first implementation is minimal.
+
+### Rate Limiting Module Candidates
+
+Preferred options based on popularity, fit, and stability:
+
+- **Greenpau caddy-security** — broader gateway features with rate limiting.
+- **Greenpau caddy-limiter** — focused rate limiting module.
+
+Plan: use both. `caddy-security` covers gateway auth and broader policy, while `caddy-limiter` provides explicit rate limiting controls.
+
 ## Admin API Basics
 
 Caddy exposes a REST API on `localhost:2019` by default.
 
-| Method   | Endpoint          | Behavior                              |
-| -------- | ----------------- | ------------------------------------- |
-| `GET`    | `/config/[path]`  | Read config at path                   |
-| `POST`   | `/config/[path]`  | Append to arrays, create objects      |
-| `PUT`    | `/config/[path]`  | Insert at position or create          |
-| `PATCH`  | `/config/[path]`  | Replace existing values               |
-| `DELETE` | `/config/[path]`  | Remove config at path                 |
-| `DELETE` | `/id/{id}`        | Remove object by `@id` (preferred)    |
+| Method   | Endpoint         | Behavior                           |
+| -------- | ---------------- | ---------------------------------- |
+| `GET`    | `/config/[path]` | Read config at path                |
+| `POST`   | `/config/[path]` | Append to arrays, create objects   |
+| `PUT`    | `/config/[path]` | Insert at position or create       |
+| `PATCH`  | `/config/[path]` | Replace existing values            |
+| `DELETE` | `/config/[path]` | Remove config at path              |
+| `DELETE` | `/id/{id}`       | Remove object by `@id` (preferred) |
 
 Config tree path: `apps.http.servers.{serverName}.routes[index]`
 
@@ -41,36 +60,42 @@ Load initial config via `POST /load`:
             {
               "@id": "basic-auth",
               "match": [{ "path": ["/*"] }],
-              "handle": [{
-                "handler": "authentication",
-                "providers": {
-                  "http_basic": {
-                    "accounts": [
-                      {
-                        "username": "admin",
-                        "password": "$HASHED_PASSWORD"
-                      }
-                    ]
+              "handle": [
+                {
+                  "handler": "authentication",
+                  "providers": {
+                    "http_basic": {
+                      "accounts": [
+                        {
+                          "username": "admin",
+                          "password": "$HASHED_PASSWORD"
+                        }
+                      ]
+                    }
                   }
                 }
-              }]
+              ]
             },
             {
               "@id": "control-plane",
               "match": [{ "path": ["/api/*"] }],
-              "handle": [{
-                "handler": "reverse_proxy",
-                "upstreams": [{ "dial": "localhost:3000" }]
-              }],
+              "handle": [
+                {
+                  "handler": "reverse_proxy",
+                  "upstreams": [{ "dial": "localhost:3000" }]
+                }
+              ],
               "terminal": true
             },
             {
               "@id": "spa",
               "match": [{ "path": ["/app/*"] }],
-              "handle": [{
-                "handler": "reverse_proxy",
-                "upstreams": [{ "dial": "localhost:3000" }]
-              }],
+              "handle": [
+                {
+                  "handler": "reverse_proxy",
+                  "upstreams": [{ "dial": "localhost:3000" }]
+                }
+              ],
               "terminal": true
             }
           ]
@@ -116,6 +141,7 @@ POST http://localhost:2019/config/apps/http/servers/srv0/routes
 ```
 
 Key settings:
+
 - **`strip_path_prefix`**: Removes `/workspace/alice` so the backend sees `/` as root
 - **`flush_interval: -1`**: Disables buffering for low-latency terminal/IDE output
 - **`stream_timeout: "24h"`**: Long-lived WebSocket connections for IDE sessions
@@ -125,6 +151,8 @@ Key settings:
 ## Port Forwarding Routes
 
 Ports are registered dynamically via the API (`POST /api/workspaces/{id}/ports`, see [EDD 007](007_Data_Model.md)). When a user registers a port, the server creates a Caddy route for it. When unregistered, the route is deleted. Up to 5 ports per workspace.
+
+If a port is registered but no service is listening inside the VM, the proxy returns `502` until the port is live.
 
 Port routes are nested inside the workspace route using a subroute handler. Subroutes match against the **original request path** (no rewrite has happened yet), so inner matchers use the full path. More specific port routes match first due to subroute ordering; the fallback (no matcher) handles the IDE itself.
 
@@ -136,23 +164,25 @@ The workspace starts with just the IDE route (no port subroutes):
 {
   "@id": "workspace-alice",
   "match": [{ "path": ["/workspace/alice/*"] }],
-  "handle": [{
-    "handler": "subroute",
-    "routes": [
-      {
-        "handle": [
-          { "handler": "rewrite", "strip_path_prefix": "/workspace/alice" },
-          {
-            "handler": "reverse_proxy",
-            "upstreams": [{ "dial": "10.0.1.50:8080" }],
-            "flush_interval": -1,
-            "stream_timeout": "24h",
-            "stream_close_delay": "5s"
-          }
-        ]
-      }
-    ]
-  }],
+  "handle": [
+    {
+      "handler": "subroute",
+      "routes": [
+        {
+          "handle": [
+            { "handler": "rewrite", "strip_path_prefix": "/workspace/alice" },
+            {
+              "handler": "reverse_proxy",
+              "upstreams": [{ "dial": "10.0.1.50:8080" }],
+              "flush_interval": -1,
+              "stream_timeout": "24h",
+              "stream_close_delay": "5s"
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "terminal": true
 }
 ```
@@ -198,7 +228,8 @@ DELETE http://localhost:2019/id/workspace-alice-port-3000
 
 - Workspace: `workspace-{name}`
 - Port: `workspace-{name}-port-{port}`
-```
+
+````
 
 ## Removing a Workspace
 
@@ -206,7 +237,7 @@ Delete by `@id` (stable, not affected by array index shifts):
 
 ```bash
 DELETE http://localhost:2019/id/workspace-alice
-```
+````
 
 This removes the route and all nested subroutes.
 
@@ -215,6 +246,7 @@ This removes the route and all nested subroutes.
 WebSocket proxying is automatic in Caddy v2. No explicit configuration needed. Caddy detects the HTTP Upgrade header and transitions to a bidirectional tunnel.
 
 For IDE stability:
+
 - `flush_interval: -1` -- low-latency streaming
 - `stream_timeout: "24h"` -- long-lived sessions
 - `stream_close_delay: "5s"` -- survive config reloads without dropping connections
@@ -241,14 +273,20 @@ const CADDY_ADMIN = "http://localhost:2019";
 async function addRoute(route: CaddyRoute): Promise<void> {
   const response = await fetch(
     `${CADDY_ADMIN}/config/apps/http/servers/srv0/routes`,
-    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(route) }
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(route),
+    },
   );
-  if (!response.ok) throw new Error(`Caddy: ${response.status} ${await response.text()}`);
+  if (!response.ok)
+    throw new Error(`Caddy: ${response.status} ${await response.text()}`);
 }
 
 async function removeRoute(id: string): Promise<void> {
   const response = await fetch(`${CADDY_ADMIN}/id/${id}`, { method: "DELETE" });
-  if (!response.ok && response.status !== 404) throw new Error(`Caddy: ${response.status}`);
+  if (!response.ok && response.status !== 404)
+    throw new Error(`Caddy: ${response.status}`);
 }
 ```
 
@@ -260,8 +298,8 @@ Use `ETag`/`If-Match` headers for optimistic concurrency when multiple requests 
 
 Workspace identity is communicated to the VM via environment variables, set by the worker at VM creation time (see [EDD 008](008_Package_Structure.md), `RuntimeRepository`).
 
-| Variable | Example | Description |
-|----------|---------|-------------|
+| Variable                  | Example | Description                                                                                                                      |
+| ------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `TIDEPOOL_WORKSPACE_NAME` | `alice` | Workspace slug. Used by code-server for `--abs-proxy-base-path /workspace/alice` and by apps that need to know their URL prefix. |
 
 The base image's code-server init script reads `TIDEPOOL_WORKSPACE_NAME` to set the base path (see [EDD 005](005_Workspace_Image_Pipeline.md)). Port forwarding is managed dynamically via the API -- apps bind to whatever port they want, then the user registers it through the control plane.
