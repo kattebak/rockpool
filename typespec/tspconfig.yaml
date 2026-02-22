@@ -2,8 +2,7 @@ emit:
   - "@typespec/openapi3"
   - "@kattebak/typespec-zod-emitter"
   - "@kattebak/typespec-enum-emitter"
-  # TODO: re-enable after kattebak/typespec-drizzle-orm-generator#8
-  # - "@kattebak/typespec-drizzle-orm-generator"
+  - "@kattebak/typespec-drizzle-orm-generator"
 
 options:
   "@typespec/openapi3":

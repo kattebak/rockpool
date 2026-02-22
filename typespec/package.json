@@ -6,14 +6,5 @@
 	"scripts": {
 		"build": "tsp compile .",
 		"watch": "tsp compile . --watch"
-	},
-	"dependencies": {
-		"@typespec/compiler": "^1.9.0",
-		"@typespec/http": "^1.9.0",
-		"@typespec/rest": "^0.79.0",
-		"@typespec/openapi3": "^1.9.0",
-		"@kattebak/typespec-zod-emitter": "^1.2.2",
-		"@kattebak/typespec-enum-emitter": "^1.2.2",
-		"@kattebak/typespec-drizzle-orm-generator": "^2.0.0"
 	}
 }
