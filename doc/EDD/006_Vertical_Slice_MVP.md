@@ -5,7 +5,7 @@
 | Author  | mvhenten   |
 | Status  | Draft      |
 | Created | 2026-02-21 |
-| Updated | 2026-02-21 |
+| Updated | 2026-02-22 |
 
 ## Summary
 
@@ -17,6 +17,8 @@ Minimal end-to-end proof of the Tidepool concept on macOS: a browser request hit
 - [EDD 003: Caddy Reverse Proxy](003_Caddy_Reverse_Proxy.md) -- path-based routing, admin API
 - [EDD 004: Web IDE](004_Web_IDE.md) -- code-server selected
 - [EDD 005: Workspace Image Pipeline](005_Workspace_Image_Pipeline.md) -- Alpine, Packer, local builds
+- [EDD 007: Data Model](007_Data_Model.md) -- workspace entity, status model, API surface
+- [EDD 008: Package Structure](008_Package_Structure.md) -- monorepo layout, repository pattern
 
 ## Goal
 
@@ -211,17 +213,19 @@ Open `http://localhost:8080/workspace/test/` in a browser. code-server IDE shoul
 | Risk | Impact | Mitigation |
 |---|---|---|
 | Alpine + musl breaks code-server | Blocker | code-server ships standalone musl-compatible builds; fall back to Debian if needed |
-| Tart Packer builder doesn't exist or is immature | Blocker | Fall back to manual `tart create` + `tart run` + SSH provisioning |
+| Tart Packer builder issues | Low | [cirruslabs/packer-plugin-tart](https://github.com/cirruslabs/packer-plugin-tart) v1.19.0, actively maintained, on HashiCorp registry |
 | code-server subfolder mounting breaks with WebSockets | High | `--abs-proxy-base-path` is designed for this; test early |
 | Caddy and Tart compete for port 8080 | Low | Different networks -- Caddy on host :8080, code-server on VM :8080 |
 
 ## What Comes After
 
-Once this vertical slice works, the next steps in order:
+Once this vertical slice works, the next steps build out the package structure defined in [EDD 008](008_Package_Structure.md):
 
-1. **Tart adapter** -- TypeScript wrapper around `tart` CLI (create, start, stop, delete, ip)
-2. **Caddy service** -- TypeScript wrapper around Caddy admin API
-3. **Wire them together** -- a single script that creates a workspace end-to-end
-4. **Add ElasticMQ + Worker** -- async lifecycle management
-5. **SPA** -- minimal workspace management UI
-6. **Incus adapter** -- Linux support
+1. **`@tidepool/runtime`** -- `RuntimeRepository` with `TartRuntime` adapter wrapping the `tart` CLI (create, start, stop, delete, ip)
+2. **`@tidepool/caddy`** -- `CaddyRepository` wrapping the Caddy admin API (add/remove workspace routes)
+3. **`@tidepool/db`** -- Drizzle schema and connection, workspace persistence
+4. **`@tidepool/queue`** -- `QueueRepository` wrapping ElasticMQ (SQS-compatible)
+5. **`@tidepool/server`** -- Express control plane composing the above, workspace CRUD at `/api/workspaces` (see [EDD 007](007_Data_Model.md))
+6. **`@tidepool/worker`** -- async workspace lifecycle (create VM, configure routes, update status)
+7. **`@tidepool/client`** -- React SPA for workspace management at `/app/*`
+8. **`@tidepool/runtime` Incus adapter** -- `IncusRuntime` for Linux support

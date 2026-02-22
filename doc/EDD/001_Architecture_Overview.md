@@ -5,7 +5,7 @@
 | Author  | mvhenten   |
 | Status  | Draft      |
 | Created | 2026-02-21 |
-| Updated | 2026-02-21 |
+| Updated | 2026-02-22 |
 
 ## Summary
 
@@ -38,7 +38,7 @@ Tidepool is a lightweight cloud IDE platform inspired by Cloud9. It provides iso
   /api/*            ──► localhost:3000
   /workspace/foo/*  ──► VM-foo:8080      Workspace VM
   /workspace/bar/*  ──► VM-bar:8080      Workspace VM
-  /workspace/X/port/N/* ──► VM-X:N       Ports 8081-8085
+  /workspace/X/port/N/* ──► VM-X:N       Dynamic, registered via API
                               │
                     ┌─────────┴──────────┐
                     │    MicroVM Host    │
@@ -70,7 +70,7 @@ See: [EDD 003: Caddy Reverse Proxy](003_Caddy_Reverse_Proxy.md)
 
 #### Control Plane
 
-Composed of three services and a message queue, all co-located in the root VM:
+Composed of two services, a worker, and a message queue, all co-located in the root VM. The API server lives in `@tidepool/server` and the async worker in `@tidepool/worker` -- both compose integration packages (`@tidepool/runtime`, `@tidepool/caddy`, `@tidepool/queue`, `@tidepool/db`) via dependency injection. See [EDD 008: Package Structure](008_Package_Structure.md) for the full layout.
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -96,9 +96,9 @@ Composed of three services and a message queue, all co-located in the root VM:
 └─────────────────────────────────────────────┘
 ```
 
-- **Workspace Service** -- workspace CRUD and status, serves SPA at `/app/*` and API at `/api/*`
-- **Caddy Service** -- configures Caddy routes via localhost admin API when workspaces start/stop
-- **Workspace Worker** -- picks up async jobs from ElasticMQ (create VM, clone workspace, teardown)
+- **Workspace Service** -- workspace CRUD and status, serves SPA at `/app/*` and API at `/api/*`. Workspace entity and status model defined in [EDD 007: Data Model](007_Data_Model.md).
+- **Caddy Service** -- configures Caddy routes via localhost admin API when workspaces start/stop. Uses `CaddyRepository` from `@tidepool/caddy`.
+- **Workspace Worker** -- separate process (`@tidepool/worker`). Picks up async jobs from ElasticMQ (create VM, configure routes, teardown). Uses `RuntimeRepository` from `@tidepool/runtime`, `CaddyRepository` from `@tidepool/caddy`, and `QueueRepository` from `@tidepool/queue`.
 - **ElasticMQ** -- SQS-compatible message queue for async workspace operations
 
 ### 2. Workspace VMs
@@ -123,14 +123,13 @@ External access to the host without exposing ports or needing a static IP. The t
 
 1. User opens SPA at `/app/`
 2. User clicks "New Workspace"
-3. SPA calls `POST /api/workspaces` with config (name, image, resources)
+3. SPA calls `POST /api/workspaces` with config (name, image)
 4. Workspace Service validates and enqueues a create job on ElasticMQ
 5. Workspace Worker picks up the job, creates a new microVM via runtime adapter
 6. Worker waits for VM to be ready (health check)
-7. Worker tells Caddy Service to add routes:
+7. Worker tells Caddy Service to add the workspace route:
    - `/workspace/{name}/*` → VM primary port (code-server)
-   - `/workspace/{name}/port/{8081-8085}/*` → fixed forwarded ports
-8. Workspace Service updates workspace status
+8. Workspace Service updates workspace status to `running` (see [EDD 007](007_Data_Model.md) state machine)
 9. SPA polls or receives status update, redirects to `/workspace/{name}/`
 
 ### Accessing a workspace
@@ -143,9 +142,12 @@ External access to the host without exposing ports or needing a static IP. The t
 
 ### Port forwarding
 
-1. User runs a dev server on port 8081 inside their workspace
-2. Port forwarding routes (8081-8085) are provisioned when the workspace is created
-3. User accesses their dev server at `/workspace/foo/port/8081/`
+1. User runs a dev server on port 3000 inside their workspace
+2. User registers the port: `POST /api/workspaces/{id}/ports` with `{port: 3000}`
+3. Server creates a Caddy route: `/workspace/foo/port/3000/*` → `VM_IP:3000`
+4. User accesses their dev server at `/workspace/foo/port/3000/`
+
+Ports are dynamic -- registered and unregistered on demand, up to 5 per workspace. See [EDD 007](007_Data_Model.md) for the Port entity and [EDD 003](003_Caddy_Reverse_Proxy.md) for the route structure.
 
 ## Network Architecture
 
@@ -186,7 +188,7 @@ See: [EDD 002: MicroVM Runtime](002_MicroVM_Runtime.md) for full evaluation.
 ## Open Questions
 
 - [x] Authentication strategy -- basic auth in Caddy to start, upgradable to `forward_auth`
-- [x] Workspace persistence -- persistent VM disk, runtime-native snapshots for cloning (see [EDD 005](doc/EDD/005_Workspace_Image_Pipeline.md))
-- [ ] Resource limits -- how to cap CPU/RAM per workspace?
+- [x] Workspace persistence -- persistent VM disk, runtime-native snapshots for cloning (see [EDD 005](005_Workspace_Image_Pipeline.md))
+- [x] Resource limits -- defaults: 2 CPU cores, 4 GB RAM per workspace. Both Tart (`--cpu`, `--memory`) and Incus (`limits.cpu`, `limits.memory`) support this at VM creation. Configurable per-workspace later if needed.
 - [ ] Auto-shutdown -- idle detection and automatic VM stop?
 - [ ] Multi-user -- single user initially, but design for future multi-user?

@@ -64,6 +64,16 @@ Kitchen sink -- workspaces should be productive out of the box:
 - node, python
 - make, build tools
 
+### Environment Variables
+
+The worker sets these env vars at VM creation/start. The base image's init scripts consume them:
+
+| Variable | Description |
+|----------|-------------|
+| `TIDEPOOL_WORKSPACE_NAME` | Workspace slug. code-server's OpenRC service uses this for `--abs-proxy-base-path /workspace/${TIDEPOOL_WORKSPACE_NAME}`. |
+
+Port forwarding is dynamic -- apps bind to any port they want, then the user registers it via the API. No port-related env vars are needed in the image. See [EDD 003: Caddy Reverse Proxy](003_Caddy_Reverse_Proxy.md) for how port routes are managed.
+
 ### Image Storage: Local Only
 
 Images built locally on each machine via Packer. No registry, no distribution infra. M4 is fast enough to build locally as part of setup.

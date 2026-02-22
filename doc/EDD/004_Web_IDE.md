@@ -169,5 +169,5 @@ Pre-install common extensions in the VM base image.
 - [ ] Should we offer terminal-only workspaces (no IDE) for lightweight use?
 - [ ] Extension marketplace -- use Open VSX or Microsoft's marketplace?
 - [ ] Settings sync across workspaces?
-- [ ] Can code-server's built-in `/proxy/` replace Caddy port forwarding entirely?
+- [x] Can code-server's built-in `/proxy/` replace Caddy port forwarding? -- No. Workspaces run SPAs and APIs on forwarded ports that need direct browser access with clean URLs. Caddy port forwarding (`/workspace/{name}/port/{N}/`) works independently of code-server and handles full SPA routing and asset serving. Keep the Caddy subroute approach from [EDD-003](003_Caddy_Reverse_Proxy.md).
 - [ ] GPU passthrough for ML workspaces (future)?
