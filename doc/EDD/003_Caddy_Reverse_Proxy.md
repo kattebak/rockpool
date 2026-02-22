@@ -124,9 +124,13 @@ Key settings:
 
 ## Port Forwarding Routes
 
-Each workspace exposes a fixed set of forwarded ports: **8081-8085**. These are mapped to the same ports on the VM, accessible at `/workspace/{name}/port/{port}/*`.
+Ports are registered dynamically via the API (`POST /api/workspaces/{id}/ports`, see [EDD 007](007_Data_Model.md)). When a user registers a port, the server creates a Caddy route for it. When unregistered, the route is deleted. Up to 5 ports per workspace.
 
 Port routes are nested inside the workspace route using a subroute handler. Subroutes match against the **original request path** (no rewrite has happened yet), so inner matchers use the full path. More specific port routes match first due to subroute ordering; the fallback (no matcher) handles the IDE itself.
+
+### Workspace route (created at workspace start)
+
+The workspace starts with just the IDE route (no port subroutes):
 
 ```json
 {
@@ -135,24 +139,6 @@ Port routes are nested inside the workspace route using a subroute handler. Subr
   "handle": [{
     "handler": "subroute",
     "routes": [
-      {
-        "@id": "workspace-alice-port-8081",
-        "match": [{ "path": ["/workspace/alice/port/8081/*"] }],
-        "handle": [
-          { "handler": "rewrite", "strip_path_prefix": "/workspace/alice/port/8081" },
-          { "handler": "reverse_proxy", "upstreams": [{ "dial": "10.0.1.50:8081" }], "flush_interval": -1 }
-        ],
-        "terminal": true
-      },
-      {
-        "@id": "workspace-alice-port-8082",
-        "match": [{ "path": ["/workspace/alice/port/8082/*"] }],
-        "handle": [
-          { "handler": "rewrite", "strip_path_prefix": "/workspace/alice/port/8082" },
-          { "handler": "reverse_proxy", "upstreams": [{ "dial": "10.0.1.50:8082" }], "flush_interval": -1 }
-        ],
-        "terminal": true
-      },
       {
         "handle": [
           { "handler": "rewrite", "strip_path_prefix": "/workspace/alice" },
@@ -169,6 +155,49 @@ Port routes are nested inside the workspace route using a subroute handler. Subr
   }],
   "terminal": true
 }
+```
+
+### Adding a port route (on port registration)
+
+When the user registers port 3000, a subroute is inserted before the IDE fallback:
+
+```bash
+POST http://localhost:2019/config/apps/http/servers/srv0/routes/.../routes
+```
+
+```json
+{
+  "@id": "workspace-alice-port-3000",
+  "match": [{ "path": ["/workspace/alice/port/3000/*"] }],
+  "handle": [
+    { "handler": "rewrite", "strip_path_prefix": "/workspace/alice/port/3000" },
+    {
+      "handler": "reverse_proxy",
+      "upstreams": [{ "dial": "10.0.1.50:3000" }],
+      "flush_interval": -1,
+      "headers": {
+        "request": {
+          "set": {
+            "X-Forwarded-Prefix": ["/workspace/alice/port/3000"]
+          }
+        }
+      }
+    }
+  ],
+  "terminal": true
+}
+```
+
+### Removing a port route
+
+```bash
+DELETE http://localhost:2019/id/workspace-alice-port-3000
+```
+
+### Route ID convention
+
+- Workspace: `workspace-{name}`
+- Port: `workspace-{name}-port-{port}`
 ```
 
 ## Removing a Workspace
@@ -227,12 +256,22 @@ async function removeRoute(id: string): Promise<void> {
 
 Use `ETag`/`If-Match` headers for optimistic concurrency when multiple requests may modify config simultaneously. GET returns an `ETag`, pass it as `If-Match` on mutations.
 
+## Workspace Environment Contract
+
+Workspace identity is communicated to the VM via environment variables, set by the worker at VM creation time (see [EDD 008](008_Package_Structure.md), `RuntimeRepository`).
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `TIDEPOOL_WORKSPACE_NAME` | `alice` | Workspace slug. Used by code-server for `--abs-proxy-base-path /workspace/alice` and by apps that need to know their URL prefix. |
+
+The base image's code-server init script reads `TIDEPOOL_WORKSPACE_NAME` to set the base path (see [EDD 005](005_Workspace_Image_Pipeline.md)). Port forwarding is managed dynamically via the API -- apps bind to whatever port they want, then the user registers it through the control plane.
+
 ## Decisions
 
 - **Caddy runs in the root VM** alongside the control plane — admin API on localhost only, network-isolated from host LAN
 - **Basic auth in Caddy** as the initial auth mechanism; can upgrade to `forward_auth` later
 - **Unambiguous URL scheme**: `/api/*` for control plane, `/app/*` for SPA, `/workspace/{name}/*` for IDE sessions
-- **Fixed port forwarding**: ports 8081-8085 per workspace
+- **Dynamic port forwarding**: user registers actual app ports (e.g. 3000, 5000) via API, Caddy routes created/removed on demand, max 5 per workspace
 
 ## Open Questions
 
