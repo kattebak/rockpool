@@ -54,7 +54,7 @@ This slice intentionally simplifies the production architecture (see [EDD 001](0
 ### In scope
 
 - Packer template for Debian + code-server Tart image
-- Shared provisioning script (`alpine-setup.sh`)
+- Shared provisioning script (`alpine-setup.sh`, legacy name)
 - Local fast path using a public Tart Ubuntu runner image to avoid registry auth
 - Scripted VM start and setup via npm scripts
 - Scripted Caddy bootstrap and route management via npm scripts
@@ -82,12 +82,12 @@ Packer HCL template using the Tart builder to produce an OCI-compatible VM image
 
 ```
 images/
-  alpine-workspace.pkr.hcl    -- Packer template
+  alpine-workspace.pkr.hcl    -- Packer template (legacy name, Debian base)
   scripts/
-    alpine-setup.sh            -- shared provisioning script
+    alpine-setup.sh            -- shared provisioning script (legacy name)
 ```
 
-### Provisioning Script (`alpine-setup.sh`)
+### Provisioning Script (`alpine-setup.sh`, legacy name)
 
 Installs everything on a vanilla Debian base:
 
@@ -196,8 +196,8 @@ Open `http://localhost:8080/workspace/test/` in a browser. code-server IDE shoul
 
 ### Relevant Files
 
-- `images/alpine-workspace.pkr.hcl`
-- `images/scripts/alpine-setup.sh`
+- `images/alpine-workspace.pkr.hcl` (legacy name, Debian base)
+- `images/scripts/alpine-setup.sh` (legacy name)
 - `npm-scripts/mvp-build-image.sh`
 - `npm-scripts/mvp-start-vm.sh`
 - `npm-scripts/mvp-setup-vm.sh`
@@ -222,12 +222,12 @@ Open `http://localhost:8080/workspace/test/` in a browser. code-server IDE shoul
 
 ## Risks and Unknowns
 
-| Risk                                                  | Impact  | Mitigation                                                                                                                            |
-| ----------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Base image registry access fails                      | High    | Use public Ubuntu runner image until registry access is available                                                                    |
-| Tart Packer builder issues                            | Low     | [cirruslabs/packer-plugin-tart](https://github.com/cirruslabs/packer-plugin-tart) v1.19.0, actively maintained, on HashiCorp registry |
-| code-server subfolder mounting breaks with WebSockets | High    | `--abs-proxy-base-path` is designed for this; test early                                                                              |
-| Caddy and Tart compete for port 8080                  | Low     | Different networks -- Caddy on host :8080, code-server on VM :8080                                                                    |
+| Risk                                                  | Impact | Mitigation                                                                                                                            |
+| ----------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Base image registry access fails                      | High   | Use public Ubuntu runner image until registry access is available                                                                     |
+| Tart Packer builder issues                            | Low    | [cirruslabs/packer-plugin-tart](https://github.com/cirruslabs/packer-plugin-tart) v1.19.0, actively maintained, on HashiCorp registry |
+| code-server subfolder mounting breaks with WebSockets | High   | `--abs-proxy-base-path` is designed for this; test early                                                                              |
+| Caddy and Tart compete for port 8080                  | Low    | Different networks -- Caddy on host :8080, code-server on VM :8080                                                                    |
 
 ## What Was Implemented: Control Plane Packages
 
@@ -235,14 +235,14 @@ All control plane packages have been built on top of this vertical slice. See [E
 
 ### Packages (all under `@tdpl/*` scope)
 
-| Package | Status | Tests | Description |
-|---------|--------|-------|-------------|
-| `@tdpl/runtime` | Done | 12 | TartRuntime adapter wrapping `tart` CLI (create, start, stop, remove, status, getIp with polling, configure). `configure()` writes code-server YAML config and restarts via systemctl. Injectable exec for testing. StubRuntime for dev mode (in-memory VM simulation). |
-| `@tdpl/caddy` | Done | 21 | Caddy admin API client via native fetch. Two-port routing: workspace + port routes go to srv1 (:8081). Full bootstrap config with auth, API proxy, SPA serving, root redirect. StubCaddy for dev mode. |
-| `@tdpl/queue` | Done | 5 | SQS-compatible queue client + in-memory implementation for dev/testing. |
-| `@tdpl/db` | Done | 25 | SQLite + Drizzle ORM. Hand-written schema (generated Drizzle emitter targets Postgres, not usable). Workspace + Port tables with cascade delete. Cursor-based pagination on workspace listing. |
-| `@tdpl/server` | Done | 25 | Express control plane with express-openapi-validator. Workspace CRUD + lifecycle + port forwarding endpoints. State machine enforcement. Paginated list endpoint (limit/cursor). In-process worker for dev mode. |
-| `@tdpl/worker` | Done | 7 | Async job processor: create/start/stop/delete lifecycle. Calls `runtime.configure()` + health check after VM boot. Cleans up port routes on stop/delete. Poll loop with configurable idle delay. Standalone production entrypoint. |
+| Package         | Status | Tests | Description                                                                                                                                                                                                                                                             |
+| --------------- | ------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@tdpl/runtime` | Done   | 12    | TartRuntime adapter wrapping `tart` CLI (create, start, stop, remove, status, getIp with polling, configure). `configure()` writes code-server YAML config and restarts via systemctl. Injectable exec for testing. StubRuntime for dev mode (in-memory VM simulation). |
+| `@tdpl/caddy`   | Done   | 21    | Caddy admin API client via native fetch. Two-port routing: workspace + port routes go to srv1 (:8081). Full bootstrap config with auth, API proxy, SPA serving, root redirect. StubCaddy for dev mode.                                                                  |
+| `@tdpl/queue`   | Done   | 5     | SQS-compatible queue client + in-memory implementation for dev/testing.                                                                                                                                                                                                 |
+| `@tdpl/db`      | Done   | 25    | SQLite + Drizzle ORM. Hand-written schema (generated Drizzle emitter targets Postgres, not usable). Workspace + Port tables with cascade delete. Cursor-based pagination on workspace listing.                                                                          |
+| `@tdpl/server`  | Done   | 25    | Express control plane with express-openapi-validator. Workspace CRUD + lifecycle + port forwarding endpoints. State machine enforcement. Paginated list endpoint (limit/cursor). In-process worker for dev mode.                                                        |
+| `@tdpl/worker`  | Done   | 7     | Async job processor: create/start/stop/delete lifecycle. Calls `runtime.configure()` + health check after VM boot. Cleans up port routes on stop/delete. Poll loop with configurable idle delay. Standalone production entrypoint.                                      |
 
 **Total: 96 tests, all passing.**
 
@@ -265,20 +265,20 @@ All control plane packages have been built on top of this vertical slice. See [E
 
 ## What Comes Next
 
-| Item | Status | Notes |
-|------|--------|-------|
-| `@tdpl/client` (React SPA) | Done | React + shadcn/ui + TanStack Query/Router at `/app/*`. See below. |
-| esbuild bundling | Done | ADR-011. Client builds via esbuild (503kb JS, 39kb CSS, ~300ms). Makefile target `build-client`. |
-| Root dev/test scripts | Done | `npm run dev` starts API server + worker (in-process) + client dev server concurrently. `npm test` aggregates all packages. |
-| Pagination (cursor-based) | Done | TypeSpec → OpenAPI → DB → service → routes. `limit`/`cursor` query params, `WorkspaceListResponse` model, base64url cursor encoding. |
-| Auth (basic auth in Caddy) | Done | `hashPassword()` (bcrypt) + `buildBootstrapConfig({ auth })`. Protects `/api/*` and `/app/*` on srv0 and `/workspace/*` on srv1, health check bypasses auth. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars. |
-| Dev mode stubs | Done | `StubRuntime` (in-memory VM sim) and `StubCaddy` (no-op) for local dev without real VMs or Caddy. Server embeds worker in-process when `NODE_ENV=test`. |
-| Client pagination | Done | `useInfiniteQuery` with cursor-based pagination. "Load more" button when `hasNextPage` is true. |
-| End-to-end Caddy integration | Done | Server bootstraps Caddy on startup (when not in stub mode). `buildBootstrapConfig` generates srv0 routes: API proxy, SPA file server, root redirect. `npm run dev:caddy` runs full stack. Browser-verified via Chrome DevTools. |
-| Rate limiting (Caddy) | TODO | EDD-003 specifies Caddy-level rate limiting |
-| IncusRuntime adapter | TODO | Linux support via Incus REST API |
-| Base image access | TODO | Use Ubuntu runner image if registry access fails |
-| Network isolation | TODO | Bridge network, firewall rules, NAT egress |
+| Item                         | Status | Notes                                                                                                                                                                                                                                  |
+| ---------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@tdpl/client` (React SPA)   | Done   | React + shadcn/ui + TanStack Query/Router at `/app/*`. See below.                                                                                                                                                                      |
+| esbuild bundling             | Done   | ADR-011. Client builds via esbuild (503kb JS, 39kb CSS, ~300ms). Makefile target `build-client`.                                                                                                                                       |
+| Root dev/test scripts        | Done   | `npm run dev` starts API server + worker (in-process) + client dev server concurrently. `npm test` aggregates all packages.                                                                                                            |
+| Pagination (cursor-based)    | Done   | TypeSpec → OpenAPI → DB → service → routes. `limit`/`cursor` query params, `WorkspaceListResponse` model, base64url cursor encoding.                                                                                                   |
+| Auth (basic auth in Caddy)   | Done   | `hashPassword()` (bcrypt) + `buildBootstrapConfig({ auth })`. Protects `/api/*` and `/app/*` on srv0 and `/workspace/*` on srv1, health check bypasses auth. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars. |
+| Dev mode stubs               | Done   | `StubRuntime` (in-memory VM sim) and `StubCaddy` (no-op) for local dev without real VMs or Caddy. Server embeds worker in-process when `NODE_ENV=test`.                                                                                |
+| Client pagination            | Done   | `useInfiniteQuery` with cursor-based pagination. "Load more" button when `hasNextPage` is true.                                                                                                                                        |
+| End-to-end Caddy integration | Done   | Server bootstraps Caddy on startup (when not in stub mode). `buildBootstrapConfig` generates srv0 routes: API proxy, SPA file server, root redirect. `npm run dev:caddy` runs full stack. Browser-verified via Chrome DevTools.        |
+| Rate limiting (Caddy)        | TODO   | EDD-003 specifies Caddy-level rate limiting                                                                                                                                                                                            |
+| IncusRuntime adapter         | TODO   | Linux support via Incus REST API                                                                                                                                                                                                       |
+| Base image access            | TODO   | Use Ubuntu runner image if registry access fails                                                                                                                                                                                       |
+| Network isolation            | TODO   | Bridge network, firewall rules, NAT egress                                                                                                                                                                                             |
 
 ## Lessons Learned
 
@@ -344,6 +344,7 @@ The full React SPA has been implemented at `packages/client/`. Browser-verified 
 ### API Integration
 
 All 9 API operations wired via TanStack Query with auto-refetch and cache invalidation:
+
 - List workspaces (5s refetch), Get workspace (3s refetch)
 - Create, Delete, Start, Stop workspace
 - List ports, Add port, Remove port
