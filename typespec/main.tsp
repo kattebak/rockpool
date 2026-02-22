@@ -1,13 +1,11 @@
 import "@typespec/http";
 import "@typespec/rest";
 import "@typespec/openapi3";
-
-// TODO: re-enable after kattebak/typespec-drizzle-orm-generator#8
-// import "@kattebak/typespec-drizzle-orm-generator";
-// using DrizzleEmitter;
+import "@kattebak/typespec-drizzle-orm-generator";
 
 using Http;
 using TypeSpec.Rest;
+using DrizzleEmitter;
 
 @service(#{ title: "Tidepool Control Plane" })
 @server("http://localhost:3000", "Development server")
@@ -21,38 +19,37 @@ enum WorkspaceStatus {
   error,
 }
 
-// Drizzle decorators commented out until emitter is fixed:
-// @table("workspaces", "tidepool")
+@table("workspaces", "tidepool")
 model Workspace {
-  @visibility(Lifecycle.Read)
-  // @pk @uuid("base36", true)
+  @TypeSpec.visibility(Lifecycle.Read)
+  @pk @uuid("base36", true)
   id: string;
 
-  @visibility(Lifecycle.Create, Lifecycle.Read)
-  // @unique
+  @TypeSpec.visibility(Lifecycle.Create, Lifecycle.Read)
+  @unique
   @minLength(3)
   @maxLength(63)
   @pattern("^[a-z0-9-]+$")
   name: string;
 
-  @visibility(Lifecycle.Read)
+  @TypeSpec.visibility(Lifecycle.Read)
   status: WorkspaceStatus;
 
-  @visibility(Lifecycle.Create, Lifecycle.Read)
+  @TypeSpec.visibility(Lifecycle.Create, Lifecycle.Read)
   image: string;
 
-  @visibility(Lifecycle.Read)
+  @TypeSpec.visibility(Lifecycle.Read)
   vmIp?: string;
 
-  @visibility(Lifecycle.Read)
+  @TypeSpec.visibility(Lifecycle.Read)
   errorMessage?: string;
 
-  // @createdAt
-  @visibility(Lifecycle.Read)
+  @createdAt
+  @TypeSpec.visibility(Lifecycle.Read)
   createdAt: utcDateTime;
 
-  // @updatedAt
-  @visibility(Lifecycle.Read)
+  @updatedAt
+  @TypeSpec.visibility(Lifecycle.Read)
   updatedAt: utcDateTime;
 }
 

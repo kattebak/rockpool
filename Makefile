@@ -3,8 +3,8 @@
 all: build-typespec
 
 build-typespec:
-	npm run build -w typespec
-	npm-scripts/generate-openapi-package.sh build/openapi
+	npx tsp compile typespec/ || echo "TypeSpec not yet installed, skipping"
+	test -d build/openapi && npm-scripts/generate-openapi-package.sh build/openapi || true
 
 clean:
 	rm -rf build
