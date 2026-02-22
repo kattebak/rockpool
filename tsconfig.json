@@ -17,18 +17,7 @@
 		"noFallthroughCasesInSwitch": false,
 		"inlineSourceMap": true,
 		"inlineSources": true,
-		"experimentalDecorators": true,
-		"strictPropertyInitialization": false,
-		"typeRoots": ["./node_modules/@types"],
-		"skipLibCheck": true,
-		"paths": {
-			"#app/*": ["./src/app/*"],
-			"#config/*": ["./src/config/*"],
-			"#lib/*": ["./src/lib/*"],
-			"#constructs/*": ["./src/constructs/*"],
-			"#stacks/*": ["./src/stacks/*"]
-		}
+		"skipLibCheck": true
 	},
-	"include": ["src/**/*"],
-	"exclude": ["node_modules", "cdk.out", "build", "packages"]
+	"exclude": ["node_modules", "build", "packages", "typespec"]
 }
