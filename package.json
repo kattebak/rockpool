@@ -14,7 +14,14 @@
 		"format:check": "biome format .",
 		"fix": "biome check --fix . && tsp format typespec/**/*.tsp",
 		"check": "tsgo --noEmit",
-		"check:tsc": "tsc --noEmit"
+		"check:tsc": "tsc --noEmit",
+		"build:image": "make images/tidepool-alpine",
+		"mvp:build-image": "npm-scripts/mvp-build-image.sh",
+		"mvp:start-vm": "npm-scripts/mvp-start-vm.sh",
+		"mvp:setup-vm": "npm-scripts/mvp-setup-vm.sh",
+		"mvp:caddy:bootstrap": "npm-scripts/caddy-bootstrap.sh",
+		"mvp:caddy:add-route": "npm-scripts/caddy-add-workspace-route.sh",
+		"mvp:caddy:remove-route": "npm-scripts/caddy-remove-workspace-route.sh"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",

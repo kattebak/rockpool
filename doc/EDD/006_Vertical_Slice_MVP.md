@@ -77,6 +77,8 @@ This slice intentionally simplifies the production architecture (see [EDD 001](0
 
 Packer HCL template using the Tart builder to produce an OCI-compatible VM image.
 
+**Local-only fast path (no Packer):** If you just need the MVP working quickly on macOS, you can use a public Tart base image (Ubuntu runner) and install code-server in-place. This avoids registry auth and Packer setup. It still uses Tart + Caddy and matches the routing behavior; the only deviation is the base distro.
+
 ```
 images/
   alpine-workspace.pkr.hcl    -- Packer template
