@@ -353,7 +353,7 @@ The base image's code-server init script reads `TIDEPOOL_WORKSPACE_NAME` to set 
 
 - **Caddy runs in the root VM** alongside the control plane — admin API on localhost only, network-isolated from host LAN
 - **Two-port origin isolation**: `:8080` for control plane + SPA, `:8081` for all workspace traffic — prevents workspace JS from reaching the API ([ADR-015](../ADR/015-two-port-origin-isolation.md))
-- **Basic auth in Caddy** as the initial auth mechanism; can upgrade to `forward_auth` later. **Implemented** in `@tdpl/caddy`: `hashPassword()` generates bcrypt hashes, `buildBootstrapConfig({ auth })` adds authentication handlers to srv0 protecting `/api/*` and `/app/*` with a health check bypass on `/api/health`. Not yet wired into server startup or end-to-end Caddy bootstrap flow.
+- **Basic auth in Caddy** as the initial auth mechanism; can upgrade to `forward_auth` later. **Implemented** in `@tdpl/caddy`: `hashPassword()` generates bcrypt hashes, `buildBootstrapConfig({ auth })` adds authentication handlers to srv0 protecting `/api/*` and `/app/*` with a health check bypass on `/api/health`. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars — server bootstraps Caddy with auth on startup when not in stub mode.
 - **Unambiguous URL scheme**: `/api/*` for control plane, `/app/*` for SPA, `/workspace/{name}/*` for IDE sessions
 - **Dynamic port forwarding**: user registers actual app ports (e.g. 3000, 5000) via API, Caddy routes created/removed on demand, max 5 per workspace
 
