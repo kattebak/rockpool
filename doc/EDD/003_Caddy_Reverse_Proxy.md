@@ -17,50 +17,54 @@ The control plane configures Caddy's routes via its admin API on localhost as wo
 
 Caddy is the API gateway for all inbound traffic. It is responsible for:
 
-- Basic auth for local/testing
-- OAuth-backed auth for production (GitHub OAuth)
+- Basic auth for local/testing and CI
 - Rate limiting at the edge (see [EDD 007](007_Data_Model.md))
 - Routing and path prefix handling
 
-Rate limiting requires a Caddy module; treat it as a required gateway capability even if the first implementation is minimal.
+Caddy does **not** handle OAuth. GitHub OAuth is handled by the control plane itself (see below).
 
-Authentication has two supported modes: built-in `basic_auth` for local testing, and `caddy-security` for OAuth-backed login.
+### Authentication Modes
 
-### Authentication Options
-
-#### Option A: Basic Auth (local/testing)
+#### Basic Auth (Caddy-level, for dev/CI)
 
 - Use Caddy's built-in `basic_auth` directive.
 - No external identity provider required.
-- Suitable for localhost and quick MVP testing.
+- Suitable for localhost, quick testing, and CI integration tests.
+- Controlled via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars.
 
-#### Option B: GitHub OAuth (production)
+#### GitHub OAuth (control plane, for production)
 
-Use `github.com/greenpau/caddy-security` (AuthCrunch) for OAuth-backed authentication and authorization.
+OAuth is handled in the control plane as a separate `@rockpool/auth` package, not in Caddy. This gives the server full control over the GitHub access token, which is needed for:
 
-Key notes from AuthCrunch docs:
+- Cloning private repos into workspace VMs
+- Querying the GitHub API (list repos, org membership)
+- Pre-configuring git credentials inside workspaces
 
-- The authentication plugin issues JWT/PASETO tokens after successful login.
-- The authorization plugin validates tokens and applies policy (ACLs, path rules, role checks).
+The auth flow:
 
-High-level flow:
+1. Browser hits `GET /api/auth/github` → server redirects to GitHub's OAuth authorize URL
+2. User authenticates on GitHub → GitHub redirects to `GET /api/auth/callback`
+3. Server exchanges the authorization code for an access token
+4. Server creates a session (cookie-based), stores the GitHub token server-side
+5. Subsequent API requests are authenticated via session cookie
+6. Session middleware protects `/api/workspaces/*` and other CRUD routes
 
-1. Configure a GitHub OAuth app with a callback URL (localhost works fine).
-2. Build Caddy with the `caddy-security` module (via `xcaddy` or a custom download).
-3. Configure `security` with an OAuth identity provider using the GitHub driver.
-4. Configure an authentication portal that enables the GitHub provider.
-5. Configure an authorization policy to protect `/api/*` and `/app/*`.
-6. Attach `authenticate` and `authorize` directives to the relevant routes.
+Auth endpoints (served by `@rockpool/auth`, mounted on the control plane):
 
-GitHub OAuth works on localhost — the callback URL (e.g. `http://localhost:8080/auth/callback`) only needs to be reachable by the user's browser, not by GitHub's servers. A tunnel is only needed for webhooks, not for the OAuth login flow. Basic auth remains available for quick dev/test and CI integration testing.
+| Endpoint | Method | Purpose |
+| --- | --- | --- |
+| `/api/auth/github` | GET | Redirect to GitHub OAuth |
+| `/api/auth/callback` | GET | Exchange code for token, create session |
+| `/api/auth/me` | GET | Return current user info |
+| `/api/auth/logout` | POST | Destroy session |
 
-### Rate Limiting Module
+GitHub OAuth works on localhost — the callback URL (e.g. `http://localhost:8080/api/auth/callback`) only needs to be reachable by the user's browser, not by GitHub's servers. A tunnel is only needed for webhooks, not for the OAuth login flow.
 
-- Use **`github.com/mholt/caddy-ratelimit`**.
-- Build the Caddy binary with `xcaddy` so the module is compiled in.
-- Apply rate limiting at the edge for both `srv0` (API + SPA) and `srv1` (workspace routes).
+When OAuth is enabled (`GITHUB_OAUTH_CLIENT_ID` is set), Caddy does not apply basic auth — it just proxies to the control plane, which enforces sessions. When OAuth is not configured, the existing Caddy basic auth mode is used (for dev/CI).
 
-### Rate Limiting Policy
+### Rate Limiting
+
+Rate limiting uses **`github.com/mholt/caddy-ratelimit`**, compiled into Caddy with `xcaddy`.
 
 Default limits (per identity):
 
@@ -70,51 +74,10 @@ Default limits (per identity):
 
 Identity key order:
 
-1. Basic auth username (when present)
+1. Session user / basic auth username (when present)
 2. Client IP (fallback)
 
 These limits are intentionally conservative for a single-user system and can be raised once real usage data is available.
-
-### Security Plugin Details
-
-Selected plugin: `github.com/greenpau/caddy-security` (AuthCrunch).
-
-Build options:
-
-- Custom Caddy download from caddyserver.com with `caddy-security` enabled.
-- `xcaddy` build with `--with github.com/greenpau/caddy-security` (and `caddy-ratelimit`).
-
-Minimal Caddyfile sketch (conceptual):
-
-```caddyfile
-security {
-  oauth identity provider github {
-    realm github
-    driver github
-    client_id {env.GITHUB_OAUTH_CLIENT_ID}
-    client_secret {env.GITHUB_OAUTH_CLIENT_SECRET}
-  }
-
-  authentication portal rockpool {
-    enable identity provider github
-  }
-
-  authorization policy rockpool {
-    set auth url /auth
-    default deny
-    # allow rules for authenticated users go here
-  }
-}
-
-:8080 {
-  authenticate with rockpool
-  authorize with rockpool
-  reverse_proxy /api/* localhost:7163
-  reverse_proxy /app/* localhost:7163
-}
-```
-
-The exact policy rules depend on the claims/roles you want to accept. Keep this minimal initially (allow all authenticated users), then tighten later if needed.
 
 ## Admin API Basics
 
@@ -400,8 +363,8 @@ The base image's code-server init script reads `ROCKPOOL_WORKSPACE_NAME` to set 
 
 - **Caddy runs in the root VM** alongside the control plane — admin API on localhost only, network-isolated from host LAN
 - **Two-port origin isolation**: `:8080` for control plane + SPA, `:8081` for all workspace traffic — prevents workspace JS from reaching the API ([ADR-015](../ADR/015-two-port-origin-isolation.md))
-- **Basic auth in Caddy** as the initial auth mechanism; can upgrade to `forward_auth` later. **Implemented** in `@rockpool/caddy`: `hashPassword()` generates bcrypt hashes, `buildBootstrapConfig({ auth })` adds authentication handlers to srv0 protecting `/api/*` and `/app/*` with a health check bypass on `/api/health`. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars — server bootstraps Caddy with auth on startup when not in stub mode.
-- **OAuth-ready path** via `caddy-security` (AuthCrunch) with GitHub OAuth provider, authentication portal, and authorization policy. Works on localhost (see appendix).
+- **Basic auth in Caddy** for dev/CI. **Implemented** in `@rockpool/caddy`: `hashPassword()` generates bcrypt hashes, `buildBootstrapConfig({ auth })` adds authentication handlers to srv0 protecting `/api/*` and `/app/*` with a health check bypass on `/api/health`. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars — server bootstraps Caddy with auth on startup when not in stub mode.
+- **GitHub OAuth in the control plane** via `@rockpool/auth` package. Server handles the full OAuth flow, stores GitHub access tokens server-side, and manages sessions via cookies. Caddy stays as a pass-through proxy when OAuth is enabled. This gives the control plane direct access to GitHub tokens for repo cloning, API queries, and git credential injection into workspaces.
 - **Rate limiting via `caddy-ratelimit`** compiled into Caddy with `xcaddy`. Default policy: 10/min, 100/hour, 300/day per identity (basic auth user, then IP fallback).
 - **Unambiguous URL scheme**: `/api/*` for control plane, `/app/*` for SPA, `/workspace/{name}/*` for IDE sessions
 - **Dynamic port forwarding**: user registers actual app ports (e.g. 3000, 5000) via API, Caddy routes created/removed on demand, max 5 per workspace
@@ -436,17 +399,17 @@ Run `direnv allow` after creating or modifying `.envrc`.
 2. Fill in:
    - **Application name**: `Rockpool` (or any name)
    - **Homepage URL**: `http://localhost:8080`
-   - **Authorization callback URL**: `http://localhost:8080/auth/oauth2/github/authorization-code-callback`
+   - **Authorization callback URL**: `http://localhost:8080/api/auth/callback`
 3. Click **Register application**.
 4. Copy the **Client ID** and generate a **Client Secret**.
 5. Add both to `.envrc` (see above).
 
-The callback URL is the default path used by AuthCrunch. It works on localhost — the redirect happens in the browser, so GitHub's servers don't need to reach it. No tunnel required.
+The callback URL is handled by the `@rockpool/auth` package in the control plane. It works on localhost — the redirect happens in the browser, so GitHub's servers don't need to reach it. No tunnel required.
 
 For production, update the callback URL to the public domain (e.g. via Cloudflare Tunnel).
 
 ## Open Questions
 
-- [ ] Should OAuth be required for `:8081` workspace traffic, or only for `:8080` control plane traffic?
-- [ ] Which OAuth claims or roles should be required for admin-level actions?
+- [ ] How should `:8081` workspace traffic be authenticated? Session cookie forwarding, separate token, or Caddy basic auth?
+- [ ] Which GitHub OAuth scopes should be requested (e.g. `repo`, `read:org`, `read:user`)?
 - [ ] Health check routes for upstreams (auto-remove dead workspaces)?
