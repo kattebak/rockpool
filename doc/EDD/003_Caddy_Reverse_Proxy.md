@@ -45,7 +45,7 @@ Key notes from AuthCrunch docs:
 
 High-level flow:
 
-1. Configure a GitHub OAuth app with a public callback URL.
+1. Configure a GitHub OAuth app with a callback URL (localhost works fine).
 2. Build Caddy with the `caddy-security` module (via `xcaddy` or a custom download).
 3. Configure `security` with an OAuth identity provider using the GitHub driver.
 4. Configure an authentication portal that enables the GitHub provider.
@@ -235,49 +235,7 @@ Load initial config via `POST /load`:
 
 Workspace routes are added dynamically to `srv1` (see below).
 
-## Adding a Workspace Route
-
-When a workspace is created, the control plane calls:
-
-```bash
-POST http://localhost:2019/config/apps/http/servers/srv1/routes
-
-{
-  "@id": "workspace-alice",
-  "match": [{ "path": ["/workspace/alice/*"] }],
-  "handle": [
-    {
-      "handler": "rewrite",
-      "strip_path_prefix": "/workspace/alice"
-    },
-    {
-      "handler": "reverse_proxy",
-      "upstreams": [{ "dial": "10.0.1.50:8080" }],
-      "flush_interval": -1,
-      "stream_timeout": "24h",
-      "stream_close_delay": "5s",
-      "headers": {
-        "request": {
-          "set": {
-            "X-Forwarded-Prefix": ["/workspace/alice"]
-          }
-        }
-      }
-    }
-  ],
-  "terminal": true
-}
-```
-
-Key settings:
-
-- **`strip_path_prefix`**: Removes `/workspace/alice` so the backend sees `/` as root
-- **`flush_interval: -1`**: Disables buffering for low-latency terminal/IDE output
-- **`stream_timeout: "24h"`**: Long-lived WebSocket connections for IDE sessions
-- **`stream_close_delay: "5s"`**: Keeps WebSockets alive during config reloads
-- **`X-Forwarded-Prefix`**: Tells the backend its path context
-
-## Port Forwarding Routes
+## Workspace and Port Forwarding Routes
 
 Ports are registered dynamically via the API (`POST /api/workspaces/{id}/ports`, see [EDD 007](007_Data_Model.md)). When a user registers a port, the server creates a Caddy route for it. When unregistered, the route is deleted. Up to 5 ports per workspace.
 
@@ -286,6 +244,13 @@ If a port is registered but no service is listening inside the VM, the proxy ret
 Port routes are nested inside the workspace route using a subroute handler. Subroutes match against the **original request path** (no rewrite has happened yet), so inner matchers use the full path. More specific port routes match first due to subroute ordering; the fallback (no matcher) handles the IDE itself.
 
 ### Workspace route (created at workspace start)
+
+When a workspace is created, the control plane POSTs to `srv1/routes`. Key settings:
+
+- **`strip_path_prefix`**: Removes `/workspace/alice` so the backend sees `/` as root
+- **`flush_interval: -1`**: Disables buffering for low-latency terminal/IDE output
+- **`stream_timeout: "24h"`**: Long-lived WebSocket connections for IDE sessions
+- **`stream_close_delay: "5s"`**: Keeps WebSockets alive during config reloads
 
 The workspace starts with just the IDE route (no port subroutes):
 
@@ -321,7 +286,7 @@ The workspace starts with just the IDE route (no port subroutes):
 When the user registers port 3000, a subroute is inserted before the IDE fallback:
 
 ```bash
-POST http://localhost:2019/config/apps/http/servers/srv0/routes/.../routes
+POST http://localhost:2019/config/apps/http/servers/srv1/routes/.../routes
 ```
 
 ```json
@@ -358,15 +323,13 @@ DELETE http://localhost:2019/id/workspace-alice-port-3000
 - Workspace: `workspace-{name}`
 - Port: `workspace-{name}-port-{port}`
 
-````
-
 ## Removing a Workspace
 
 Delete by `@id` (stable, not affected by array index shifts):
 
 ```bash
 DELETE http://localhost:2019/id/workspace-alice
-````
+```
 
 This removes the route and all nested subroutes.
 
@@ -438,7 +401,7 @@ The base image's code-server init script reads `ROCKPOOL_WORKSPACE_NAME` to set 
 - **Caddy runs in the root VM** alongside the control plane — admin API on localhost only, network-isolated from host LAN
 - **Two-port origin isolation**: `:8080` for control plane + SPA, `:8081` for all workspace traffic — prevents workspace JS from reaching the API ([ADR-015](../ADR/015-two-port-origin-isolation.md))
 - **Basic auth in Caddy** as the initial auth mechanism; can upgrade to `forward_auth` later. **Implemented** in `@rockpool/caddy`: `hashPassword()` generates bcrypt hashes, `buildBootstrapConfig({ auth })` adds authentication handlers to srv0 protecting `/api/*` and `/app/*` with a health check bypass on `/api/health`. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars — server bootstraps Caddy with auth on startup when not in stub mode.
-- **OAuth-ready path** via `caddy-security` (AuthCrunch) with GitHub OAuth provider, authentication portal, and authorization policy. Use for production when a public callback URL is available.
+- **OAuth-ready path** via `caddy-security` (AuthCrunch) with GitHub OAuth provider, authentication portal, and authorization policy. Works on localhost (see appendix).
 - **Rate limiting via `caddy-ratelimit`** compiled into Caddy with `xcaddy`. Default policy: 10/min, 100/hour, 300/day per identity (basic auth user, then IP fallback).
 - **Unambiguous URL scheme**: `/api/*` for control plane, `/app/*` for SPA, `/workspace/{name}/*` for IDE sessions
 - **Dynamic port forwarding**: user registers actual app ports (e.g. 3000, 5000) via API, Caddy routes created/removed on demand, max 5 per workspace
