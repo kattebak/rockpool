@@ -25,6 +25,10 @@ curl -fsSL -X POST "${ADMIN_URL}/load" \
           "srv0": {
             "listen": [":8080"],
             "routes": []
+          },
+          "srv1": {
+            "listen": [":8081"],
+            "routes": []
           }
         }
       }

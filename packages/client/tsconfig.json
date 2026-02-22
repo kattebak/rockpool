@@ -1,0 +1,28 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"jsx": "react-jsx",
+		"resolveJsonModule": true,
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"declaration": true,
+		"strict": true,
+		"noImplicitAny": true,
+		"strictNullChecks": true,
+		"noImplicitThis": true,
+		"alwaysStrict": true,
+		"noImplicitReturns": true,
+		"skipLibCheck": true,
+		"inlineSourceMap": true,
+		"inlineSources": true,
+		"paths": {
+			"@/*": ["./src/*"]
+		},
+		"rootDir": ".",
+		"outDir": "./dist",
+		"noEmit": true
+	},
+	"include": ["src/**/*.ts", "src/**/*.tsx"],
+	"exclude": ["node_modules", "dist"]
+}

@@ -1,16 +1,15 @@
 ---
 name: chrome-devtools
-description: Browser automation and debugging with Chrome DevTools MCP. Use for testing web apps, taking screenshots, analyzing performance, inspecting network requests, and automating browser interactions.
-allowed-tools: Bash(npm:*), mcp__chrome-devtools__*
+description: Browser automation and debugging with Chrome DevTools Protocol. Use for testing web apps, taking screenshots, analyzing performance, inspecting network requests, and automating browser interactions.
 ---
 
-# Chrome DevTools MCP
+# Chrome DevTools Protocol
 
-Browser automation and debugging using Chrome DevTools Protocol.
+Browser automation and debugging using Chrome DevTools Protocol (CDP) directly.
 
 ## Prerequisites
 
-Chrome must be running with remote debugging enabled. **Always launch it automatically** before using any DevTools tools:
+Chrome must be running with remote debugging enabled. **Always launch it automatically** before using any DevTools commands:
 
 ```bash
 npm run chrome:debug &
@@ -30,102 +29,95 @@ This opens Chrome with:
 - Separate user profile (won't affect your main Chrome)
 - Auto-open behavior disabled
 
-**Keep this Chrome window open** while using the DevTools MCP tools.
+**Keep this Chrome window open** while using DevTools.
 
-## Available Tools
+## CLI Tool
+
+Use `npm run chrome:cdp` for all CDP operations. The script at `npm-scripts/chrome-cdp.mjs` wraps the Chrome DevTools Protocol using Node.js built-in WebSocket (no external deps).
+
+```bash
+npm run chrome:cdp -- list                          # List open tabs
+npm run chrome:cdp -- navigate <url>                # Navigate to a URL
+npm run chrome:cdp -- screenshot [path]             # Screenshot (default: /tmp/screenshot.png)
+npm run chrome:cdp -- eval <expression>             # Run JS in the page
+npm run chrome:cdp -- reload                        # Reload current page
+npm run chrome:cdp -- version                       # Browser version info
+```
+
+Environment variables:
+- `CDP_PORT=9222` — remote debugging port (default: 9222)
+- `CDP_TAB=0` — tab index to target (default: 0)
+
+## Common CDP Methods
 
 ### Navigation & Pages
 
-| Tool            | Purpose                     |
-| --------------- | --------------------------- |
-| `navigate_page` | Go to a URL                 |
-| `new_page`      | Open new tab                |
-| `close_page`    | Close a tab                 |
-| `list_pages`    | List open tabs              |
-| `select_page`   | Switch to a tab             |
-| `wait_for`      | Wait for element/navigation |
+| Method | Purpose |
+| --- | --- |
+| `Page.navigate` | Go to a URL (`{url}`) |
+| `Page.reload` | Reload the page |
+| `Target.createTarget` | Open new tab (`{url}`) |
+| `Target.closeTarget` | Close a tab (`{targetId}`) |
 
-### Input & Interaction
+### Screenshots & DOM
 
-| Tool            | Purpose                      |
-| --------------- | ---------------------------- |
-| `click`         | Click an element             |
-| `fill`          | Fill a single input field    |
-| `fill_form`     | Fill multiple form fields    |
-| `hover`         | Hover over element           |
-| `press_key`     | Press keyboard key           |
-| `drag`          | Drag and drop                |
-| `upload_file`   | Upload file to input         |
-| `handle_dialog` | Accept/dismiss alert/confirm |
+| Method | Purpose |
+| --- | --- |
+| `Page.captureScreenshot` | Capture screenshot (`{format: 'png'}`) |
+| `DOM.getDocument` | Get the DOM tree |
+| `Runtime.evaluate` | Run JavaScript in page (`{expression}`) |
 
-### Debugging & Inspection
+### Input
 
-| Tool                    | Purpose                      |
-| ----------------------- | ---------------------------- |
-| `take_screenshot`       | Capture page screenshot      |
-| `take_snapshot`         | Get page HTML snapshot       |
-| `evaluate_script`       | Run JavaScript in page       |
-| `list_console_messages` | Get console output           |
-| `get_console_message`   | Get specific console message |
-| `list_network_requests` | List HTTP requests           |
-| `get_network_request`   | Get request details          |
+| Method | Purpose |
+| --- | --- |
+| `Input.dispatchMouseEvent` | Click, hover, drag |
+| `Input.dispatchKeyEvent` | Keyboard input |
+
+### Network & Console
+
+| Method | Purpose |
+| --- | --- |
+| `Network.enable` | Start capturing network events |
+| `Console.enable` | Start capturing console messages |
+| `Network.getResponseBody` | Get response body (`{requestId}`) |
 
 ### Performance
 
-| Tool                          | Purpose               |
-| ----------------------------- | --------------------- |
-| `performance_start_trace`     | Start recording trace |
-| `performance_stop_trace`      | Stop and save trace   |
-| `performance_analyze_insight` | Analyze trace data    |
+| Method | Purpose |
+| --- | --- |
+| `Tracing.start` | Start performance trace |
+| `Tracing.end` | Stop trace |
+| `Performance.getMetrics` | Get runtime metrics |
 
-### Display
+### Emulation
 
-| Tool          | Purpose                       |
-| ------------- | ----------------------------- |
-| `emulate`     | Emulate device (mobile, etc.) |
-| `resize_page` | Change viewport size          |
+| Method | Purpose |
+| --- | --- |
+| `Emulation.setDeviceMetricsOverride` | Set viewport/device |
+| `Emulation.setUserAgentOverride` | Override user agent |
 
 ## Common Workflows
 
 ### Test a Local Web App
 
-```
-1. Navigate to localhost URL
-2. Take a screenshot
-3. Fill the login form with test credentials
-4. Click the submit button
-5. Wait for navigation
-6. Take another screenshot to verify
-```
+1. Navigate to localhost URL with `Page.navigate`
+2. Take a screenshot with `Page.captureScreenshot`
+3. Fill inputs with `Runtime.evaluate` (set `.value` and dispatch `input` event)
+4. Click buttons with `Runtime.evaluate` (`.click()`)
+5. Wait with `setTimeout`, then screenshot again
 
 ### Debug Network Issues
 
-```
-1. Navigate to the page
-2. List network requests
-3. Get details for failed requests
-4. Check console messages for errors
-```
-
-### Performance Analysis
-
-```
-1. Start a performance trace
+1. Enable network capture with `Network.enable`
 2. Navigate to the page
-3. Interact with the page
-4. Stop the trace
-5. Analyze insights for bottlenecks
-```
+3. Collect `Network.requestWillBeSent` / `Network.responseReceived` events
+4. Get response bodies with `Network.getResponseBody`
 
 ### Responsive Design Testing
 
-```
-1. Navigate to the page
-2. Emulate iPhone 14 Pro
-3. Take a screenshot
-4. Resize to tablet dimensions
-5. Take another screenshot
-```
+1. Set viewport with `Emulation.setDeviceMetricsOverride`
+2. Navigate and screenshot at different sizes
 
 ## Troubleshooting
 
@@ -137,17 +129,17 @@ Chrome isn't running with remote debugging. Run:
 npm run chrome:debug
 ```
 
-### "Page not found" or stale references
+### Empty response from `/json/list`
 
-Pages can become stale. Use `list_pages` to get current page IDs, then `select_page` to switch.
+No tabs are open. Use `Target.createTarget` to open one, or navigate the blank tab.
 
-### Modal dialogs blocking
+### Page not loading in time for screenshot
 
-Use `handle_dialog` to accept or dismiss alerts/confirms/prompts.
+Increase the `setTimeout` delay before `Page.captureScreenshot`. For SPAs that do client-side rendering, 3-5 seconds may be needed.
 
 ## Tips
 
-- Use `wait_for` after navigation or clicks that trigger page changes
-- Use CSS selectors for `click`, `fill`, etc. (e.g., `#submit-btn`, `.login-form input[name="email"]`)
-- Screenshots are saved to the current directory by default
-- Performance traces can be opened in Chrome DevTools (chrome://tracing)
+- Always use `--experimental-websocket` flag with Node.js for the built-in WebSocket
+- Use `Runtime.evaluate` as a Swiss Army knife — you can query DOM, fill forms, click buttons, read text, all via JS expressions
+- Screenshots are base64-encoded in the CDP response; decode with `Buffer.from(data, 'base64')`
+- CDP docs: https://chromedevtools.github.io/devtools-protocol/
