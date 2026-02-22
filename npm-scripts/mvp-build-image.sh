@@ -27,10 +27,10 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "$ROOT_DIR"
 
-packer init images/alpine-workspace.pkr.hcl
+packer init images/workspace.pkr.hcl
 packer build \
   -var "vm_base_name=${VM_BASE_NAME}" \
   -var "vm_name=${VM_NAME}" \
   -var "ssh_username=${SSH_USER}" \
   -var "ssh_password=${SSH_PASS}" \
-  images/alpine-workspace.pkr.hcl
+  images/workspace.pkr.hcl

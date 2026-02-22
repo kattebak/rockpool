@@ -52,7 +52,7 @@ High-level flow:
 5. Configure an authorization policy to protect `/api/*` and `/app/*`.
 6. Attach `authenticate` and `authorize` directives to the relevant routes.
 
-GitHub OAuth is not practical on localhost without a tunnel (e.g. Cloudflare Tunnel) because GitHub requires a public callback URL.
+GitHub OAuth works on localhost — the callback URL (e.g. `http://localhost:8080/auth/callback`) only needs to be reachable by the user's browser, not by GitHub's servers. A tunnel is only needed for webhooks, not for the OAuth login flow. Basic auth remains available for quick dev/test and CI integration testing.
 
 ### Rate Limiting Module
 
@@ -442,6 +442,45 @@ The base image's code-server init script reads `ROCKPOOL_WORKSPACE_NAME` to set 
 - **Rate limiting via `caddy-ratelimit`** compiled into Caddy with `xcaddy`. Default policy: 10/min, 100/hour, 300/day per identity (basic auth user, then IP fallback).
 - **Unambiguous URL scheme**: `/api/*` for control plane, `/app/*` for SPA, `/workspace/{name}/*` for IDE sessions
 - **Dynamic port forwarding**: user registers actual app ports (e.g. 3000, 5000) via API, Caddy routes created/removed on demand, max 5 per workspace
+
+## Appendix: Local Development Setup
+
+### Prerequisites
+
+- [direnv](https://direnv.net/) installed and hooked into your shell
+
+### `.envrc`
+
+The project uses `.envrc` (gitignored) for local environment variables. It should contain:
+
+```bash
+export TART_HOME="$PWD/.tart"
+export GITHUB_OAUTH_CLIENT_ID=<client-id>
+export GITHUB_OAUTH_CLIENT_SECRET=<client-secret>
+```
+
+| Variable | Purpose |
+| --- | --- |
+| `TART_HOME` | Stores tart VMs in `.tart/` inside the project instead of `~/.tart/` |
+| `GITHUB_OAUTH_CLIENT_ID` | GitHub OAuth App client ID |
+| `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App client secret |
+
+Run `direnv allow` after creating or modifying `.envrc`.
+
+### GitHub OAuth App
+
+1. Go to **GitHub > Settings > Developer settings > OAuth Apps > New OAuth App**.
+2. Fill in:
+   - **Application name**: `Rockpool` (or any name)
+   - **Homepage URL**: `http://localhost:8080`
+   - **Authorization callback URL**: `http://localhost:8080/auth/oauth2/github/authorization-code-callback`
+3. Click **Register application**.
+4. Copy the **Client ID** and generate a **Client Secret**.
+5. Add both to `.envrc` (see above).
+
+The callback URL is the default path used by AuthCrunch. It works on localhost — the redirect happens in the browser, so GitHub's servers don't need to reach it. No tunnel required.
+
+For production, update the callback URL to the public domain (e.g. via Cloudflare Tunnel).
 
 ## Open Questions
 

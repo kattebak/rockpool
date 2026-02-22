@@ -7,7 +7,7 @@
 | Created      | 2026-02-22                                                                                                                                                                                                                         |
 | Updated      | 2026-02-22                                                                                                                                                                                                                         |
 | Related ADRs | [ADR-005](../ADR/005-node22-esmodules.md), [ADR-007](../ADR/007-npm-workspaces-monorepo.md), [ADR-014](../ADR/014-build-tooling-conventions.md), [ADR-015](../ADR/015-two-port-origin-isolation.md)                                |
-| Related EDDs | [EDD-002](../EDD/002_MicroVM_Runtime.md), [EDD-003](../EDD/003_Caddy_Reverse_Proxy.md), [EDD-005](../EDD/005_Workspace_Image_Pipeline.md), [EDD-006](../EDD/006_Vertical_Slice_MVP.md), [EDD-008](../EDD/008_Package_Structure.md) |
+| Related EDDs | [EDD-002](../EDD/002_MicroVM_Runtime.md), [EDD-003](../EDD/003_Caddy_Reverse_Proxy.md), [EDD-005](../EDD/005_Workspace_Image_Pipeline.md), [EDD-008](../EDD/008_Package_Structure.md) |
 
 ## Summary
 
@@ -34,7 +34,7 @@ Rockpool is currently developer-focused. The next step is a minimal-fuss install
 
 ## Background and Current State
 
-- MVP flow is documented in [EDD-006](../EDD/006_Vertical_Slice_MVP.md) and uses `npm-scripts/` to start a VM, configure code-server, bootstrap Caddy, and add routes.
+- The current flow uses `npm-scripts/` to start a VM, configure code-server, bootstrap Caddy, and add routes.
 - macOS uses Tart for microVMs ([EDD-002](../EDD/002_MicroVM_Runtime.md)).
 - Linux uses Incus for microVMs ([EDD-002](../EDD/002_MicroVM_Runtime.md)).
 - Images are built locally with Packer, shared provision script, and produce Tart and Incus outputs ([EDD-005](../EDD/005_Workspace_Image_Pipeline.md)).

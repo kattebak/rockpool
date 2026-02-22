@@ -1,23 +1,39 @@
-.PHONY: all clean build-typespec build-sdk build-client images/rockpool-workspace
+.PHONY: all clean build-client
 
 DRIZZLE_ORM_VERSION := 1.0.0-beta.15-859cf75
+STAMP_DIR := .stamps
+TART_HOME := $(CURDIR)/.tart
+export TART_HOME
 
-all: build-typespec build-sdk build-client
+TSP_SOURCES := typespec/main.tsp typespec/tspconfig.yaml
 
-build-typespec:
-	npx tsp compile typespec/ || echo "TypeSpec not yet installed, skipping"
-	test -d build/openapi && npm-scripts/generate-openapi-package.sh build/openapi || true
-	test -d build/db-schema && npm-scripts/patch-db-schema-deps.sh build/db-schema $(DRIZZLE_ORM_VERSION) || true
+all: build/sdk/index.ts build-client $(STAMP_DIR)/rockpool-workspace
 
-build-sdk: build-typespec
-	test -f build/openapi/openapi.yaml && npm-scripts/generate-sdk.sh build/openapi/openapi.yaml build/sdk || true
+$(STAMP_DIR):
+	mkdir -p $(STAMP_DIR)
 
-build-client: build-typespec
+build/openapi/openapi.yaml: $(TSP_SOURCES)
+	npx tsp compile typespec/
+	npm-scripts/generate-openapi-package.sh build/openapi
+	npm-scripts/patch-db-schema-deps.sh build/db-schema $(DRIZZLE_ORM_VERSION)
+
+build/sdk/index.ts: build/openapi/openapi.yaml
+	npm-scripts/generate-sdk.sh build/openapi/openapi.yaml build/sdk
+
+build-client: build/openapi/openapi.yaml
 	npm run build -w packages/client
 
 clean:
-	rm -rf build
+	rm -rf build $(STAMP_DIR)
 
-images/rockpool-workspace: images/alpine-workspace.pkr.hcl images/scripts/alpine-setup.sh
-	packer init images/alpine-workspace.pkr.hcl
-	packer build images/alpine-workspace.pkr.hcl
+.envrc:
+	@echo 'export TART_HOME="$$PWD/.tart"' > $@
+	@echo 'export GITHUB_OAUTH_CLIENT_ID=<your-client-id>' >> $@
+	@echo 'export GITHUB_OAUTH_CLIENT_SECRET=<your-client-secret>' >> $@
+	@echo "Created .envrc — fill in your GitHub OAuth credentials."
+	@echo "See doc/EDD/003_Caddy_Reverse_Proxy.md appendix for setup instructions."
+
+$(STAMP_DIR)/rockpool-workspace: images/workspace.pkr.hcl images/scripts/setup.sh | $(STAMP_DIR)
+	packer init images/workspace.pkr.hcl
+	packer build images/workspace.pkr.hcl
+	touch $@
