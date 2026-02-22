@@ -6,9 +6,9 @@ import "@kattebak/typespec-drizzle-orm-generator";
 using Http;
 using TypeSpec.Rest;
 
-@service(#{ title: "Tidepool Control Plane" })
+@service(#{ title: "Rockpool Control Plane" })
 @server("http://localhost:3000", "Development server")
-namespace Tidepool;
+namespace Rockpool;
 
 enum WorkspaceStatus {
   creating,
@@ -18,7 +18,7 @@ enum WorkspaceStatus {
   error,
 }
 
-@table("workspaces", "tidepool")
+@table("workspaces", "rockpool")
 model Workspace {
   @visibility(Lifecycle.Read)
   @pk

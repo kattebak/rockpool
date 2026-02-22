@@ -1,4 +1,4 @@
-.PHONY: all clean build-typespec build-sdk build-client images/tidepool-workspace
+.PHONY: all clean build-typespec build-sdk build-client images/rockpool-workspace
 
 DRIZZLE_ORM_VERSION := 1.0.0-beta.15-859cf75
 
@@ -18,6 +18,6 @@ build-client: build-typespec
 clean:
 	rm -rf build
 
-images/tidepool-workspace: images/alpine-workspace.pkr.hcl images/scripts/alpine-setup.sh
+images/rockpool-workspace: images/alpine-workspace.pkr.hcl images/scripts/alpine-setup.sh
 	packer init images/alpine-workspace.pkr.hcl
 	packer build images/alpine-workspace.pkr.hcl

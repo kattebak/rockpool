@@ -1,14 +1,14 @@
-import { createCaddyClient } from "@tdpl/caddy";
-import { createDb } from "@tdpl/db";
-import { createSqsQueue } from "@tdpl/queue";
-import { createTartRuntime } from "@tdpl/runtime";
+import { createCaddyClient } from "@rockpool/caddy";
+import { createDb } from "@rockpool/db";
+import { createSqsQueue } from "@rockpool/queue";
+import { createTartRuntime } from "@rockpool/runtime";
 import pino from "pino";
 import { createPollLoop } from "./poll-loop.ts";
 import { createProcessor } from "./processor.ts";
 
 const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
 
-const db = createDb(process.env.DB_PATH ?? "tidepool.db");
+const db = createDb(process.env.DB_PATH ?? "rockpool.db");
 
 const queue = createSqsQueue({
 	endpoint: process.env.QUEUE_ENDPOINT ?? "http://localhost:9324",

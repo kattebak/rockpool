@@ -156,7 +156,7 @@ describe("TartRuntime", () => {
 
 		assert.ok(runtime.configure, "configure should be defined");
 		await runtime.configure("my-workspace", {
-			TIDEPOOL_WORKSPACE_NAME: "my-workspace",
+			ROCKPOOL_WORKSPACE_NAME: "my-workspace",
 		});
 
 		assert.equal(calls.length, 2);
@@ -199,13 +199,13 @@ describe("TartRuntime", () => {
 
 		assert.ok(runtime.configure, "configure should be defined");
 		await runtime.configure("my-workspace", {
-			TIDEPOOL_WORKSPACE_NAME: "my-workspace",
+			ROCKPOOL_WORKSPACE_NAME: "my-workspace",
 		});
 
 		assert.equal(sshCallCount, 3);
 	});
 
-	it("configure is a no-op when TIDEPOOL_WORKSPACE_NAME is missing", async () => {
+	it("configure is a no-op when ROCKPOOL_WORKSPACE_NAME is missing", async () => {
 		const calls: Array<{ bin: string; args: string[] }> = [];
 		async function exec(bin: string, args: string[]): Promise<string> {
 			calls.push({ bin, args });
@@ -233,7 +233,7 @@ describe("TartRuntime", () => {
 		const { configure } = runtime;
 		assert.ok(configure, "configure should be defined");
 		await assert.rejects(
-			() => configure("my-workspace", { TIDEPOOL_WORKSPACE_NAME: "my-workspace" }),
+			() => configure("my-workspace", { ROCKPOOL_WORKSPACE_NAME: "my-workspace" }),
 			/sshKeyPath is required/,
 		);
 	});

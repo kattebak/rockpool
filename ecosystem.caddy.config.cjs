@@ -19,7 +19,7 @@ module.exports = {
 			env: {
 				WORKER_INLINE: "true",
 				SPA_ROOT: path.join(__dirname, "build", "client"),
-				SSH_KEY_PATH: path.join(__dirname, "images", "ssh", "tidepool_ed25519"),
+				SSH_KEY_PATH: path.join(__dirname, "images", "ssh", "rockpool_ed25519"),
 			},
 			watch: ["packages/server/src"],
 			watch_delay: 1000,

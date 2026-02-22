@@ -9,7 +9,7 @@
 
 ## Summary
 
-Defines how Tidepool builds, stores, and distributes custom lightweight Linux VM images for workspaces. The current pipeline targets Tart (macOS, OCI images). Incus support is deferred. The build pipeline uses Packer with platform-specific builders. Container tooling (if needed) uses Podman/Buildah, not Docker.
+Defines how Rockpool builds, stores, and distributes custom lightweight Linux VM images for workspaces. The current pipeline targets Tart (macOS, OCI images). Incus support is deferred. The build pipeline uses Packer with platform-specific builders. Container tooling (if needed) uses Podman/Buildah, not Docker.
 
 ## Prerequisites
 
@@ -70,7 +70,7 @@ The worker sets these env vars at VM creation/start. The base image's init scrip
 
 | Variable                  | Description                                                                                                               |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `TIDEPOOL_WORKSPACE_NAME` | Workspace slug. code-server's OpenRC service uses this for `--abs-proxy-base-path /workspace/${TIDEPOOL_WORKSPACE_NAME}`. |
+| `ROCKPOOL_WORKSPACE_NAME` | Workspace slug. code-server's OpenRC service uses this for `--abs-proxy-base-path /workspace/${ROCKPOOL_WORKSPACE_NAME}`. |
 
 Port forwarding is dynamic -- apps bind to any port they want, then the user registers it via the API. No port-related env vars are needed in the image. See [EDD 003: Caddy Reverse Proxy](003_Caddy_Reverse_Proxy.md) for how port routes are managed.
 

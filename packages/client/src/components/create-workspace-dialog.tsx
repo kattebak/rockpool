@@ -14,7 +14,7 @@ import { useCreateWorkspace } from "@/hooks/use-workspaces";
 import type { Workspace } from "@/lib/api-types";
 
 const NAME_PATTERN = /^[a-z0-9-]+$/;
-const DEFAULT_IMAGE = "tidepool-workspace";
+const DEFAULT_IMAGE = "rockpool-workspace";
 
 interface CreateWorkspaceDialogProps {
 	open: boolean;

@@ -14,7 +14,7 @@ variable "vm_base_name" {
 
 variable "vm_name" {
   type    = string
-  default = "tidepool-workspace"
+  default = "rockpool-workspace"
 }
 
 variable "cpu_count" {
@@ -60,7 +60,7 @@ build {
   provisioner "shell" {
     script = "${path.root}/scripts/alpine-setup.sh"
     environment_vars = [
-      "TIDEPOOL_WORKSPACE_NAME=test"
+      "ROCKPOOL_WORKSPACE_NAME=test"
     ]
   }
 }

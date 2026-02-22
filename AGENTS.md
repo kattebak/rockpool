@@ -1,11 +1,11 @@
-# Tidepool
+# Rockpool
 
 Cloud9-style cloud IDE — isolated microVM workspaces behind Caddy reverse proxy.
 
 ## Structure
 
 - `typespec/main.tsp` — source of truth for API models and routes
-- `build/` — generated packages (`@tdpl/openapi`, `@tdpl/validators`, `@tdpl/enums`, `@tdpl/db-schema`). Do not edit.
+- `build/` — generated packages (`@rockpool/openapi`, `@rockpool/validators`, `@rockpool/enums`, `@rockpool/db-schema`). Do not edit.
 - `packages/` — source code (npm workspaces): `server`, `worker`, `db`, `queue`, `runtime`, `caddy`
 - `doc/ADR/` — Architecture Decision Records. `doc/EDD/` — Engineering Design Documents.
 - `npm-scripts/` — operational shell scripts. `Makefile` — build artifacts.

@@ -9,7 +9,7 @@
 
 ## Summary
 
-Each Tidepool workspace needs a browser-accessible IDE. This evaluates running full Coder (with coderd server) versus running code-server standalone in each VM. The path-based routing constraint (no subdomains) is the key differentiator.
+Each Rockpool workspace needs a browser-accessible IDE. This evaluates running full Coder (with coderd server) versus running code-server standalone in each VM. The path-based routing constraint (no subdomains) is the key differentiator.
 
 ## Option A: Full Coder Deployment
 
@@ -39,7 +39,7 @@ coderd (control plane, PostgreSQL)
 - DERP relay for NAT traversal
 - Auto-stop, idle detection, resource quotas
 
-### Blockers for Tidepool
+### Blockers for Rockpool
 
 **Coder requires wildcard subdomains for web IDE access:**
 
@@ -54,7 +54,7 @@ This means:
 
 **Path-based routing is explicitly unsupported** by Coder for web applications. Their docs warn it causes security issues and breaks many frameworks (Vite, React dev server, Next.js, JupyterLab).
 
-This is a hard blocker given Tidepool's path-based routing requirement.
+This is a hard blocker given Rockpool's path-based routing requirement.
 
 ### Other concerns
 
@@ -113,10 +113,10 @@ Built-in proxying for dev servers:
 
 ### What you lose vs Coder
 
-| Feature                    | Impact for Tidepool             |
+| Feature                    | Impact for Rockpool             |
 | -------------------------- | ------------------------------- |
 | JetBrains Gateway          | Low -- VS Code is primary IDE   |
-| Terraform templates        | Low -- Tidepool has its own VM lifecycle |
+| Terraform templates        | Low -- Rockpool has its own VM lifecycle |
 | Multi-user dashboard       | Medium -- build a simple one in the SPA |
 | RBAC / audit logging       | Low for single-user initially   |
 | Auto-stop / idle detection | Medium -- implement in control plane |
@@ -132,7 +132,7 @@ Built-in proxying for dev servers:
 4. **Built-in port forwarding** -- `/proxy/<port>/` may reduce Caddy config needs
 5. **Lower resource overhead** -- no control plane server to run
 
-The features Coder provides (templates, multi-user, idle detection) can be built incrementally in Tidepool's own control plane, which we need anyway for VM lifecycle.
+The features Coder provides (templates, multi-user, idle detection) can be built incrementally in Rockpool's own control plane, which we need anyway for VM lifecycle.
 
 ## Implementation Notes
 

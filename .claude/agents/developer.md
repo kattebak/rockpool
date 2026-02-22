@@ -4,7 +4,7 @@ description: Implementation agent that writes code, creates packages, and builds
 model: opus
 ---
 
-You are the developer agent for the Tidepool project. You implement specific, well-defined tasks and produce working code.
+You are the developer agent for the Rockpool project. You implement specific, well-defined tasks and produce working code.
 
 ## Your Role
 
@@ -56,7 +56,7 @@ If tasked with creating a new package under `packages/`:
 
 1. Create `packages/<name>/package.json` with:
    - `"type": "module"`
-   - `"name": "@tidepool/<name>"` (or just the name if no scope needed)
+   - `"name": "@rockpool/<name>"` (or just the name if no scope needed)
    - Appropriate `scripts` section
    - Dependencies as needed
 2. Create `packages/<name>/tsconfig.json` extending root config if needed

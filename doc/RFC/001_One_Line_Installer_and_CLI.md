@@ -1,4 +1,4 @@
-# RFC: One-Line Installer and Tidepool CLI
+# RFC: One-Line Installer and Rockpool CLI
 
 | Field        | Value                                                                                                                                                                                                                              |
 | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -11,11 +11,11 @@
 
 ## Summary
 
-Design a delightful, low-friction installation path for Tidepool using a one-line installer (`curl -fsSL https://.../install.sh | bash`) that bootstraps a small, portable CLI. The CLI handles installation, upgrades, diagnostics, and lifecycle management across macOS (Tart) and Linux (Incus). The experience must be safe, predictable, and easy to verify with a smoke test. The installer aligns with the architecture where the control plane runs inside the root VM.
+Design a delightful, low-friction installation path for Rockpool using a one-line installer (`curl -fsSL https://.../install.sh | bash`) that bootstraps a small, portable CLI. The CLI handles installation, upgrades, diagnostics, and lifecycle management across macOS (Tart) and Linux (Incus). The experience must be safe, predictable, and easy to verify with a smoke test. The installer aligns with the architecture where the control plane runs inside the root VM.
 
 ## Motivation
 
-Tidepool is currently developer-focused. The next step is a minimal-fuss install that works on a mac mini, laptop, or Linux NAS. A one-line installer is the standard pattern for infrastructure products and helps remove setup friction for evaluation and early adopters.
+Rockpool is currently developer-focused. The next step is a minimal-fuss install that works on a mac mini, laptop, or Linux NAS. A one-line installer is the standard pattern for infrastructure products and helps remove setup friction for evaluation and early adopters.
 
 ## Goals
 
@@ -43,8 +43,8 @@ Tidepool is currently developer-focused. The next step is a minimal-fuss install
 
 ### Two-Stage Installer
 
-1. **Bootstrap script** (bash): downloads a platform-specific Tidepool CLI binary, validates checksums, and installs it into a user-writable prefix.
-2. **CLI** (`tidepool`): performs system checks, installs required dependencies, builds or downloads VM images, configures services, and runs verification.
+1. **Bootstrap script** (bash): downloads a platform-specific Rockpool CLI binary, validates checksums, and installs it into a user-writable prefix.
+2. **CLI** (`rockpool`): performs system checks, installs required dependencies, builds or downloads VM images, configures services, and runs verification.
 
 This mirrors common tooling patterns such as k3s, tailscale, and rustup, while remaining auditable and easy to mirror for offline installs.
 
@@ -54,10 +54,10 @@ This mirrors common tooling patterns such as k3s, tailscale, and rustup, while r
 
 **Artifacts:**
 
-- `tidepool_darwin_arm64`
-- `tidepool_darwin_x64`
-- `tidepool_linux_arm64`
-- `tidepool_linux_x64`
+- `rockpool_darwin_arm64`
+- `rockpool_darwin_x64`
+- `rockpool_linux_arm64`
+- `rockpool_linux_x64`
 - `checksums.txt` and `checksums.txt.sig`
 
 ### Root VM Hosts the Control Plane
@@ -85,8 +85,8 @@ Responsibilities:
 - Validate prerequisites for the bootstrap step (curl, tar, shasum/sha256sum).
 - Download the correct CLI binary and checksum file.
 - Verify checksum and optional signature.
-- Install into `$HOME/.tidepool/bin` by default, or `/usr/local/bin` when running with sudo.
-- Print next steps (`tidepool install`).
+- Install into `$HOME/.rockpool/bin` by default, or `/usr/local/bin` when running with sudo.
+- Print next steps (`rockpool install`).
 
 Security posture:
 
@@ -99,15 +99,15 @@ Security posture:
 
 Core commands:
 
-- `tidepool install` - runs preflight checks, installs runtime deps, pulls images, configures services.
-- `tidepool up` - starts control plane and ensures Caddy routes are ready.
-- `tidepool down` - stops services.
-- `tidepool status` - high-level system status.
-- `tidepool doctor` - deep diagnostics with actionable output.
-- `tidepool smoke-test` - end-to-end verification.
-- `tidepool logs` - show recent logs for control plane and Caddy.
-- `tidepool update` - upgrade CLI and VM images.
-- `tidepool uninstall` - remove services and optionally data.
+- `rockpool install` - runs preflight checks, installs runtime deps, pulls images, configures services.
+- `rockpool up` - starts control plane and ensures Caddy routes are ready.
+- `rockpool down` - stops services.
+- `rockpool status` - high-level system status.
+- `rockpool doctor` - deep diagnostics with actionable output.
+- `rockpool smoke-test` - end-to-end verification.
+- `rockpool logs` - show recent logs for control plane and Caddy.
+- `rockpool update` - upgrade CLI and VM images.
+- `rockpool uninstall` - remove services and optionally data.
 
 ### Preflight Checks
 
@@ -141,19 +141,19 @@ Checks should fail fast with clear remediation steps:
 - **Workspace base image**: platform-specific for Tart/Incus.
 - **Distribution**: local-only by default (aligned with the workspace image pipeline). Optionally support prebuilt downloads as a future enhancement.
 - **Cache location**:
-  - macOS: `~/Library/Application Support/Tidepool`
-  - Linux: `/var/lib/tidepool`
+  - macOS: `~/Library/Application Support/Rockpool`
+  - Linux: `/var/lib/rockpool`
 
 ### Service Management
 
 - **macOS:** launchd plist created by the CLI to run the root VM lifecycle on boot.
 - **Linux:** systemd unit to run the root VM lifecycle on boot.
 
-Services should run as a dedicated system user (for example `tidepool`) where available.
+Services should run as a dedicated system user (for example `rockpool`) where available.
 
 ### Diagnostics and Insights
 
-`tidepool doctor` should collect:
+`rockpool doctor` should collect:
 
 - Version information (CLI, control plane image, runtime).
 - Runtime health (Tart/Incus status, image availability).
@@ -162,7 +162,7 @@ Services should run as a dedicated system user (for example `tidepool`) where av
 - Connectivity checks to a workspace route and to a port-forward route.
 - Common failure hints (port in use, missing permissions, failed VM IP lookup).
 
-`tidepool status` should provide:
+`rockpool status` should provide:
 
 - Services running/stopped.
 - Number of workspaces, running/stopped.
@@ -170,7 +170,7 @@ Services should run as a dedicated system user (for example `tidepool`) where av
 
 ### Smoke Test
 
-`tidepool smoke-test` should:
+`rockpool smoke-test` should:
 
 1. Create a temporary workspace `smoke-<timestamp>`.
 2. Wait for root VM readiness and Caddy route provisioning.
@@ -179,32 +179,32 @@ Services should run as a dedicated system user (for example `tidepool`) where av
 5. Verify `http://<workspace_vm_ip>:8080/healthz` returns 200 from code-server.
 6. Remove the workspace.
 
-On failure, the CLI prints the failing step and suggests next actions (`tidepool doctor`, `tidepool logs`).
+On failure, the CLI prints the failing step and suggests next actions (`rockpool doctor`, `rockpool logs`).
 
 ## UX and Command Flow Examples
 
 ### Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/tidepool/cli/v0.40.4/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rockpool/cli/v0.40.4/install.sh | bash
 
 # Then
 
-tidepool install
+rockpool install
 ```
 
 ### Start and Verify
 
 ```bash
-tidepool up
+rockpool up
 
-tidepool smoke-test
+rockpool smoke-test
 ```
 
 ### Diagnostics
 
 ```bash
-tidepool doctor
+rockpool doctor
 ```
 
 ## Security Considerations
@@ -233,9 +233,9 @@ tidepool doctor
 
 ## Rollout Plan
 
-1. Implement bootstrap script and publish CLI binaries in `tidepool/cli` release flow.
-2. Add `tidepool install` for macOS (Tart) and Linux (Incus) with preflight checks.
-3. Package the root VM image and basic `tidepool up` flow.
+1. Implement bootstrap script and publish CLI binaries in `rockpool/cli` release flow.
+2. Add `rockpool install` for macOS (Tart) and Linux (Incus) with preflight checks.
+3. Package the root VM image and basic `rockpool up` flow.
 4. Add `doctor`, `status`, and `smoke-test`.
 5. Document the flow in README and a dedicated install page.
 
@@ -249,9 +249,9 @@ tidepool doctor
 
 The CLI should initially wrap the existing MVP scripts where possible:
 
-- `tidepool install` can run the equivalent of `mvp:build-image` for the workspace image and a new root VM image build step.
-- `tidepool up` can wrap root VM startup plus workspace setup steps.
-- `tidepool smoke-test` aligns with `mvp:verify` and extends it with root VM control plane checks.
+- `rockpool install` can run the equivalent of `mvp:build-image` for the workspace image and a new root VM image build step.
+- `rockpool up` can wrap root VM startup plus workspace setup steps.
+- `rockpool smoke-test` aligns with `mvp:verify` and extends it with root VM control plane checks.
 
 ## Host Dependency Strategy
 

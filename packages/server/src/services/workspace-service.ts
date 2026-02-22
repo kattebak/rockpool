@@ -4,7 +4,7 @@ import type {
 	PaginationParams,
 	Workspace,
 	WorkspaceStatus,
-} from "@tdpl/db";
+} from "@rockpool/db";
 import {
 	countWorkspaces,
 	countWorkspacesByStatus,
@@ -13,8 +13,8 @@ import {
 	getWorkspaceByName,
 	listWorkspaces,
 	updateWorkspaceStatus,
-} from "@tdpl/db";
-import type { QueueRepository } from "@tdpl/queue";
+} from "@rockpool/db";
+import type { QueueRepository } from "@rockpool/queue";
 
 const MAX_WORKSPACES = 999;
 const MAX_CONCURRENT_STARTS = 3;

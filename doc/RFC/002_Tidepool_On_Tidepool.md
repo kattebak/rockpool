@@ -1,4 +1,4 @@
-# RFC: Tidepool-on-Tidepool (Ultimate Dogfood Demo)
+# RFC: Rockpool-on-Rockpool (Ultimate Dogfood Demo)
 
 | Field        | Value                                                                                                                                                                                                                                                                                                                                                     |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -11,28 +11,28 @@
 
 ## Summary
 
-Define the "Tidepool-on-Tidepool" ultimate demo with full purity: a Tidepool workspace runs a Linux host that itself runs a full Tidepool control plane and launches real workspace VMs using a real runtime (Incus). This is true VM-in-VM on Linux, with real routing, real lifecycle, and real isolation, producing a realistic developer environment without stubbing.
+Define the "Rockpool-on-Rockpool" ultimate demo with full purity: a Rockpool workspace runs a Linux host that itself runs a full Rockpool control plane and launches real workspace VMs using a real runtime (Incus). This is true VM-in-VM on Linux, with real routing, real lifecycle, and real isolation, producing a realistic developer environment without stubbing.
 
 ## Motivation
 
-- Prove Tidepool can be the primary development environment for Tidepool itself.
-- Validate end-to-end developer workflow: edit, test, run, and access the Tidepool UI entirely inside a workspace.
+- Prove Rockpool can be the primary development environment for Rockpool itself.
+- Validate end-to-end developer workflow: edit, test, run, and access the Rockpool UI entirely inside a workspace.
 - Exercise the control plane, port forwarding, and dev tooling in a realistic, high-stakes scenario.
-- Create a compelling demo: "Tidepool builds Tidepool".
+- Create a compelling demo: "Rockpool builds Rockpool".
 
 ## Assumptions
 
-- The outer Tidepool host runs Linux with KVM support.
+- The outer Rockpool host runs Linux with KVM support.
 - The outer runtime is Incus (Linux) and can pass nested virtualization into the workspace VM.
-- The inner Tidepool runs on Alpine Linux inside the workspace VM.
+- The inner Rockpool runs on Alpine Linux inside the workspace VM.
 - The demo tolerates higher resource usage and lower density than the production host.
 - Speed matters more than breadth: Alpine-first for the nested host image.
 
 ## Goals
 
-- A single click from the outer Tidepool UI opens a workspace that runs a full Linux host for the inner Tidepool.
-- The inner Tidepool runs its own control plane, Caddy, and Incus-managed workspaces.
-- Access the inner Tidepool UI, API, and inner workspaces through the outer Tidepool routing fabric.
+- A single click from the outer Rockpool UI opens a workspace that runs a full Linux host for the inner Rockpool.
+- The inner Rockpool runs its own control plane, Caddy, and Incus-managed workspaces.
+- Access the inner Rockpool UI, API, and inner workspaces through the outer Rockpool routing fabric.
 - Demonstrate true nested virtualization and realistic dev workflows.
 - Keep the developer flow inside the workspace to "git clone" and "run dev".
 
@@ -60,30 +60,30 @@ Define the "Tidepool-on-Tidepool" ultimate demo with full purity: a Tidepool wor
 ### Network and Routing Constraints
 
 - Three layers of routing must remain path-based.
-- Two-port origin isolation must be preserved inside the inner Tidepool (inner Caddy :8080 and :8081).
+- Two-port origin isolation must be preserved inside the inner Rockpool (inner Caddy :8080 and :8081).
 - Outer Caddy must forward both inner Caddy ports to the inner host VM via workspace port routes.
 
 ### Storage and Image Constraints
 
-- Inner host image includes Incus, Caddy, and Tidepool runtime dependencies.
+- Inner host image includes Incus, Caddy, and Rockpool runtime dependencies.
 - Inner host image size is acceptable for local builds or local caching.
 
 ## Background and Current State
 
-- The outer Tidepool control plane manages workspaces and routes via Caddy using two-port origin isolation ([EDD-001](../EDD/001_Architecture_Overview.md), [EDD-003](../EDD/003_Caddy_Reverse_Proxy.md)).
+- The outer Rockpool control plane manages workspaces and routes via Caddy using two-port origin isolation ([EDD-001](../EDD/001_Architecture_Overview.md), [EDD-003](../EDD/003_Caddy_Reverse_Proxy.md)).
 - code-server runs inside each workspace VM and supports path-based proxy mounting ([EDD-004](../EDD/004_Web_IDE.md)).
 - Dev mode already supports `StubRuntime` and `StubCaddy` for running the stack without real VMs or Caddy ([EDD-006](../EDD/006_Vertical_Slice_MVP.md), [EDD-008](../EDD/008_Package_Structure.md)).
 - Port forwarding routes are already supported at `/workspace/{name}/port/{port}/*` ([EDD-003](../EDD/003_Caddy_Reverse_Proxy.md), [EDD-007](../EDD/007_Data_Model.md)).
 
 ## Proposal
 
-Run a full Tidepool deployment inside a Tidepool workspace by using a Linux host VM as the inner "root VM" and enabling nested virtualization so Incus can create inner workspace VMs. The inner Tidepool owns its own Caddy, control plane, and Incus network. The outer Tidepool provides the first-level workspace and access routing only.
+Run a full Rockpool deployment inside a Rockpool workspace by using a Linux host VM as the inner "root VM" and enabling nested virtualization so Incus can create inner workspace VMs. The inner Rockpool owns its own Caddy, control plane, and Incus network. The outer Rockpool provides the first-level workspace and access routing only.
 
 ## User-Visible Flow (What Devs Do)
 
 Inside the nested host workspace VM:
 
-1. `git clone` the Tidepool repo.
+1. `git clone` the Rockpool repo.
 2. `npm install`
 3. `npm run dev`
 
@@ -91,15 +91,15 @@ All other complexity is hidden in the workspace image, preflight checks, and boo
 
 ### High-Level Flow
 
-1. Outer Tidepool creates a workspace "tidepool-dev" that is a Linux host VM prepared for nested virt.
-2. Inside that VM, the developer runs the full Tidepool stack: Caddy, server, worker, and Incus.
-3. The inner Tidepool launches its own workspace VMs using Incus.
-4. The outer Tidepool registers port routes to the inner Tidepool control plane and to select inner workspaces.
-5. The developer accesses the inner Tidepool UI at a nested route like `/workspace/tidepool-dev/port/8080/app/`.
+1. Outer Rockpool creates a workspace "rockpool-dev" that is a Linux host VM prepared for nested virt.
+2. Inside that VM, the developer runs the full Rockpool stack: Caddy, server, worker, and Incus.
+3. The inner Rockpool launches its own workspace VMs using Incus.
+4. The outer Rockpool registers port routes to the inner Rockpool control plane and to select inner workspaces.
+5. The developer accesses the inner Rockpool UI at a nested route like `/workspace/rockpool-dev/port/8080/app/`.
 
 ### Why This Requires Nested Virtualization
 
-- The inner Tidepool must use a real runtime adapter (Incus) to launch real inner workspace VMs.
+- The inner Rockpool must use a real runtime adapter (Incus) to launch real inner workspace VMs.
 - The inner Caddy must manage real routes for those inner workspaces.
 - The inner control plane must run unmodified, using the same code paths as production.
 
@@ -107,12 +107,12 @@ All other complexity is hidden in the workspace image, preflight checks, and boo
 
 ### Inner Root VM as a Nested Host
 
-The outer Tidepool workspace is not a standard code-server VM. It is a Linux host VM configured with:
+The outer Rockpool workspace is not a standard code-server VM. It is a Linux host VM configured with:
 
 - Nested virtualization enabled at the hypervisor level.
 - Incus installed and initialized inside the VM.
 - A dedicated Caddy instance running inside the VM.
-- The Tidepool control plane services (server, worker) running inside the VM.
+- The Rockpool control plane services (server, worker) running inside the VM.
 - An internal bridge or OVN network for inner workspace VMs.
 
 This inner host mirrors the production root VM topology described in [EDD-001](../EDD/001_Architecture_Overview.md).
@@ -125,10 +125,10 @@ The nested host image must include (Alpine-first):
 - KVM modules installed and configured for VM creation inside the inner host.
 - Incus CLI and daemon, plus a default VM profile.
 - Caddy installed and configured for dynamic admin API.
-- Node.js 22+ and all Tidepool build dependencies.
+- Node.js 22+ and all Rockpool build dependencies.
 - A boot-time script that initializes Incus networking and starts the inner control plane.
 
-The image should be a separate workspace template (for example `tidepool-nested-host`) with higher defaults for CPU, RAM, and disk.
+The image should be a separate workspace template (for example `rockpool-nested-host`) with higher defaults for CPU, RAM, and disk.
 
 Alpine is the first target for the nested host image because speed matters. If Alpine proves incompatible with inner VM tooling, switch to a minimal Debian base as a fallback.
 
@@ -214,10 +214,10 @@ It is possible, but only when the host, kernel, and runtime are all aligned for 
 The nested environment introduces three layers:
 
 1. Outer host and outer Caddy (control plane)
-2. Inner host VM (inner Tidepool root VM)
+2. Inner host VM (inner Rockpool root VM)
 3. Inner workspace VMs (created by inner Incus)
 
-Outer Caddy routes to inner Tidepool ports via the outer workspace port forwarding routes. Inner Caddy routes to inner workspace VMs.
+Outer Caddy routes to inner Rockpool ports via the outer workspace port forwarding routes. Inner Caddy routes to inner workspace VMs.
 
 The inner Incus network must use a non-overlapping CIDR to avoid conflicts with the outer Incus bridge. The inner host must NAT inner VM egress and prevent access to the outer host LAN.
 
@@ -225,23 +225,23 @@ The inner Incus network must use a non-overlapping CIDR to avoid conflicts with 
 
 Outer routes (examples):
 
-- `/workspace/tidepool-dev/port/8080/` -> inner Caddy srv0 (inner API + SPA)
-- `/workspace/tidepool-dev/port/8081/` -> inner Caddy srv1 (inner workspaces)
+- `/workspace/rockpool-dev/port/8080/` -> inner Caddy srv0 (inner API + SPA)
+- `/workspace/rockpool-dev/port/8081/` -> inner Caddy srv1 (inner workspaces)
 
 Inner routes:
 
 - `/app/*` and `/api/*` -> inner control plane
 - `/workspace/{name}/*` -> inner workspace VMs
 
-This preserves the two-port origin isolation inside the inner Tidepool while still being reachable from the outer workspace.
+This preserves the two-port origin isolation inside the inner Rockpool while still being reachable from the outer workspace.
 
 ### Developer UX
 
-1. Create the "tidepool-dev" workspace from a special "nested host" image.
-2. Open the IDE and run the inner Tidepool services (Caddy + server + worker + client build/dev server).
+1. Create the "rockpool-dev" workspace from a special "nested host" image.
+2. Open the IDE and run the inner Rockpool services (Caddy + server + worker + client build/dev server).
 3. Register outer ports 8080 and 8081 for the inner Caddy.
-4. Access the inner Tidepool UI via `/workspace/tidepool-dev/port/8080/app/`.
-5. Create an inner workspace from the inner UI and open it via `/workspace/tidepool-dev/port/8081/workspace/<inner-name>/`.
+4. Access the inner Rockpool UI via `/workspace/rockpool-dev/port/8080/app/`.
+5. Create an inner workspace from the inner UI and open it via `/workspace/rockpool-dev/port/8081/workspace/<inner-name>/`.
 
 ## Implementation Plan
 
@@ -254,7 +254,7 @@ This preserves the two-port origin isolation inside the inner Tidepool while sti
 ### Phase 2: Inner Control Plane Bootstrap
 
 - Add scripts to initialize inner Incus network and default profiles.
-- Add scripts to start inner Caddy and Tidepool services.
+- Add scripts to start inner Caddy and Rockpool services.
 - Ensure inner Caddy is bootstrapped with the same two-port isolation config.
 
 ### Phase 3: Outer Routing Integration
@@ -264,7 +264,7 @@ This preserves the two-port origin isolation inside the inner Tidepool while sti
 
 ### Phase 4: Demo Hardening
 
-- Add a visible "Inner Tidepool" banner in the inner UI.
+- Add a visible "Inner Rockpool" banner in the inner UI.
 - Add a health endpoint check and basic logs collection for the inner host.
 
 ### System Diagram
@@ -274,26 +274,26 @@ Browser
   │
   │  /app/* and /api/* (outer)
   ▼
-Outer Tidepool (root VM)
+Outer Rockpool (root VM)
   │
-  │  /workspace/tidepool-dev/*
+  │  /workspace/rockpool-dev/*
   ▼
 Inner Root VM (Linux host VM)
   │
   ├── Inner Caddy :8080 (API + SPA)
   ├── Inner Caddy :8081 (workspaces)
-  ├── Inner Tidepool server + worker
+  ├── Inner Rockpool server + worker
   └── Inner Incus -> Inner Workspace VMs
 
 Outer Caddy
-  ├── /workspace/tidepool-dev/ -> inner code-server IDE
-  ├── /workspace/tidepool-dev/port/8080/ -> inner Caddy srv0
-  └── /workspace/tidepool-dev/port/8081/ -> inner Caddy srv1
+  ├── /workspace/rockpool-dev/ -> inner code-server IDE
+  ├── /workspace/rockpool-dev/port/8080/ -> inner Caddy srv0
+  └── /workspace/rockpool-dev/port/8081/ -> inner Caddy srv1
 ```
 
 ## Required Changes to Current Project
 
-1. **Add a nested host image build** for the "inner root VM" with Incus, Caddy, and Tidepool runtime deps preinstalled.
+1. **Add a nested host image build** for the "inner root VM" with Incus, Caddy, and Rockpool runtime deps preinstalled.
 2. **Add a runtime profile** for the outer workspace type to request nested virt and higher resources (CPU, RAM, disk).
 3. **Add scripts for inner bootstrap** (install, init Incus, start inner Caddy and control plane).
 4. **Update docs** with the nested demo flow, including the outer port registrations for inner Caddy.
@@ -304,8 +304,8 @@ Outer Caddy
 - Outer host reports nested KVM enabled.
 - Inner host can start a VM using Incus.
 - Inner Caddy bootstraps and serves `/app/` and `/api/`.
-- Outer Caddy routes `/workspace/tidepool-dev/port/8080/` to inner Caddy srv0.
-- Outer Caddy routes `/workspace/tidepool-dev/port/8081/` to inner Caddy srv1.
+- Outer Caddy routes `/workspace/rockpool-dev/port/8080/` to inner Caddy srv0.
+- Outer Caddy routes `/workspace/rockpool-dev/port/8081/` to inner Caddy srv1.
 - Inner workspace VM can be created and reached via the nested route.
 
 ## Feasibility and Technical Constraints
@@ -325,7 +325,7 @@ Common blockers:
 - Kernel configs that disable KVM nesting or omit required modules.
 - Incus installs configured for containers only.
 
-If any hard constraint is missing, the true "Tidepool-on-Tidepool" demo is not feasible on that machine.
+If any hard constraint is missing, the true "Rockpool-on-Rockpool" demo is not feasible on that machine.
 
 ## Feasibility Checklist (Preflight)
 
@@ -370,7 +370,7 @@ If any step fails, stop and fix the host before proceeding with the demo.
 
 ## Security Considerations
 
-- The inner Tidepool should preserve the two-port origin isolation inside the inner host.
+- The inner Rockpool should preserve the two-port origin isolation inside the inner host.
 - Outer and inner control planes remain distinct origins, but both are reachable from the same browser session. Clear UI labeling is required.
 - Nested virtualization expands the attack surface; the inner host must be treated as untrusted user code.
 
@@ -380,14 +380,14 @@ If any step fails, stop and fix the host before proceeding with the demo.
 | --------------------------------------------------- | ------ | --------------------------------------------------------------------------------------- |
 | Nested virtualization unavailable on target host    | High   | Require Linux hosts with nested KVM enabled; provide a preflight check and clear error. |
 | Inner Incus networking conflicts with outer network | Medium | Use a dedicated bridge and non-overlapping CIDR for inner Incus.                        |
-| Confusion between outer and inner UI                | Medium | Add a visible "Inner Tidepool" banner in the inner UI.                                  |
+| Confusion between outer and inner UI                | Medium | Add a visible "Inner Rockpool" banner in the inner UI.                                  |
 | Heavy resource use in a single workspace            | Medium | Recommend 4 CPU / 8 GB minimum for the nested host image.                               |
 
 ## Operational Notes
 
 - Expect slower boot times and higher memory usage for inner VM creation.
 - Keep the inner host image and inner workspace images separate.
-- Avoid path collisions by treating the inner Tidepool as a fully separate instance.
+- Avoid path collisions by treating the inner Rockpool as a fully separate instance.
 
 ## Rollout Plan
 
@@ -399,5 +399,5 @@ If any step fails, stop and fix the host before proceeding with the demo.
 ## Open Questions
 
 - Do we want a dedicated "nested host" workspace template with higher resource defaults?
-- Should the inner Tidepool expose a custom base path to avoid double `/workspace/.../port/.../` layering?
+- Should the inner Rockpool expose a custom base path to avoid double `/workspace/.../port/.../` layering?
 - How should we surface inner Incus state and logs from the outer UI?

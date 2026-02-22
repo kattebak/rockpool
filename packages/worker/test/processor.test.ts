@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
-import type { CaddyRepository } from "@tdpl/caddy";
-import type { DbClient } from "@tdpl/db";
-import { addPort, createMemoryDb, createWorkspace, getWorkspace, listPorts } from "@tdpl/db";
-import type { RuntimeRepository } from "@tdpl/runtime";
+import type { CaddyRepository } from "@rockpool/caddy";
+import type { DbClient } from "@rockpool/db";
+import { addPort, createMemoryDb, createWorkspace, getWorkspace, listPorts } from "@rockpool/db";
+import type { RuntimeRepository } from "@rockpool/runtime";
 import pino from "pino";
 import { createProcessor } from "../src/processor.ts";
 

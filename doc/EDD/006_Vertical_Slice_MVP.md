@@ -9,7 +9,7 @@
 
 ## Summary
 
-Minimal end-to-end proof of the Tidepool concept on macOS: a browser request hits Caddy, gets routed by path to a Tart VM running code-server, and the user lands in a working IDE. Three components, no control plane services, no async workers -- just the critical path. A local fast path can use a public Ubuntu runner image to avoid registry auth, while the Debian Packer path remains the intended base.
+Minimal end-to-end proof of the Rockpool concept on macOS: a browser request hits Caddy, gets routed by path to a Tart VM running code-server, and the user lands in a working IDE. Three components, no control plane services, no async workers -- just the critical path. A local fast path can use a public Ubuntu runner image to avoid registry auth, while the Debian Packer path remains the intended base.
 
 ## Prerequisites
 
@@ -109,7 +109,7 @@ Installs everything on a vanilla Debian base:
 npm run build:image
 ```
 
-Output: a Tart VM image named `tidepool-workspace` available via `tart list`.
+Output: a Tart VM image named `rockpool-workspace` available via `tart list`.
 
 ### Base Image
 
@@ -233,16 +233,16 @@ Open `http://localhost:8080/workspace/test/` in a browser. code-server IDE shoul
 
 All control plane packages have been built on top of this vertical slice. See [EDD 008](008_Package_Structure.md) for the package structure.
 
-### Packages (all under `@tdpl/*` scope)
+### Packages (all under `@rockpool/*` scope)
 
 | Package         | Status | Tests | Description                                                                                                                                                                                                                                                             |
 | --------------- | ------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@tdpl/runtime` | Done   | 12    | TartRuntime adapter wrapping `tart` CLI (create, start, stop, remove, status, getIp with polling, configure). `configure()` writes code-server YAML config and restarts via systemctl. Injectable exec for testing. StubRuntime for dev mode (in-memory VM simulation). |
-| `@tdpl/caddy`   | Done   | 21    | Caddy admin API client via native fetch. Two-port routing: workspace + port routes go to srv1 (:8081). Full bootstrap config with auth, API proxy, SPA serving, root redirect. StubCaddy for dev mode.                                                                  |
-| `@tdpl/queue`   | Done   | 5     | SQS-compatible queue client + in-memory implementation for dev/testing.                                                                                                                                                                                                 |
-| `@tdpl/db`      | Done   | 25    | SQLite + Drizzle ORM. Hand-written schema (generated Drizzle emitter targets Postgres, not usable). Workspace + Port tables with cascade delete. Cursor-based pagination on workspace listing.                                                                          |
-| `@tdpl/server`  | Done   | 25    | Express control plane with express-openapi-validator. Workspace CRUD + lifecycle + port forwarding endpoints. State machine enforcement. Paginated list endpoint (limit/cursor). In-process worker for dev mode.                                                        |
-| `@tdpl/worker`  | Done   | 7     | Async job processor: create/start/stop/delete lifecycle. Calls `runtime.configure()` + health check after VM boot. Cleans up port routes on stop/delete. Poll loop with configurable idle delay. Standalone production entrypoint.                                      |
+| `@rockpool/runtime` | Done   | 12    | TartRuntime adapter wrapping `tart` CLI (create, start, stop, remove, status, getIp with polling, configure). `configure()` writes code-server YAML config and restarts via systemctl. Injectable exec for testing. StubRuntime for dev mode (in-memory VM simulation). |
+| `@rockpool/caddy`   | Done   | 21    | Caddy admin API client via native fetch. Two-port routing: workspace + port routes go to srv1 (:8081). Full bootstrap config with auth, API proxy, SPA serving, root redirect. StubCaddy for dev mode.                                                                  |
+| `@rockpool/queue`   | Done   | 5     | SQS-compatible queue client + in-memory implementation for dev/testing.                                                                                                                                                                                                 |
+| `@rockpool/db`      | Done   | 25    | SQLite + Drizzle ORM. Hand-written schema (generated Drizzle emitter targets Postgres, not usable). Workspace + Port tables with cascade delete. Cursor-based pagination on workspace listing.                                                                          |
+| `@rockpool/server`  | Done   | 25    | Express control plane with express-openapi-validator. Workspace CRUD + lifecycle + port forwarding endpoints. State machine enforcement. Paginated list endpoint (limit/cursor). In-process worker for dev mode.                                                        |
+| `@rockpool/worker`  | Done   | 7     | Async job processor: create/start/stop/delete lifecycle. Calls `runtime.configure()` + health check after VM boot. Cleans up port routes on stop/delete. Poll loop with configurable idle delay. Standalone production entrypoint.                                      |
 
 **Total: 96 tests, all passing.**
 
@@ -267,7 +267,7 @@ All control plane packages have been built on top of this vertical slice. See [E
 
 | Item                         | Status | Notes                                                                                                                                                                                                                                  |
 | ---------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@tdpl/client` (React SPA)   | Done   | React + shadcn/ui + TanStack Query/Router at `/app/*`. See below.                                                                                                                                                                      |
+| `@rockpool/client` (React SPA)   | Done   | React + shadcn/ui + TanStack Query/Router at `/app/*`. See below.                                                                                                                                                                      |
 | esbuild bundling             | Done   | ADR-011. Client builds via esbuild (503kb JS, 39kb CSS, ~300ms). Makefile target `build-client`.                                                                                                                                       |
 | Root dev/test scripts        | Done   | `npm run dev` starts API server + worker (in-process) + client dev server concurrently. `npm test` aggregates all packages.                                                                                                            |
 | Pagination (cursor-based)    | Done   | TypeSpec → OpenAPI → DB → service → routes. `limit`/`cursor` query params, `WorkspaceListResponse` model, base64url cursor encoding.                                                                                                   |
@@ -308,13 +308,13 @@ When the server changed from returning `Workspace[]` to `{ items, nextCursor }`,
 
 ### Base image: Debian, not Alpine or Ubuntu
 
-The `tidepool-workspace` VM image uses `ghcr.io/cirruslabs/debian:latest` as base. The Cirrus Labs Alpine image is blocked by registry 403; Ubuntu runner works but is bloated (20GB+). Debian is minimal (0.6GB compressed), uses systemd with a `code-server@admin` template service unit and YAML config at `~/.config/code-server/config.yaml`.
+The `rockpool-workspace` VM image uses `ghcr.io/cirruslabs/debian:latest` as base. The Cirrus Labs Alpine image is blocked by registry 403; Ubuntu runner works but is bloated (20GB+). Debian is minimal (0.6GB compressed), uses systemd with a `code-server@admin` template service unit and YAML config at `~/.config/code-server/config.yaml`.
 
 ### SSH for VM configuration, not `tart exec`
 
-The Tart Guest Agent doesn't work reliably on Linux VMs — `tart exec` fails with "Failed to connect to the VM using its control socket" even when the agent service is running. Switched `configure()` to use SSH with a pre-shared ed25519 key pair (`images/ssh/tidepool_ed25519`). SSH connects as soon as `sshd` starts (~2-3s), much faster than the guest agent on restart.
+The Tart Guest Agent doesn't work reliably on Linux VMs — `tart exec` fails with "Failed to connect to the VM using its control socket" even when the agent service is running. Switched `configure()` to use SSH with a pre-shared ed25519 key pair (`images/ssh/rockpool_ed25519`). SSH connects as soon as `sshd` starts (~2-3s), much faster than the guest agent on restart.
 
-## What Was Implemented: React SPA (`@tdpl/client`)
+## What Was Implemented: React SPA (`@rockpool/client`)
 
 The full React SPA has been implemented at `packages/client/`. Browser-verified end-to-end.
 

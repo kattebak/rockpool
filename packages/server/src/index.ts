@@ -1,14 +1,14 @@
-import type { BootstrapOptions } from "@tdpl/caddy";
+import type { BootstrapOptions } from "@rockpool/caddy";
 import {
 	buildBootstrapConfig,
 	createCaddyClient,
 	createStubCaddy,
 	hashPassword,
-} from "@tdpl/caddy";
-import { createDb } from "@tdpl/db";
-import { createMemoryQueue, createSqsQueue } from "@tdpl/queue";
-import { createStubRuntime, createTartRuntime } from "@tdpl/runtime";
-import { createPollLoop, createProcessor } from "@tdpl/worker";
+} from "@rockpool/caddy";
+import { createDb } from "@rockpool/db";
+import { createMemoryQueue, createSqsQueue } from "@rockpool/queue";
+import { createStubRuntime, createTartRuntime } from "@rockpool/runtime";
+import { createPollLoop, createProcessor } from "@rockpool/worker";
 import pino from "pino";
 import { createApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
@@ -70,7 +70,7 @@ async function bootstrapCaddy(): Promise<void> {
 }
 
 app.listen(config.port, () => {
-	logger.info({ port: config.port }, "Tidepool control plane started");
+	logger.info({ port: config.port }, "Rockpool control plane started");
 
 	if (inlineWorker) {
 		const runtime = useStubVm

@@ -10,7 +10,7 @@ cd "$BUILD_PATH" || exit 1
 
 cat << 'EOF' > package.json
 {
-  "name": "@tdpl/openapi",
+  "name": "@rockpool/openapi",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -20,4 +20,4 @@ cat << 'EOF' > package.json
 }
 EOF
 
-echo "Generated @tdpl/openapi package in $BUILD_PATH"
+echo "Generated @rockpool/openapi package in $BUILD_PATH"

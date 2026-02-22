@@ -1,5 +1,5 @@
 {
-	"name": "@tdpl/server",
+	"name": "@rockpool/server",
 	"version": "0.0.1",
 	"private": true,
 	"type": "module",
@@ -15,11 +15,11 @@
 		"start": "node --experimental-strip-types src/index.ts"
 	},
 	"dependencies": {
-		"@tdpl/caddy": "*",
-		"@tdpl/db": "*",
-		"@tdpl/queue": "*",
-		"@tdpl/runtime": "*",
-		"@tdpl/worker": "*",
+		"@rockpool/caddy": "*",
+		"@rockpool/db": "*",
+		"@rockpool/queue": "*",
+		"@rockpool/runtime": "*",
+		"@rockpool/worker": "*",
 		"express": "^5.1.0",
 		"express-openapi-validator": "^5.4.6",
 		"pino": "^9.6.0",

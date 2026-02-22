@@ -100,7 +100,7 @@ describe("buildBootstrapConfig", () => {
 
 	it("includes authentication handler with correct credentials", () => {
 		const auth: BasicAuthCredentials = {
-			username: "tidepool",
+			username: "rockpool",
 			passwordHash: "$2a$10$specificHash",
 		};
 		const config = buildBootstrapConfig({ auth });
@@ -117,7 +117,7 @@ describe("buildBootstrapConfig", () => {
 		const accounts = httpBasic.accounts as Array<Record<string, unknown>>;
 
 		assert.equal(accounts.length, 1);
-		assert.equal(accounts[0].username, "tidepool");
+		assert.equal(accounts[0].username, "rockpool");
 		assert.equal(accounts[0].password, "$2a$10$specificHash");
 	});
 
@@ -158,7 +158,7 @@ describe("buildBootstrapConfig", () => {
 	});
 
 	it("adds SPA routes when spaRoot is provided", () => {
-		const config = buildBootstrapConfig({ spaRoot: "/opt/tidepool/client" });
+		const config = buildBootstrapConfig({ spaRoot: "/opt/rockpool/client" });
 		const routes = getSrv0Routes(config);
 
 		const assetsRoute = findRoute(routes, "spa-assets");
@@ -166,7 +166,7 @@ describe("buildBootstrapConfig", () => {
 		assert.equal(assetsRoute.terminal, true);
 		const assetsHandles = assetsRoute.handle as Array<Record<string, unknown>>;
 		const fileServer = assetsHandles.find((h) => h.handler === "file_server") as CaddyConfig;
-		assert.equal(fileServer.root, "/opt/tidepool/client");
+		assert.equal(fileServer.root, "/opt/rockpool/client");
 
 		const fallbackRoute = findRoute(routes, "spa-fallback");
 		assert.deepEqual(fallbackRoute.match, [{ path: ["/app", "/app/*"] }]);
@@ -230,7 +230,7 @@ describe("buildBootstrapConfig", () => {
 		const config = buildBootstrapConfig({
 			auth: { username: "admin", passwordHash: "$2a$10$hash" },
 			controlPlaneUrl: "http://localhost:7163",
-			spaRoot: "/opt/tidepool/client",
+			spaRoot: "/opt/rockpool/client",
 			srv1Port: 8081,
 		});
 		const routes = getSrv0Routes(config);

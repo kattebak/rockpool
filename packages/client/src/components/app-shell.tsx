@@ -14,7 +14,7 @@ export function AppShell() {
 			<header className="sticky top-0 z-50 border-b bg-card">
 				<div className="mx-auto flex h-14 max-w-[1200px] items-center gap-6 px-6">
 					<Link to="/workspaces" className="text-lg font-semibold tracking-tight">
-						Tidepool
+						Rockpool
 					</Link>
 
 					<Separator orientation="vertical" className="h-6" />

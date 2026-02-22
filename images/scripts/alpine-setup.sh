@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Setup script for Debian-based Tidepool workspace VM (tart / arm64)
+# Setup script for Debian-based Rockpool workspace VM (tart / arm64)
 # Base image: ghcr.io/cirruslabs/debian:latest
 # Init system: systemd, code-server runs as code-server@admin
 
@@ -51,7 +51,7 @@ $SUDO systemctl start "code-server@${CS_USER}" || true
 SSH_DIR="/home/${CS_USER}/.ssh"
 $SUDO mkdir -p "${SSH_DIR}"
 $SUDO tee "${SSH_DIR}/authorized_keys" >/dev/null <<'SSHEOF'
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIILyJJWuMlRsALg5KCdsm8rV+ZK01umDcac7k9Gv4xFs tidepool-vm-access
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIILyJJWuMlRsALg5KCdsm8rV+ZK01umDcac7k9Gv4xFs rockpool-vm-access
 SSHEOF
 $SUDO chmod 700 "${SSH_DIR}"
 $SUDO chmod 600 "${SSH_DIR}/authorized_keys"

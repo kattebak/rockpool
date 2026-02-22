@@ -1,4 +1,4 @@
-# Tidepool
+# Rockpool
 
 Cloud IDE platform. Isolated development environments in microVMs, accessible via browser.
 

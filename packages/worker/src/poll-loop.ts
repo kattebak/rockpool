@@ -1,4 +1,4 @@
-import type { QueueRepository } from "@tdpl/queue";
+import type { QueueRepository } from "@rockpool/queue";
 import type { Logger } from "pino";
 import type { createProcessor } from "./processor.ts";
 

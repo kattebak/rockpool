@@ -1,4 +1,4 @@
-# EDD: Tidepool Architecture Overview
+# EDD: Rockpool Architecture Overview
 
 | Field   | Value      |
 | ------- | ---------- |
@@ -9,7 +9,7 @@
 
 ## Summary
 
-Tidepool is a lightweight cloud IDE platform inspired by Cloud9. It provides isolated development environments running in microVMs, accessible through a web browser via a unified reverse proxy. The system runs on a single host (laptop or office server) with external ingress via a reverse proxy service like Cloudflare Tunnel.
+Rockpool is a lightweight cloud IDE platform inspired by Cloud9. It provides isolated development environments running in microVMs, accessible through a web browser via a unified reverse proxy. The system runs on a single host (laptop or office server) with external ingress via a reverse proxy service like Cloudflare Tunnel.
 
 ## Baseline Decisions (First Plan Anchors)
 
@@ -101,7 +101,7 @@ See: [EDD 003: Caddy Reverse Proxy](003_Caddy_Reverse_Proxy.md)
 
 #### Control Plane
 
-Composed of two services, a worker, and a message queue, all co-located in the root VM. The API server lives in `@tidepool/server` and the async worker in `@tidepool/worker` -- both compose integration packages (`@tidepool/runtime`, `@tidepool/caddy`, `@tidepool/queue`, `@tidepool/db`) via dependency injection. See [EDD 008: Package Structure](008_Package_Structure.md) for the full layout.
+Composed of two services, a worker, and a message queue, all co-located in the root VM. The API server lives in `@rockpool/server` and the async worker in `@rockpool/worker` -- both compose integration packages (`@rockpool/runtime`, `@rockpool/caddy`, `@rockpool/queue`, `@rockpool/db`) via dependency injection. See [EDD 008: Package Structure](008_Package_Structure.md) for the full layout.
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -128,8 +128,8 @@ Composed of two services, a worker, and a message queue, all co-located in the r
 ```
 
 - **Workspace Service** -- workspace CRUD and status, serves SPA at `/app/*` and API at `/api/*`. Workspace entity and status model defined in [EDD 007: Data Model](007_Data_Model.md).
-- **Caddy Service** -- configures Caddy routes via localhost admin API when workspaces start/stop. Uses `CaddyRepository` from `@tidepool/caddy`.
-- **Workspace Worker** -- separate process (`@tidepool/worker`). Picks up async jobs from ElasticMQ (create VM, configure routes, teardown). Uses `RuntimeRepository` from `@tidepool/runtime`, `CaddyRepository` from `@tidepool/caddy`, and `QueueRepository` from `@tidepool/queue`.
+- **Caddy Service** -- configures Caddy routes via localhost admin API when workspaces start/stop. Uses `CaddyRepository` from `@rockpool/caddy`.
+- **Workspace Worker** -- separate process (`@rockpool/worker`). Picks up async jobs from ElasticMQ (create VM, configure routes, teardown). Uses `RuntimeRepository` from `@rockpool/runtime`, `CaddyRepository` from `@rockpool/caddy`, and `QueueRepository` from `@rockpool/queue`.
 - **ElasticMQ** -- SQS-compatible message queue for async workspace operations
 
 ### 2. Workspace VMs
