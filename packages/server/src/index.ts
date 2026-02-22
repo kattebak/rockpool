@@ -34,7 +34,11 @@ const queue = inlineWorker
 		});
 
 const caddy = useStubs ? createStubCaddy() : createCaddyClient({ adminUrl: config.caddyAdminUrl });
-const workspaceService = createWorkspaceService({ db, queue });
+const runtime = useStubVm
+	? createStubRuntime()
+	: createTartRuntime({ sshKeyPath: config.sshKeyPath });
+
+const workspaceService = createWorkspaceService({ db, queue, runtime, caddy });
 const portService = createPortService({ db, caddy });
 
 const app = createApp({ workspaceService, portService, logger });
@@ -107,10 +111,6 @@ async function recoverOrphanedWorkspaces(q: QueueRepository): Promise<void> {
 		logger.info({ count: orphaned.length }, "Orphaned workspace recovery complete");
 	}
 }
-
-const runtime = useStubVm
-	? createStubRuntime()
-	: createTartRuntime({ sshKeyPath: config.sshKeyPath });
 
 app.listen(config.port, () => {
 	logger.info({ port: config.port }, "Rockpool control plane started");
