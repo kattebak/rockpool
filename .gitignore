@@ -142,3 +142,8 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 build/
 tsp-output/
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
