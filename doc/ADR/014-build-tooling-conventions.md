@@ -16,8 +16,8 @@ We want a consistent answer to "how do I build X" and "how do I do Y" across the
 All build artifacts are defined as Makefile targets with proper dependency tracking:
 
 ```makefile
-images/rockpool-workspace: images/alpine-workspace.pkr.hcl images/scripts/alpine-setup.sh
-	packer build images/alpine-workspace.pkr.hcl
+images/rockpool-workspace: images/workspace.pkr.hcl images/scripts/setup.sh
+	packer build images/workspace.pkr.hcl
 ```
 
 `npm run build` delegates to `make all`. Individual targets are available directly via `make`.

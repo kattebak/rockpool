@@ -7,7 +7,7 @@
 | Created      | 2026-02-22                                                                                                                                                                                                                                                                                                                                                |
 | Updated      | 2026-02-22                                                                                                                                                                                                                                                                                                                                                |
 | Related ADRs | [ADR-003](../ADR/003-typespec-api-first.md), [ADR-010](../ADR/010-react-shadcn-tanstack-spa.md), [ADR-014](../ADR/014-build-tooling-conventions.md), [ADR-015](../ADR/015-two-port-origin-isolation.md)                                                                                                                                                   |
-| Related EDDs | [EDD-001](../EDD/001_Architecture_Overview.md), [EDD-002](../EDD/002_MicroVM_Runtime.md), [EDD-003](../EDD/003_Caddy_Reverse_Proxy.md), [EDD-004](../EDD/004_Web_IDE.md), [EDD-005](../EDD/005_Workspace_Image_Pipeline.md), [EDD-006](../EDD/006_Vertical_Slice_MVP.md), [EDD-007](../EDD/007_Data_Model.md), [EDD-008](../EDD/008_Package_Structure.md) |
+| Related EDDs | [EDD-001](../EDD/001_Architecture_Overview.md), [EDD-002](../EDD/002_MicroVM_Runtime.md), [EDD-003](../EDD/003_Caddy_Reverse_Proxy.md), [EDD-004](../EDD/004_Web_IDE.md), [EDD-005](../EDD/005_Workspace_Image_Pipeline.md), [EDD-007](../EDD/007_Data_Model.md), [EDD-008](../EDD/008_Package_Structure.md) |
 
 ## Summary
 
@@ -72,7 +72,7 @@ Define the "Rockpool-on-Rockpool" ultimate demo with full purity: a Rockpool wor
 
 - The outer Rockpool control plane manages workspaces and routes via Caddy using two-port origin isolation ([EDD-001](../EDD/001_Architecture_Overview.md), [EDD-003](../EDD/003_Caddy_Reverse_Proxy.md)).
 - code-server runs inside each workspace VM and supports path-based proxy mounting ([EDD-004](../EDD/004_Web_IDE.md)).
-- Dev mode already supports `StubRuntime` and `StubCaddy` for running the stack without real VMs or Caddy ([EDD-006](../EDD/006_Vertical_Slice_MVP.md), [EDD-008](../EDD/008_Package_Structure.md)).
+- Dev mode already supports `StubRuntime` and `StubCaddy` for running the stack without real VMs or Caddy ([EDD-008](../EDD/008_Package_Structure.md)).
 - Port forwarding routes are already supported at `/workspace/{name}/port/{port}/*` ([EDD-003](../EDD/003_Caddy_Reverse_Proxy.md), [EDD-007](../EDD/007_Data_Model.md)).
 
 ## Proposal

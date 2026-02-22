@@ -7,7 +7,7 @@
 | Created      | 2026-02-22                                                                                                |
 | Updated      | 2026-02-22                                                                                                |
 | Related ADRs | [ADR-005](../ADR/005-node22-esm.md), [ADR-014](../ADR/014-build-tooling-conventions.md)                   |
-| Related EDDs | [EDD-001](001_Architecture_Overview.md), [EDD-006](006_Vertical_Slice_MVP.md), [EDD-008](008_Package_Structure.md) |
+| Related EDDs | [EDD-001](001_Architecture_Overview.md), [EDD-008](008_Package_Structure.md) |
 
 ## Summary
 

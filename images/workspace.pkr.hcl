@@ -58,7 +58,7 @@ build {
   sources = ["source.tart-cli.workspace"]
 
   provisioner "shell" {
-    script = "${path.root}/scripts/alpine-setup.sh"
+    script = "${path.root}/scripts/setup.sh"
     environment_vars = [
       "ROCKPOOL_WORKSPACE_NAME=test"
     ]

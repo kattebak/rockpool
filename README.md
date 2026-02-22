@@ -33,19 +33,12 @@ npm test
 
 Requires Node.js >= 22.
 
-## MVP (local macOS, Tart + Caddy)
+## Running
 
-This is the vertical slice described in [doc/EDD/006_Vertical_Slice_MVP.md](doc/EDD/006_Vertical_Slice_MVP.md).
+```sh
+make .envrc        # create .envrc template (fill in secrets, then direnv allow)
+make all           # build everything (TypeSpec, SDK, client, VM image)
+npm run dev        # start API server + worker + client dev server
+```
 
-1. Start a VM from a local base image (prints VM IP):
-   - `npm run mvp:start-vm`
-2. Configure code-server inside the VM:
-   - `npm run mvp:setup-vm`
-3. Start Caddy on the host and load a minimal config:
-   - `caddy start`
-   - `npm run mvp:caddy:bootstrap`
-4. Add a workspace route (replace VM IP):
-   - `npm run mvp:caddy:add-route -- -n test -i <VM_IP>`
-5. Open `http://localhost:8080/workspace/test/`
-
-If you want to use the custom Debian image, run `npm run mvp:build-image` first and pass its name to `mvp:start-vm` with `-i`.
+See [doc/EDD/003_Caddy_Reverse_Proxy.md](doc/EDD/003_Caddy_Reverse_Proxy.md) appendix for local setup details (GitHub OAuth, `.envrc`).

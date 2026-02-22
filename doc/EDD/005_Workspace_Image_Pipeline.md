@@ -37,10 +37,10 @@ Debian minimal provides systemd and broad binary compatibility. The previous Alp
 
 ### Build Tool: Packer + Shared Provisioning Script
 
-Single provisioning script (`alpine-setup.sh`, legacy name) for the Debian base, Packer builds platform-specific outputs:
+Single provisioning script (`setup.sh`) for the Debian base, Packer builds platform-specific outputs:
 
 ```
-alpine-setup.sh (shared provisioning script, legacy name)
+setup.sh (shared provisioning script)
         |
    ┌────┴────┐
    |  Packer |
