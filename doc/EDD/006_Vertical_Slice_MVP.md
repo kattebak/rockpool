@@ -5,7 +5,7 @@
 | Author  | mvhenten   |
 | Status  | Draft      |
 | Created | 2026-02-21 |
-| Updated | 2026-02-22 |
+| Updated | 2026-02-23 |
 
 ## Summary
 
@@ -230,14 +230,14 @@ All control plane packages have been built on top of this vertical slice. See [E
 
 | Package | Status | Tests | Description |
 |---------|--------|-------|-------------|
-| `@tdpl/runtime` | Done | 10 | TartRuntime adapter wrapping `tart` CLI (create, start, stop, remove, status, getIp with polling). Injectable exec for testing. |
-| `@tdpl/caddy` | Done | 7 | Caddy admin API client via native fetch. Two-port routing: workspace + port routes go to srv1 (:8081), bootstrap creates both srv0 and srv1. |
+| `@tdpl/runtime` | Done | 10 | TartRuntime adapter wrapping `tart` CLI (create, start, stop, remove, status, getIp with polling). Injectable exec for testing. StubRuntime for dev mode (in-memory VM simulation). |
+| `@tdpl/caddy` | Done | 21 | Caddy admin API client via native fetch. Two-port routing: workspace + port routes go to srv1 (:8081). Full bootstrap config with auth, API proxy, SPA serving, root redirect. StubCaddy for dev mode. |
 | `@tdpl/queue` | Done | 5 | SQS-compatible queue client + in-memory implementation for dev/testing. |
-| `@tdpl/db` | Done | 17 | SQLite + Drizzle ORM. Hand-written schema (generated Drizzle emitter targets Postgres, not usable). Workspace + Port tables with cascade delete. |
-| `@tdpl/server` | Done | 21 | Express control plane with express-openapi-validator. Workspace CRUD + lifecycle + port forwarding endpoints. State machine enforcement. |
-| `@tdpl/worker` | Done | 7 | Async job processor: create/start/stop/delete lifecycle. Cleans up port routes on stop/delete. |
+| `@tdpl/db` | Done | 25 | SQLite + Drizzle ORM. Hand-written schema (generated Drizzle emitter targets Postgres, not usable). Workspace + Port tables with cascade delete. Cursor-based pagination on workspace listing. |
+| `@tdpl/server` | Done | 25 | Express control plane with express-openapi-validator. Workspace CRUD + lifecycle + port forwarding endpoints. State machine enforcement. Paginated list endpoint (limit/cursor). In-process worker for dev mode. |
+| `@tdpl/worker` | Done | 7 | Async job processor: create/start/stop/delete lifecycle. Cleans up port routes on stop/delete. Poll loop with configurable idle delay. Standalone production entrypoint. |
 
-**Total: 67 tests, all passing.**
+**Total: 93 tests, all passing.**
 
 ### Key Integration Points
 
@@ -262,14 +262,42 @@ All control plane packages have been built on top of this vertical slice. See [E
 |------|--------|-------|
 | `@tdpl/client` (React SPA) | Done | React + shadcn/ui + TanStack Query/Router at `/app/*`. See below. |
 | esbuild bundling | Done | ADR-011. Client builds via esbuild (503kb JS, 39kb CSS, ~300ms). Makefile target `build-client`. |
-| Root dev/test scripts | TODO | `npm run dev` (API + client), `npm test` (aggregate all packages) |
-| One-line installer & CLI | RFC | See [RFC-001](../RFC/001_One_Line_Installer_and_CLI.md) |
-| Pagination (cursor-based) | TODO | EDD-007 specifies limit + cursor |
+| Root dev/test scripts | Done | `npm run dev` starts API server + worker (in-process) + client dev server concurrently. `npm test` aggregates all packages. |
+| Pagination (cursor-based) | Done | TypeSpec → OpenAPI → DB → service → routes. `limit`/`cursor` query params, `WorkspaceListResponse` model, base64url cursor encoding. |
+| Auth (basic auth in Caddy) | Done | `hashPassword()` (bcrypt) + `buildBootstrapConfig({ auth })`. Protects `/api/*` and `/app/*` on srv0, health check bypasses auth. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars. |
+| Dev mode stubs | Done | `StubRuntime` (in-memory VM sim) and `StubCaddy` (no-op) for local dev without real VMs or Caddy. Server embeds worker in-process when `NODE_ENV=test`. |
+| Client pagination | Done | `useInfiniteQuery` with cursor-based pagination. "Load more" button when `hasNextPage` is true. |
+| End-to-end Caddy integration | Done | Server bootstraps Caddy on startup (when not in stub mode). `buildBootstrapConfig` generates srv0 routes: API proxy, SPA file server, root redirect. `npm run dev:caddy` runs full stack. Browser-verified via Chrome DevTools. |
 | Rate limiting (Caddy) | TODO | EDD-003 specifies Caddy-level rate limiting |
 | IncusRuntime adapter | TODO | Linux support via Incus REST API |
 | Alpine image access | TODO | Tart registry 403 for Alpine base, using Ubuntu runner |
-| Auth (basic auth in Caddy) | TODO | Single-user basic auth |
 | Network isolation | TODO | Bridge network, firewall rules, NAT egress |
+
+## Lessons Learned
+
+### In-process worker is essential for dev mode
+
+The original design (EDD-008) assumed server and worker always run as separate processes. In practice, separate processes with `MemoryQueue` don't share state — each gets its own queue instance, so jobs enqueued by the server are invisible to the worker. The fix was embedding the worker poll loop inside the server process for dev mode, sharing the same `MemoryQueue` instance. Production still uses separate processes with SQS. This is controlled by `WORKER_INLINE=true` or `NODE_ENV=test`.
+
+### Stub implementations unblock the full stack
+
+Real VMs (Tart) and real Caddy aren't always available during development. `StubRuntime` simulates VM lifecycle in-memory (with auto-incrementing IPs), and `StubCaddy` is a no-op. This lets the full lifecycle work end-to-end without any external dependencies. The `RUNTIME=tart` env var opt-in keeps real VM testing available.
+
+### TypeSpec changes cascade through the whole stack
+
+Changing the `list` operation from `Workspace[]` to `WorkspaceListResponse` (for pagination) required updates to: TypeSpec → OpenAPI spec → Zod validators → DB queries → service layer → route handlers → client API types → client hooks → client components. The TypeSpec-first approach (ADR-003) ensures the spec stays authoritative, but the blast radius of model changes is large. Keep the TypeSpec model stable once consumers exist.
+
+### Caddy v2.11+ requires Origin header
+
+Caddy's admin API added a security check requiring an `Origin` header on all requests. The CaddyClient needed to send `Origin: http://localhost` (or whatever the admin URL is) with every request. This wasn't documented in older Caddy docs and caused silent failures.
+
+### Bootstrap config is more than just routes
+
+The initial `buildBootstrapConfig` only handled auth. The full localhost setup needed API proxy routes (`/api/*` → control plane), SPA file serving (`/app/*` → built assets), and a root redirect (`/` → `/app/workspaces`). Building these incrementally as options (`controlPlaneUrl`, `spaRoot`, `auth`) kept the function composable.
+
+### Client response shape must match server
+
+When the server changed from returning `Workspace[]` to `{ items, nextCursor }`, the client broke silently (TanStack Query returned undefined). The fix was straightforward (`select: response => response.items` initially, then `useInfiniteQuery` for proper pagination), but highlights the need for client-side type safety against the API contract.
 
 ## What Was Implemented: React SPA (`@tdpl/client`)
 

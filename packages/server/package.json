@@ -19,6 +19,7 @@
 		"@tdpl/db": "*",
 		"@tdpl/queue": "*",
 		"@tdpl/runtime": "*",
+		"@tdpl/worker": "*",
 		"express": "^5.1.0",
 		"express-openapi-validator": "^5.4.6",
 		"pino": "^9.6.0",

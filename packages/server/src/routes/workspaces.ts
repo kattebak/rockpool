@@ -7,10 +7,13 @@ type WorkspaceService = ReturnType<
 export function createWorkspaceRouter(service: WorkspaceService): Router {
 	const router = Router();
 
-	router.get("/", async (_req, res, next) => {
+	router.get("/", async (req, res, next) => {
 		try {
-			const workspaces = await service.list();
-			res.json(workspaces);
+			const rawLimit = Number(req.query.limit);
+			const limit = Number.isNaN(rawLimit) ? 25 : Math.max(1, Math.min(100, rawLimit));
+			const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+			const result = await service.list({ limit, cursor });
+			res.json(result);
 		} catch (err) {
 			next(err);
 		}

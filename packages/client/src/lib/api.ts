@@ -1,4 +1,10 @@
-import type { AddPortRequest, CreateWorkspaceRequest, Port, Workspace } from "./api-types";
+import type {
+	AddPortRequest,
+	CreateWorkspaceRequest,
+	PaginatedResponse,
+	Port,
+	Workspace,
+} from "./api-types";
 
 class ApiError extends Error {
 	constructor(
@@ -31,8 +37,19 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 	return response.json() as Promise<T>;
 }
 
-export function listWorkspaces(): Promise<Workspace[]> {
-	return request<Workspace[]>("/api/workspaces");
+export interface ListWorkspacesParams {
+	limit?: number;
+	cursor?: string;
+}
+
+export function listWorkspaces(
+	params?: ListWorkspacesParams,
+): Promise<PaginatedResponse<Workspace>> {
+	const searchParams = new URLSearchParams();
+	if (params?.limit) searchParams.set("limit", String(params.limit));
+	if (params?.cursor) searchParams.set("cursor", params.cursor);
+	const query = searchParams.toString();
+	return request<PaginatedResponse<Workspace>>(`/api/workspaces${query ? `?${query}` : ""}`);
 }
 
 export function getWorkspace(id: string): Promise<Workspace> {

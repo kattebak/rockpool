@@ -1,9 +1,74 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, lt, or } from "drizzle-orm";
 import type { DbClient } from "./connection.ts";
-import { type NewPort, type NewWorkspace, type Port, type Workspace, type WorkspaceStatus, ports, workspaces } from "./schema.ts";
+import {
+	type NewPort,
+	type NewWorkspace,
+	type Port,
+	ports,
+	type Workspace,
+	type WorkspaceStatus,
+	workspaces,
+} from "./schema.ts";
 
-export function listWorkspaces(db: DbClient): Promise<Workspace[]> {
-	return db.select().from(workspaces);
+export interface PaginationParams {
+	limit: number;
+	cursor?: string;
+}
+
+export interface PaginatedResult<T> {
+	items: T[];
+	nextCursor?: string;
+}
+
+export function encodeCursor(createdAt: Date, id: string): string {
+	return Buffer.from(`${createdAt.getTime()}|${id}`).toString("base64url");
+}
+
+export function decodeCursor(cursor: string): { createdAt: Date; id: string } {
+	const decoded = Buffer.from(cursor, "base64url").toString();
+	const separatorIndex = decoded.indexOf("|");
+	if (separatorIndex === -1) {
+		throw new Error("Invalid cursor format");
+	}
+	const timestamp = Number(decoded.slice(0, separatorIndex));
+	const id = decoded.slice(separatorIndex + 1);
+	if (Number.isNaN(timestamp) || !id) {
+		throw new Error("Invalid cursor format");
+	}
+	return { createdAt: new Date(timestamp), id };
+}
+
+export function listWorkspaces(
+	db: DbClient,
+	params?: PaginationParams,
+): Promise<PaginatedResult<Workspace>> {
+	const limit = params?.limit ?? 25;
+	const fetchLimit = limit + 1;
+
+	let query = db
+		.select()
+		.from(workspaces)
+		.orderBy(desc(workspaces.createdAt), desc(workspaces.id))
+		.limit(fetchLimit);
+
+	if (params?.cursor) {
+		const { createdAt, id } = decodeCursor(params.cursor);
+		query = query.where(
+			or(
+				lt(workspaces.createdAt, createdAt),
+				and(eq(workspaces.createdAt, createdAt), lt(workspaces.id, id)),
+			),
+		) as typeof query;
+	}
+
+	return query.then((rows) => {
+		const hasMore = rows.length > limit;
+		const items = hasMore ? rows.slice(0, limit) : rows;
+		const nextCursor = hasMore
+			? encodeCursor(items[items.length - 1].createdAt, items[items.length - 1].id)
+			: undefined;
+		return { items, nextCursor };
+	});
 }
 
 export function getWorkspace(db: DbClient, id: string): Promise<Workspace | undefined> {

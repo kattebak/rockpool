@@ -1,17 +1,24 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import * as api from "@/lib/api";
-import type { CreateWorkspaceRequest } from "@/lib/api-types";
+import type { CreateWorkspaceRequest, PaginatedResponse, Workspace } from "@/lib/api-types";
 
 const WORKSPACES_KEY = ["workspaces"] as const;
+const PAGE_SIZE = 25;
 
 function workspaceKey(id: string) {
 	return ["workspaces", id] as const;
 }
 
 export function useWorkspaces() {
-	return useQuery({
+	return useInfiniteQuery<PaginatedResponse<Workspace>>({
 		queryKey: WORKSPACES_KEY,
-		queryFn: api.listWorkspaces,
+		queryFn: ({ pageParam }) =>
+			api.listWorkspaces({
+				limit: PAGE_SIZE,
+				cursor: pageParam as string | undefined,
+			}),
+		initialPageParam: undefined as string | undefined,
+		getNextPageParam: (lastPage) => lastPage.nextCursor,
 		refetchInterval: 5000,
 	});
 }
