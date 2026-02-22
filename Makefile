@@ -1,4 +1,4 @@
-.PHONY: all clean build-typespec
+.PHONY: all clean build-typespec images/tidepool-alpine
 
 DRIZZLE_ORM_VERSION := 1.0.0-beta.15-859cf75
 
@@ -11,3 +11,7 @@ build-typespec:
 
 clean:
 	rm -rf build
+
+images/tidepool-alpine: images/alpine-workspace.pkr.hcl images/scripts/alpine-setup.sh
+	packer init images/alpine-workspace.pkr.hcl
+	packer build images/alpine-workspace.pkr.hcl
