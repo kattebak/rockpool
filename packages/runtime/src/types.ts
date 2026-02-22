@@ -7,4 +7,5 @@ export interface RuntimeRepository {
 	remove(name: string): Promise<void>;
 	status(name: string): Promise<VmStatus>;
 	getIp(name: string): Promise<string>;
+	configure?(name: string, env: Record<string, string>): Promise<void>;
 }

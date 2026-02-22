@@ -11,6 +11,10 @@ function portRouteId(workspaceName: string, port: number): string {
 	return `workspace-${workspaceName}-port-${port}`;
 }
 
+function workspaceSubroutePath(name: string): string {
+	return `/id/${workspaceRouteId(name)}/handle/0/routes`;
+}
+
 function buildWorkspaceRoute(name: string, vmIp: string): unknown {
 	const pathPrefix = `/workspace/${name}`;
 	return {
@@ -29,6 +33,13 @@ function buildWorkspaceRoute(name: string, vmIp: string): unknown {
 								flush_interval: -1,
 								stream_timeout: "24h",
 								stream_close_delay: "5s",
+								headers: {
+									request: {
+										set: {
+											"X-Forwarded-Prefix": [pathPrefix],
+										},
+									},
+								},
 							},
 						],
 					},
@@ -73,13 +84,17 @@ async function assertOk(response: Response, context: string): Promise<void> {
 export function createCaddyClient(options: CaddyClientOptions = {}): CaddyRepository {
 	const adminUrl = options.adminUrl ?? DEFAULT_ADMIN_URL;
 	const fetchFn: FetchFn = options.fetch ?? globalThis.fetch;
+	const adminHeaders = {
+		"Content-Type": "application/json",
+		Origin: adminUrl,
+	};
 
 	return {
 		async addWorkspaceRoute(name: string, vmIp: string): Promise<void> {
 			const route = buildWorkspaceRoute(name, vmIp);
 			const response = await fetchFn(`${adminUrl}${SRV1_ROUTES_PATH}`, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: adminHeaders,
 				body: JSON.stringify(route),
 			});
 			await assertOk(response, "addWorkspaceRoute");
@@ -89,6 +104,7 @@ export function createCaddyClient(options: CaddyClientOptions = {}): CaddyReposi
 			const id = workspaceRouteId(name);
 			const response = await fetchFn(`${adminUrl}/id/${id}`, {
 				method: "DELETE",
+				headers: adminHeaders,
 			});
 			if (response.status === 404) {
 				return;
@@ -98,9 +114,10 @@ export function createCaddyClient(options: CaddyClientOptions = {}): CaddyReposi
 
 		async addPortRoute(workspaceName: string, vmIp: string, port: number): Promise<void> {
 			const route = buildPortRoute(workspaceName, vmIp, port);
-			const response = await fetchFn(`${adminUrl}${SRV1_ROUTES_PATH}`, {
+			const subroutePath = workspaceSubroutePath(workspaceName);
+			const response = await fetchFn(`${adminUrl}${subroutePath}`, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: adminHeaders,
 				body: JSON.stringify(route),
 			});
 			await assertOk(response, "addPortRoute");
@@ -110,6 +127,7 @@ export function createCaddyClient(options: CaddyClientOptions = {}): CaddyReposi
 			const id = portRouteId(workspaceName, port);
 			const response = await fetchFn(`${adminUrl}/id/${id}`, {
 				method: "DELETE",
+				headers: adminHeaders,
 			});
 			if (response.status === 404) {
 				return;
@@ -120,7 +138,7 @@ export function createCaddyClient(options: CaddyClientOptions = {}): CaddyReposi
 		async bootstrap(config: unknown): Promise<void> {
 			const response = await fetchFn(`${adminUrl}/load`, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: adminHeaders,
 				body: JSON.stringify(config),
 			});
 			await assertOk(response, "bootstrap");

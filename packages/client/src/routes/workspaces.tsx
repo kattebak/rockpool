@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, MoreHorizontal, Play, Search, Square, Trash2 } from "lucide-react";
+import { ExternalLink, Loader2, MoreHorizontal, Play, Search, Square, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -33,7 +33,16 @@ import type { Workspace } from "@/lib/api-types";
 import { timeAgo } from "@/lib/time";
 
 export function WorkspaceListPage() {
-	const { data: workspaces, isPending, isError, error, refetch } = useWorkspaces();
+	const {
+		data,
+		isPending,
+		isError,
+		error,
+		refetch,
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+	} = useWorkspaces();
 	const [search, setSearch] = useState("");
 	const [stopTarget, setStopTarget] = useState<Workspace | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<Workspace | null>(null);
@@ -42,8 +51,12 @@ export function WorkspaceListPage() {
 	const stopMutation = useStopWorkspace();
 	const deleteMutation = useDeleteWorkspace();
 
+	const workspaces = useMemo(() => {
+		if (!data) return [];
+		return data.pages.flatMap((page) => page.items);
+	}, [data]);
+
 	const filtered = useMemo(() => {
-		if (!workspaces) return [];
 		if (!search) return workspaces;
 		const lower = search.toLowerCase();
 		return workspaces.filter((w) => w.name.includes(lower) || w.image.includes(lower));
@@ -117,6 +130,15 @@ export function WorkspaceListPage() {
 					</TableBody>
 				</Table>
 			</div>
+
+			{hasNextPage && !search && (
+				<div className="flex justify-center">
+					<Button variant="outline" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
+						{isFetchingNextPage && <Loader2 className="size-4 animate-spin" />}
+						{isFetchingNextPage ? "Loading..." : "Load more"}
+					</Button>
+				</div>
+			)}
 
 			<ConfirmDialog
 				open={stopTarget !== null}

@@ -34,7 +34,9 @@ When given a goal:
 
 ## Delegation
 
-Use the Task tool with `subagent_type: "general-purpose"` to delegate implementation tasks. For each task:
+### Developer agent
+
+Use the Task tool with `subagent_type: "developer"` to delegate implementation tasks. For each task:
 
 - Provide the full context the developer needs (file paths, ADR/EDD references, expected inputs/outputs)
 - Reference the coding standards in `.claude/rules/typescript.md` and `.claude/rules/development.md`
@@ -45,6 +47,17 @@ After each delegated task completes, verify the result before moving on:
 - Check that expected files exist
 - Run `npm run lint` and `npm run check` if code was written
 - Run `npm test` if tests were added
+
+### Debugger agent
+
+Use the Task tool with `subagent_type: "general-purpose"` and reference `.claude/agents/debugger.md` to delegate browser debugging tasks. Use the debugger agent when:
+
+- You need to visually verify that a UI change renders correctly
+- An issue might be browser-side (console errors, failed network requests, rendering bugs)
+- You want to inspect API responses as seen by the client
+- End-to-end verification of a feature after implementation
+
+Tell the debugger which URL to navigate to and what to look for. It will use the `chrome-devtools` skill to take screenshots, inspect network traffic, and check console output, then report findings back.
 
 ## Tracking
 

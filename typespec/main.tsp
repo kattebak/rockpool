@@ -21,7 +21,8 @@ enum WorkspaceStatus {
 @table("workspaces", "tidepool")
 model Workspace {
   @visibility(Lifecycle.Read)
-  @pk @uuid("base36", true)
+  @pk
+  @uuid("base36", true)
   id: string;
 
   @visibility(Lifecycle.Create, Lifecycle.Read)
@@ -65,9 +66,17 @@ model Port {
   createdAt: utcDateTime;
 }
 
+model WorkspaceListResponse {
+  items: Workspace[];
+  nextCursor?: string;
+}
+
 @route("/api/workspaces")
 interface Workspaces {
-  @get list(): Workspace[];
+  @get list(
+    @query limit?: int32,
+    @query cursor?: string,
+  ): WorkspaceListResponse;
 
   @get read(@path id: string): Workspace;
 

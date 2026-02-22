@@ -1,5 +1,13 @@
-import type { DbClient, Workspace, WorkspaceStatus } from "@tdpl/db";
+import type {
+	DbClient,
+	PaginatedResult,
+	PaginationParams,
+	Workspace,
+	WorkspaceStatus,
+} from "@tdpl/db";
 import {
+	countWorkspaces,
+	countWorkspacesByStatus,
 	createWorkspace as dbCreateWorkspace,
 	getWorkspace,
 	getWorkspaceByName,
@@ -7,6 +15,9 @@ import {
 	updateWorkspaceStatus,
 } from "@tdpl/db";
 import type { QueueRepository } from "@tdpl/queue";
+
+const MAX_WORKSPACES = 999;
+const MAX_CONCURRENT_STARTS = 3;
 
 const VALID_TRANSITIONS: Record<string, WorkspaceStatus[]> = {
 	creating: ["running", "error"],
@@ -25,8 +36,8 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 	const { db, queue } = deps;
 
 	return {
-		async list(): Promise<Workspace[]> {
-			return listWorkspaces(db);
+		async list(params?: PaginationParams): Promise<PaginatedResult<Workspace>> {
+			return listWorkspaces(db, params);
 		},
 
 		async get(id: string): Promise<Workspace | undefined> {
@@ -39,6 +50,20 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				throw new ConflictError(`Workspace "${name}" already exists`);
 			}
 
+			const total = await countWorkspaces(db);
+			if (total >= MAX_WORKSPACES) {
+				throw new ConflictError(
+					`Maximum of ${MAX_WORKSPACES} workspaces reached`,
+				);
+			}
+
+			const creating = await countWorkspacesByStatus(db, "creating");
+			if (creating >= MAX_CONCURRENT_STARTS) {
+				throw new ConflictError(
+					`Maximum of ${MAX_CONCURRENT_STARTS} concurrent workspace starts reached. Wait for pending workspaces to finish.`,
+				);
+			}
+
 			const workspace = await dbCreateWorkspace(db, { name, image });
 			await queue.send({ type: "create", workspaceId: workspace.id });
 			return workspace;
@@ -47,6 +72,14 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 		async start(id: string): Promise<Workspace> {
 			const workspace = await requireWorkspace(db, id);
 			assertTransition(workspace.status, "creating");
+
+			const creating = await countWorkspacesByStatus(db, "creating");
+			if (creating >= MAX_CONCURRENT_STARTS) {
+				throw new ConflictError(
+					`Maximum of ${MAX_CONCURRENT_STARTS} concurrent workspace starts reached. Wait for pending workspaces to finish.`,
+				);
+			}
+
 			const updated = await updateWorkspaceStatus(db, id, "creating");
 			if (!updated) {
 				throw new NotFoundError(`Workspace "${id}" disappeared during update`);

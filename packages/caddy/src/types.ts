@@ -19,3 +19,15 @@ export interface CaddyClientOptions {
 	adminUrl?: string;
 	fetch?: FetchFn;
 }
+
+export interface BasicAuthCredentials {
+	username: string;
+	passwordHash: string;
+}
+
+export interface BootstrapOptions {
+	auth?: BasicAuthCredentials;
+	controlPlaneUrl?: string;
+	spaRoot?: string;
+	srv1Port?: number;
+}
