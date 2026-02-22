@@ -176,6 +176,9 @@ export function countWorkspacesByStatus(db: DbClient, status: WorkspaceStatus): 
 		.then((rows) => rows[0].value);
 }
 
-export function listWorkspacesByStatus(db: DbClient, status: WorkspaceStatus): Promise<Workspace[]> {
+export function listWorkspacesByStatus(
+	db: DbClient,
+	status: WorkspaceStatus,
+): Promise<Workspace[]> {
 	return db.select().from(workspaces).where(eq(workspaces.status, status));
 }

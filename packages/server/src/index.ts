@@ -38,7 +38,8 @@ const runtime = useStubVm
 	? createStubRuntime()
 	: createTartRuntime({ sshKeyPath: config.sshKeyPath });
 
-const workspaceService = createWorkspaceService({ db, queue, runtime, caddy });
+const healthCheck = useStubVm ? async () => {} : undefined;
+const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger, healthCheck });
 const portService = createPortService({ db, caddy });
 
 const app = createApp({ workspaceService, portService, logger });
@@ -75,24 +76,36 @@ async function bootstrapCaddy(): Promise<void> {
 	);
 }
 
-async function recoverRunningWorkspaces(runtime: RuntimeRepository, q: QueueRepository): Promise<void> {
+async function recoverRunningWorkspaces(
+	runtime: RuntimeRepository,
+	q: QueueRepository,
+): Promise<void> {
 	const running = await listWorkspacesByStatus(db, "running");
 	for (const ws of running) {
 		const vmStatus = await runtime.status(ws.name);
 
 		if (vmStatus === "running" && ws.vmIp) {
 			await caddy.addWorkspaceRoute(ws.name, ws.vmIp);
-			logger.info({ workspaceId: ws.id, name: ws.name, vmIp: ws.vmIp }, "Recovered Caddy route for running workspace");
+			logger.info(
+				{ workspaceId: ws.id, name: ws.name, vmIp: ws.vmIp },
+				"Recovered Caddy route for running workspace",
+			);
 
 			const workspacePorts = await listPorts(db, ws.id);
 			for (const p of workspacePorts) {
 				await caddy.addPortRoute(ws.name, ws.vmIp, p.port);
-				logger.info({ workspaceId: ws.id, name: ws.name, port: p.port }, "Recovered Caddy port route");
+				logger.info(
+					{ workspaceId: ws.id, name: ws.name, port: p.port },
+					"Recovered Caddy port route",
+				);
 			}
 			continue;
 		}
 
-		logger.warn({ workspaceId: ws.id, name: ws.name, vmStatus }, "DB says running but VM is not, re-enqueuing start");
+		logger.warn(
+			{ workspaceId: ws.id, name: ws.name, vmStatus },
+			"DB says running but VM is not, re-enqueuing start",
+		);
 		await updateWorkspaceStatus(db, ws.id, "stopped");
 		await q.send({ type: "start", workspaceId: ws.id });
 	}
@@ -116,8 +129,7 @@ app.listen(config.port, () => {
 	logger.info({ port: config.port }, "Rockpool control plane started");
 
 	if (inlineWorker) {
-		const healthCheck = useStubVm ? async () => {} : undefined;
-		const processor = createProcessor({ db, runtime, caddy, logger, healthCheck });
+		const processor = createProcessor({ workspaceService, logger });
 		const pollLoop = createPollLoop({ queue, processor, logger });
 
 		logger.info({ runtime: useStubVm ? "stub" : "tart" }, "Starting in-process worker");

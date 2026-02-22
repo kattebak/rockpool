@@ -69,8 +69,8 @@ describe("API", () => {
 		const queue = createMemoryQueue();
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const workspaceService = createWorkspaceService({ db, queue, runtime, caddy });
 		const logger = pino({ level: "silent" });
+		const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger });
 		const app = createApp({ workspaceService, logger });
 		server = app.listen(0, done);
 	});
@@ -265,9 +265,15 @@ describe("Port API", () => {
 		const queue = createMemoryQueue();
 		mockCaddy = createMockCaddy();
 		const runtime = createMockRuntime();
-		const workspaceService = createWorkspaceService({ db, queue, runtime, caddy: mockCaddy });
-		const portService = createPortService({ db, caddy: mockCaddy });
 		const logger = pino({ level: "silent" });
+		const workspaceService = createWorkspaceService({
+			db,
+			queue,
+			runtime,
+			caddy: mockCaddy,
+			logger,
+		});
+		const portService = createPortService({ db, caddy: mockCaddy });
 		const app = createApp({ workspaceService, portService, logger });
 
 		const ws = await createWorkspace(db, { name: "port-test-ws", image: "alpine-v1" });
@@ -357,7 +363,8 @@ describe("Workspace limits", () => {
 		const queue = createMemoryQueue();
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const service = createWorkspaceService({ db, queue, runtime, caddy });
+		const logger = pino({ level: "silent" });
+		const service = createWorkspaceService({ db, queue, runtime, caddy, logger });
 
 		await service.create("limit-ws-1", "alpine-v1");
 		await service.create("limit-ws-2", "alpine-v1");
@@ -378,7 +385,8 @@ describe("Workspace limits", () => {
 		const queue = createMemoryQueue();
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const service = createWorkspaceService({ db, queue, runtime, caddy });
+		const logger = pino({ level: "silent" });
+		const service = createWorkspaceService({ db, queue, runtime, caddy, logger });
 
 		const ws1 = await service.create("finish-ws-1", "alpine-v1");
 		await service.create("finish-ws-2", "alpine-v1");
@@ -395,7 +403,8 @@ describe("Workspace limits", () => {
 		const queue = createMemoryQueue();
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const service = createWorkspaceService({ db, queue, runtime, caddy });
+		const logger = pino({ level: "silent" });
+		const service = createWorkspaceService({ db, queue, runtime, caddy, logger });
 
 		await service.create("start-limit-1", "alpine-v1");
 		await service.create("start-limit-2", "alpine-v1");
