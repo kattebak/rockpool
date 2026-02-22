@@ -5,7 +5,7 @@ module.exports = {
 		{
 			name: "caddy",
 			script: "caddy",
-			args: "run --config '' --adapter ''",
+			args: "run",
 			interpreter: "none",
 			autorestart: true,
 			max_restarts: 3,
