@@ -32,6 +32,10 @@
 		"dev:stop": "pm2 delete all",
 		"dev:status": "pm2 status",
 		"dev:logs": "pm2 logs",
+		"dev:flush": "pm2 flush",
+		"worker:pm2:start": "pm2 start npm --name worker -- run start -w packages/worker",
+		"worker:pm2:stop": "pm2 delete worker",
+		"worker:pm2:logs": "pm2 logs worker",
 		"chrome:cdp": "node --experimental-websocket npm-scripts/chrome-cdp.mjs"
 	},
 	"devDependencies": {
