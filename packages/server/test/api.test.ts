@@ -3,12 +3,19 @@ import http from "node:http";
 import { after, before, describe, it } from "node:test";
 import type { CaddyRepository } from "@tdpl/caddy";
 import type { DbClient } from "@tdpl/db";
-import { createMemoryDb, createWorkspace, updateWorkspaceStatus } from "@tdpl/db";
+import {
+	createMemoryDb,
+	createWorkspace,
+	updateWorkspaceStatus,
+} from "@tdpl/db";
 import { createMemoryQueue } from "@tdpl/queue";
 import pino from "pino";
 import { createApp } from "../src/app.ts";
 import { createPortService } from "../src/services/port-service.ts";
-import { createWorkspaceService } from "../src/services/workspace-service.ts";
+import {
+	ConflictError,
+	createWorkspaceService,
+} from "../src/services/workspace-service.ts";
 
 function request(
 	server: http.Server,
@@ -329,5 +336,65 @@ describe("Port API", () => {
 			port: 3000,
 		});
 		assert.equal(res.status, 409);
+	});
+});
+
+describe("Workspace limits", () => {
+	it("rejects create when concurrent starts limit is reached", async () => {
+		const db = createMemoryDb();
+		const queue = createMemoryQueue();
+		const service = createWorkspaceService({ db, queue });
+
+		await service.create("limit-ws-1", "alpine-v1");
+		await service.create("limit-ws-2", "alpine-v1");
+		await service.create("limit-ws-3", "alpine-v1");
+
+		await assert.rejects(
+			() => service.create("limit-ws-4", "alpine-v1"),
+			(err: Error) => {
+				assert.ok(err instanceof ConflictError);
+				assert.match(err.message, /concurrent workspace starts/);
+				return true;
+			},
+		);
+	});
+
+	it("allows create after pending workspaces finish", async () => {
+		const db = createMemoryDb();
+		const queue = createMemoryQueue();
+		const service = createWorkspaceService({ db, queue });
+
+		const ws1 = await service.create("finish-ws-1", "alpine-v1");
+		await service.create("finish-ws-2", "alpine-v1");
+		await service.create("finish-ws-3", "alpine-v1");
+
+		await updateWorkspaceStatus(db, ws1.id, "running", { vmIp: "10.0.1.1" });
+
+		const ws4 = await service.create("finish-ws-4", "alpine-v1");
+		assert.equal(ws4.name, "finish-ws-4");
+	});
+
+	it("rejects start when concurrent starts limit is reached", async () => {
+		const db = createMemoryDb();
+		const queue = createMemoryQueue();
+		const service = createWorkspaceService({ db, queue });
+
+		await service.create("start-limit-1", "alpine-v1");
+		await service.create("start-limit-2", "alpine-v1");
+		await service.create("start-limit-3", "alpine-v1");
+
+		const ws = await createWorkspace(db, { name: "start-limit-stopped", image: "alpine-v1" });
+		await updateWorkspaceStatus(db, ws.id, "running", { vmIp: "10.0.1.1" });
+		await updateWorkspaceStatus(db, ws.id, "stopping");
+		await updateWorkspaceStatus(db, ws.id, "stopped", { vmIp: null });
+
+		await assert.rejects(
+			() => service.start(ws.id),
+			(err: Error) => {
+				assert.ok(err instanceof ConflictError);
+				assert.match(err.message, /concurrent workspace starts/);
+				return true;
+			},
+		);
 	});
 });
