@@ -17,11 +17,42 @@ The control plane configures Caddy's routes via its admin API on localhost as wo
 
 Caddy is the API gateway for all inbound traffic. It is responsible for:
 
-- Basic auth (current)
+- Basic auth for local/testing
+- OAuth-backed auth for production (GitHub OAuth)
 - Rate limiting at the edge (see [EDD 007](007_Data_Model.md))
 - Routing and path prefix handling
 
 Rate limiting requires a Caddy module; treat it as a required gateway capability even if the first implementation is minimal.
+
+Authentication has two supported modes: built-in `basic_auth` for local testing, and `caddy-security` for OAuth-backed login.
+
+### Authentication Options
+
+#### Option A: Basic Auth (local/testing)
+
+- Use Caddy's built-in `basic_auth` directive.
+- No external identity provider required.
+- Suitable for localhost and quick MVP testing.
+
+#### Option B: GitHub OAuth (production)
+
+Use `github.com/greenpau/caddy-security` (AuthCrunch) for OAuth-backed authentication and authorization.
+
+Key notes from AuthCrunch docs:
+
+- The authentication plugin issues JWT/PASETO tokens after successful login.
+- The authorization plugin validates tokens and applies policy (ACLs, path rules, role checks).
+
+High-level flow:
+
+1. Configure a GitHub OAuth app with a public callback URL.
+2. Build Caddy with the `caddy-security` module (via `xcaddy` or a custom download).
+3. Configure `security` with an OAuth identity provider using the GitHub driver.
+4. Configure an authentication portal that enables the GitHub provider.
+5. Configure an authorization policy to protect `/api/*` and `/app/*`.
+6. Attach `authenticate` and `authorize` directives to the relevant routes.
+
+GitHub OAuth is not practical on localhost without a tunnel (e.g. Cloudflare Tunnel) because GitHub requires a public callback URL.
 
 ### Rate Limiting Module
 
@@ -43,6 +74,47 @@ Identity key order:
 2. Client IP (fallback)
 
 These limits are intentionally conservative for a single-user system and can be raised once real usage data is available.
+
+### Security Plugin Details
+
+Selected plugin: `github.com/greenpau/caddy-security` (AuthCrunch).
+
+Build options:
+
+- Custom Caddy download from caddyserver.com with `caddy-security` enabled.
+- `xcaddy` build with `--with github.com/greenpau/caddy-security` (and `caddy-ratelimit`).
+
+Minimal Caddyfile sketch (conceptual):
+
+```caddyfile
+security {
+  oauth identity provider github {
+    realm github
+    driver github
+    client_id {env.GITHUB_OAUTH_CLIENT_ID}
+    client_secret {env.GITHUB_OAUTH_CLIENT_SECRET}
+  }
+
+  authentication portal tidepool {
+    enable identity provider github
+  }
+
+  authorization policy tidepool {
+    set auth url /auth
+    default deny
+    # allow rules for authenticated users go here
+  }
+}
+
+:8080 {
+  authenticate with tidepool
+  authorize with tidepool
+  reverse_proxy /api/* localhost:7163
+  reverse_proxy /app/* localhost:7163
+}
+```
+
+The exact policy rules depend on the claims/roles you want to accept. Keep this minimal initially (allow all authenticated users), then tighten later if needed.
 
 ## Admin API Basics
 
@@ -366,10 +438,13 @@ The base image's code-server init script reads `TIDEPOOL_WORKSPACE_NAME` to set 
 - **Caddy runs in the root VM** alongside the control plane — admin API on localhost only, network-isolated from host LAN
 - **Two-port origin isolation**: `:8080` for control plane + SPA, `:8081` for all workspace traffic — prevents workspace JS from reaching the API ([ADR-015](../ADR/015-two-port-origin-isolation.md))
 - **Basic auth in Caddy** as the initial auth mechanism; can upgrade to `forward_auth` later. **Implemented** in `@tdpl/caddy`: `hashPassword()` generates bcrypt hashes, `buildBootstrapConfig({ auth })` adds authentication handlers to srv0 protecting `/api/*` and `/app/*` with a health check bypass on `/api/health`. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars — server bootstraps Caddy with auth on startup when not in stub mode.
+- **OAuth-ready path** via `caddy-security` (AuthCrunch) with GitHub OAuth provider, authentication portal, and authorization policy. Use for production when a public callback URL is available.
 - **Rate limiting via `caddy-ratelimit`** compiled into Caddy with `xcaddy`. Default policy: 10/min, 100/hour, 300/day per identity (basic auth user, then IP fallback).
 - **Unambiguous URL scheme**: `/api/*` for control plane, `/app/*` for SPA, `/workspace/{name}/*` for IDE sessions
 - **Dynamic port forwarding**: user registers actual app ports (e.g. 3000, 5000) via API, Caddy routes created/removed on demand, max 5 per workspace
 
 ## Open Questions
 
+- [ ] Should OAuth be required for `:8081` workspace traffic, or only for `:8080` control plane traffic?
+- [ ] Which OAuth claims or roles should be required for admin-level actions?
 - [ ] Health check routes for upstreams (auto-remove dead workspaces)?
