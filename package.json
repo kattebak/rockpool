@@ -4,13 +4,15 @@
 	"private": true,
 	"type": "module",
 	"workspaces": [
-		"packages/*"
+		"packages/*",
+		"typespec",
+		"build/*"
 	],
 	"scripts": {
 		"test": "echo \"No tests configured yet\"",
 		"lint": "biome lint .",
 		"format": "biome format --write .",
-		"fix": "biome check --fix .",
+		"fix": "biome check --fix . && tsp format typespec/**/*.tsp",
 		"check": "tsgo --noEmit",
 		"check:tsc": "tsc --noEmit"
 	},
