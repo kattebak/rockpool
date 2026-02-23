@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { useAddPort, usePorts, useRemovePort } from "@/hooks/use-ports";
 import type { Port } from "@/lib/api-types";
+import { buildPortPreviewUrl } from "@/lib/urls";
 
 interface PortsPanelProps {
 	workspaceId: string;
@@ -99,7 +100,7 @@ function PortRow({
 				<div className="flex items-center gap-1">
 					<Button variant="ghost" size="icon-xs" asChild>
 						<a
-							href={`/workspace/${workspaceName}/port/${port.port}/`}
+							href={buildPortPreviewUrl(workspaceName, port.port)}
 							target="_blank"
 							rel="noopener noreferrer"
 						>
