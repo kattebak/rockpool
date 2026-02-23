@@ -6,6 +6,7 @@ export interface ServerConfig {
 	caddyUsername: string;
 	caddyPassword: string;
 	spaRoot: string;
+	spaProxyUrl: string;
 	queueEndpoint: string;
 	queueUrl: string;
 	platform: "darwin" | "linux";
@@ -21,6 +22,7 @@ export function loadConfig(): ServerConfig {
 		caddyUsername: process.env.CADDY_USERNAME ?? "",
 		caddyPassword: process.env.CADDY_PASSWORD ?? "",
 		spaRoot: process.env.SPA_ROOT ?? "",
+		spaProxyUrl: process.env.SPA_PROXY_URL ?? "",
 		queueEndpoint: process.env.QUEUE_ENDPOINT ?? "http://localhost:9324",
 		queueUrl: process.env.QUEUE_URL ?? "http://localhost:9324/000000000000/workspace-jobs",
 		platform: (process.env.PLATFORM ?? process.platform) as "darwin" | "linux",
