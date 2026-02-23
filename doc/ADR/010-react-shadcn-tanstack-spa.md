@@ -21,9 +21,13 @@ Use **React** with:
 - **TanStack React Query** for server state management and data fetching.
 - **TanStack Router** for type-safe client-side routing.
 
+The frontend uses **Vite** as the build tool and dev server, and **Vitest** for testing.
+
 ## Consequences
 
 - shadcn/ui components are owned source code, not a library version to track. Full control over styling and behavior.
 - TanStack Query handles caching, background refetching, and optimistic updates out of the box.
 - TanStack Router provides type-safe route params and search params, catching routing errors at compile time.
 - React is well-understood and has the largest ecosystem for hiring and component availability.
+- Vite provides fast HMR during development and optimized production builds.
+- Vitest shares the Vite config and transform pipeline, so tests run against the same module resolution and transforms as the app itself.

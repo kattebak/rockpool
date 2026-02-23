@@ -1,4 +1,4 @@
-.PHONY: all clean build-client
+.PHONY: all clean
 
 DRIZZLE_ORM_VERSION := 1.0.0-beta.15-859cf75
 STAMP_DIR := .stamps
@@ -7,7 +7,7 @@ export TART_HOME
 
 TSP_SOURCES := typespec/main.tsp typespec/tspconfig.yaml
 
-all: build/sdk/index.ts build-client $(STAMP_DIR)/rockpool-workspace
+all: build/sdk/index.ts $(STAMP_DIR)/rockpool-workspace
 
 $(STAMP_DIR):
 	mkdir -p $(STAMP_DIR)
@@ -19,9 +19,6 @@ build/openapi/openapi.yaml: $(TSP_SOURCES)
 
 build/sdk/index.ts: build/openapi/openapi.yaml
 	npm-scripts/generate-sdk.sh build/openapi/openapi.yaml build/sdk
-
-build-client: build/openapi/openapi.yaml
-	npm run build -w packages/client
 
 clean:
 	rm -rf build $(STAMP_DIR)
