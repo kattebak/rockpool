@@ -89,6 +89,23 @@ function buildSpaRoutes(spaRoot: string): unknown[] {
 	];
 }
 
+function buildSpaProxyRoute(spaProxyUrl: string): Record<string, unknown> {
+	const upstream = new URL(spaProxyUrl);
+	const dial = `${upstream.hostname}:${upstream.port || "5173"}`;
+
+	return {
+		"@id": "spa-proxy",
+		match: [{ path: ["/app", "/app/*"] }],
+		handle: [
+			{
+				handler: "reverse_proxy",
+				upstreams: [{ dial }],
+			},
+		],
+		terminal: true,
+	};
+}
+
 function buildWorkspaceRedirect(srv1Port: number): Record<string, unknown> {
 	return {
 		"@id": "workspace-redirect",
@@ -134,7 +151,9 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 		srv0Routes.push(buildApiProxyRoute(options.controlPlaneUrl));
 	}
 
-	if (options.spaRoot) {
+	if (options.spaProxyUrl) {
+		srv0Routes.push(buildSpaProxyRoute(options.spaProxyUrl));
+	} else if (options.spaRoot) {
 		srv0Routes.push(...buildSpaRoutes(options.spaRoot));
 	}
 
@@ -142,7 +161,7 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 		srv0Routes.push(buildWorkspaceRedirect(options.srv1Port));
 	}
 
-	if (options.controlPlaneUrl || options.spaRoot) {
+	if (options.controlPlaneUrl || options.spaRoot || options.spaProxyUrl) {
 		srv0Routes.push(buildRootRedirect());
 	}
 

@@ -1,5 +1,6 @@
 const path = require("node:path");
 
+// Caddy dev config: Caddy on :8080 proxies /app to Vite dev server on :5173
 module.exports = {
 	apps: [
 		{
@@ -18,7 +19,7 @@ module.exports = {
 			cwd: __dirname,
 			env: {
 				WORKER_INLINE: "true",
-				SPA_ROOT: path.join(__dirname, "build", "client"),
+				SPA_PROXY_URL: "http://localhost:5173",
 				SSH_KEY_PATH: path.join(__dirname, "images", "ssh", "rockpool_ed25519"),
 			},
 			watch: ["packages/server/src"],
@@ -26,6 +27,15 @@ module.exports = {
 			ignore_watch: ["node_modules", "*.test.ts"],
 			autorestart: true,
 			max_restarts: 10,
+			restart_delay: 1000,
+		},
+		{
+			name: "client",
+			script: "npm",
+			args: "run dev -w packages/client",
+			cwd: __dirname,
+			autorestart: true,
+			max_restarts: 5,
 			restart_delay: 1000,
 		},
 	],

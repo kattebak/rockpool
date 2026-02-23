@@ -52,7 +52,9 @@ async function bootstrapCaddy(): Promise<void> {
 		srv1Port: config.srv1Port,
 	};
 
-	if (config.spaRoot) {
+	if (config.spaProxyUrl) {
+		bootstrapOptions.spaProxyUrl = config.spaProxyUrl;
+	} else if (config.spaRoot) {
 		bootstrapOptions.spaRoot = config.spaRoot;
 	}
 
