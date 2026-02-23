@@ -1,6 +1,7 @@
 import type { CaddyRepository } from "@rockpool/caddy";
 import type { DbClient, Port, Workspace } from "@rockpool/db";
 import { addPort, getWorkspace, listPorts, removePort } from "@rockpool/db";
+import { WorkspaceStatus as WS } from "@rockpool/enums";
 import { ConflictError, NotFoundError } from "./workspace-service.ts";
 
 const MAX_PORTS_PER_WORKSPACE = 5;
@@ -18,7 +19,7 @@ export function createPortService(deps: PortServiceDeps) {
 		if (!workspace) {
 			throw new NotFoundError(`Workspace "${id}" not found`);
 		}
-		if (workspace.status !== "running") {
+		if (workspace.status !== WS.running) {
 			throw new ConflictError(
 				`Ports can only be managed when workspace is running (current: "${workspace.status}")`,
 			);

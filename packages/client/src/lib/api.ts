@@ -1,101 +1,85 @@
+import {
+	client as sdkClient,
+	workspacesAddPort,
+	workspacesCreate,
+	workspacesList,
+	workspacesListPorts,
+	workspacesRead,
+	workspacesRemove,
+	workspacesRemovePort,
+	workspacesStart,
+	workspacesStop,
+} from "@rockpool/sdk";
+import { PortSchema, WorkspaceListResponseSchema, WorkspaceSchema } from "@rockpool/validators";
+import { z } from "zod";
 import type {
 	AddPortRequest,
 	CreateWorkspaceRequest,
-	PaginatedResponse,
 	Port,
 	Workspace,
+	WorkspaceListResponse,
 } from "./api-types";
 
-class ApiError extends Error {
-	constructor(
-		public readonly status: number,
-		message: string,
-	) {
-		super(message);
-		this.name = "ApiError";
-	}
-}
-
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-	const response = await fetch(path, {
-		...options,
-		headers: {
-			"content-type": "application/json",
-			...options?.headers,
-		},
-	});
-
-	if (!response.ok) {
-		const text = await response.text().catch(() => response.statusText);
-		throw new ApiError(response.status, text);
-	}
-
-	if (response.status === 204) {
-		return undefined as T;
-	}
-
-	return response.json() as Promise<T>;
-}
+sdkClient.setConfig({ baseUrl: "" });
 
 export interface ListWorkspacesParams {
 	limit?: number;
 	cursor?: string;
 }
 
-export function listWorkspaces(
+export async function listWorkspaces(
 	params?: ListWorkspacesParams,
-): Promise<PaginatedResponse<Workspace>> {
-	const searchParams = new URLSearchParams();
-	if (params?.limit) searchParams.set("limit", String(params.limit));
-	if (params?.cursor) searchParams.set("cursor", params.cursor);
-	const query = searchParams.toString();
-	return request<PaginatedResponse<Workspace>>(`/api/workspaces${query ? `?${query}` : ""}`);
+): Promise<WorkspaceListResponse> {
+	const { data } = await workspacesList({ query: params, throwOnError: true });
+	return WorkspaceListResponseSchema.parse(data);
 }
 
-export function getWorkspace(id: string): Promise<Workspace> {
-	return request<Workspace>(`/api/workspaces/${encodeURIComponent(id)}`);
+export async function getWorkspace(id: string): Promise<Workspace> {
+	const { data } = await workspacesRead({ path: { id }, throwOnError: true });
+	return WorkspaceSchema.parse(data);
 }
 
-export function createWorkspace(data: CreateWorkspaceRequest): Promise<Workspace> {
-	return request<Workspace>("/api/workspaces", {
-		method: "POST",
-		body: JSON.stringify(data),
+export async function createWorkspace(body: CreateWorkspaceRequest): Promise<Workspace> {
+	const { data } = await workspacesCreate({ body, throwOnError: true });
+	return WorkspaceSchema.parse(data);
+}
+
+export async function deleteWorkspace(id: string): Promise<void> {
+	await workspacesRemove({ path: { id }, throwOnError: true });
+}
+
+export async function startWorkspace(id: string): Promise<Workspace> {
+	const { data } = await workspacesStart({ path: { id }, throwOnError: true });
+	return WorkspaceSchema.parse(data);
+}
+
+export async function stopWorkspace(id: string): Promise<Workspace> {
+	const { data } = await workspacesStop({ path: { id }, throwOnError: true });
+	return WorkspaceSchema.parse(data);
+}
+
+export async function listPorts(workspaceId: string): Promise<Port[]> {
+	const { data } = await workspacesListPorts({
+		path: { id: workspaceId },
+		throwOnError: true,
+	});
+	return z.array(PortSchema).parse(data);
+}
+
+export async function addPort(workspaceId: string, body: AddPortRequest): Promise<Port> {
+	const { data } = await workspacesAddPort({
+		path: { id: workspaceId },
+		body,
+		throwOnError: true,
+	});
+	return PortSchema.parse(data);
+}
+
+export async function removePort(workspaceId: string, port: number): Promise<void> {
+	await workspacesRemovePort({
+		path: { id: workspaceId, port },
+		throwOnError: true,
 	});
 }
 
-export function deleteWorkspace(id: string): Promise<void> {
-	return request<void>(`/api/workspaces/${encodeURIComponent(id)}`, {
-		method: "DELETE",
-	});
-}
-
-export function startWorkspace(id: string): Promise<Workspace> {
-	return request<Workspace>(`/api/workspaces/${encodeURIComponent(id)}/start`, {
-		method: "POST",
-	});
-}
-
-export function stopWorkspace(id: string): Promise<Workspace> {
-	return request<Workspace>(`/api/workspaces/${encodeURIComponent(id)}/stop`, {
-		method: "POST",
-	});
-}
-
-export function listPorts(workspaceId: string): Promise<Port[]> {
-	return request<Port[]>(`/api/workspaces/${encodeURIComponent(workspaceId)}/ports`);
-}
-
-export function addPort(workspaceId: string, data: AddPortRequest): Promise<Port> {
-	return request<Port>(`/api/workspaces/${encodeURIComponent(workspaceId)}/ports`, {
-		method: "POST",
-		body: JSON.stringify(data),
-	});
-}
-
-export function removePort(workspaceId: string, port: number): Promise<void> {
-	return request<void>(`/api/workspaces/${encodeURIComponent(workspaceId)}/ports/${port}`, {
-		method: "DELETE",
-	});
-}
-
-export { ApiError };
+export type { Workspace, Port, WorkspaceListResponse };

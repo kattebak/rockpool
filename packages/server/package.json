@@ -12,9 +12,10 @@
 	"scripts": {
 		"test": "node --test --experimental-strip-types test/**/*.test.ts",
 		"check": "tsc --noEmit",
-		"start": "node --experimental-strip-types src/index.ts"
+		"start": "node --experimental-strip-types --env-file=../../development.env src/index.ts"
 	},
 	"dependencies": {
+		"@rockpool/enums": "*",
 		"@rockpool/caddy": "*",
 		"@rockpool/db": "*",
 		"@rockpool/queue": "*",

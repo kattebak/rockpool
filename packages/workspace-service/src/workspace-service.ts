@@ -10,6 +10,7 @@ import {
 	removeAllPorts,
 	updateWorkspaceStatus,
 } from "@rockpool/db";
+import { WorkspaceStatus as WS } from "@rockpool/enums";
 import { ConflictError, NotFoundError } from "./errors.ts";
 import { defaultHealthCheck } from "./health-check.ts";
 import type { WorkspaceServiceDeps } from "./types.ts";
@@ -20,11 +21,11 @@ const MAX_WORKSPACES = 999;
 const MAX_CONCURRENT_STARTS = 3;
 
 const VALID_TRANSITIONS: Record<string, WorkspaceStatus[]> = {
-	creating: ["running", "error"],
-	running: ["stopping", "error"],
-	stopping: ["stopped", "error"],
-	stopped: ["creating"],
-	error: ["creating"],
+	[WS.creating]: [WS.running, WS.error],
+	[WS.running]: [WS.stopping, WS.error],
+	[WS.stopping]: [WS.stopped, WS.error],
+	[WS.stopped]: [WS.creating],
+	[WS.error]: [WS.creating],
 };
 
 export function createWorkspaceService(deps: WorkspaceServiceDeps) {
@@ -60,7 +61,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				throw new ConflictError(`Maximum of ${MAX_WORKSPACES} workspaces reached`);
 			}
 
-			const creating = await countWorkspacesByStatus(db, "creating");
+			const creating = await countWorkspacesByStatus(db, WS.creating);
 			if (creating >= MAX_CONCURRENT_STARTS) {
 				throw new ConflictError(
 					`Maximum of ${MAX_CONCURRENT_STARTS} concurrent workspace starts reached. Wait for pending workspaces to finish.`,
@@ -74,16 +75,16 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 
 		async start(id: string): Promise<Workspace> {
 			const workspace = await requireWorkspace(db, id);
-			assertTransition(workspace.status, "creating");
+			assertTransition(workspace.status, WS.creating);
 
-			const creating = await countWorkspacesByStatus(db, "creating");
+			const creating = await countWorkspacesByStatus(db, WS.creating);
 			if (creating >= MAX_CONCURRENT_STARTS) {
 				throw new ConflictError(
 					`Maximum of ${MAX_CONCURRENT_STARTS} concurrent workspace starts reached. Wait for pending workspaces to finish.`,
 				);
 			}
 
-			const updated = await updateWorkspaceStatus(db, id, "creating");
+			const updated = await updateWorkspaceStatus(db, id, WS.creating);
 			if (!updated) {
 				throw new NotFoundError(`Workspace "${id}" disappeared during update`);
 			}
@@ -93,8 +94,8 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 
 		async stop(id: string): Promise<Workspace> {
 			const workspace = await requireWorkspace(db, id);
-			assertTransition(workspace.status, "stopping");
-			const updated = await updateWorkspaceStatus(db, id, "stopping");
+			assertTransition(workspace.status, WS.stopping);
+			const updated = await updateWorkspaceStatus(db, id, WS.stopping);
 			if (!updated) {
 				throw new NotFoundError(`Workspace "${id}" disappeared during update`);
 			}
@@ -104,7 +105,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 
 		async remove(id: string): Promise<void> {
 			const workspace = await requireWorkspace(db, id);
-			if (workspace.status === "running" || workspace.status === "creating") {
+			if (workspace.status === WS.running || workspace.status === WS.creating) {
 				throw new ConflictError(
 					`Cannot delete workspace in "${workspace.status}" state. Stop it first.`,
 				);
@@ -140,7 +141,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 
 			await configureAndWait(workspace.name, vmIp);
 			await caddy.addWorkspaceRoute(workspace.name, vmIp);
-			await updateWorkspaceStatus(db, id, "running", { vmIp, errorMessage: null });
+			await updateWorkspaceStatus(db, id, WS.running, { vmIp, errorMessage: null });
 
 			logger.info({ workspaceId: id, name: workspace.name, vmIp }, "Workspace running");
 		},
@@ -158,7 +159,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				await removeAllPorts(db, id);
 				await runtime.stop(workspace.name);
 				await caddy.removeWorkspaceRoute(workspace.name);
-				await updateWorkspaceStatus(db, id, "stopped", { vmIp: null });
+				await updateWorkspaceStatus(db, id, WS.stopped, { vmIp: null });
 				logger.info({ workspaceId: id, name: workspace.name }, "Workspace stopped");
 				return;
 			}
@@ -171,7 +172,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 		},
 
 		async setError(id: string, message: string): Promise<void> {
-			await updateWorkspaceStatus(db, id, "error", { errorMessage: message }).catch(() => {});
+			await updateWorkspaceStatus(db, id, WS.error, { errorMessage: message }).catch(() => {});
 		},
 	};
 }

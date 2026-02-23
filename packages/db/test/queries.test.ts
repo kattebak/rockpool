@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
+import { WorkspaceStatus as WS } from "@rockpool/enums";
 import type { DbClient } from "../src/connection.ts";
 import { createMemoryDb } from "../src/connection.ts";
 import {
@@ -43,7 +44,7 @@ describe("Workspace queries", () => {
 		assert.ok(ws.id.length > 0);
 		assert.equal(ws.name, "test-ws");
 		assert.equal(ws.image, "alpine-v1");
-		assert.equal(ws.status, "creating");
+		assert.equal(ws.status, WS.creating);
 		assert.equal(ws.vmIp, null);
 		assert.equal(ws.errorMessage, null);
 		assert.ok(ws.createdAt instanceof Date);
@@ -81,12 +82,12 @@ describe("Workspace queries", () => {
 			image: "alpine-v1",
 		});
 
-		const updated = await updateWorkspaceStatus(db, created.id, "running", {
+		const updated = await updateWorkspaceStatus(db, created.id, WS.running, {
 			vmIp: "192.168.64.5",
 		});
 
 		assert.notEqual(updated, undefined);
-		assert.equal(updated?.status, "running");
+		assert.equal(updated?.status, WS.running);
 		assert.equal(updated?.vmIp, "192.168.64.5");
 	});
 
@@ -96,12 +97,12 @@ describe("Workspace queries", () => {
 			image: "alpine-v1",
 		});
 
-		const updated = await updateWorkspaceStatus(db, created.id, "error", {
+		const updated = await updateWorkspaceStatus(db, created.id, WS.error, {
 			errorMessage: "VM creation failed",
 		});
 
 		assert.notEqual(updated, undefined);
-		assert.equal(updated?.status, "error");
+		assert.equal(updated?.status, WS.error);
 		assert.equal(updated?.errorMessage, "VM creation failed");
 	});
 
@@ -296,10 +297,10 @@ describe("Count queries", () => {
 
 	it("countWorkspacesByStatus filters by status", async () => {
 		const ws = await createWorkspace(db, { name: "count-status", image: "alpine-v1" });
-		await updateWorkspaceStatus(db, ws.id, "running", { vmIp: "10.0.1.1" });
+		await updateWorkspaceStatus(db, ws.id, WS.running, { vmIp: "10.0.1.1" });
 
-		const creating = await countWorkspacesByStatus(db, "creating");
-		const running = await countWorkspacesByStatus(db, "running");
+		const creating = await countWorkspacesByStatus(db, WS.creating);
+		const running = await countWorkspacesByStatus(db, WS.running);
 
 		assert.equal(creating, 2);
 		assert.equal(running, 1);

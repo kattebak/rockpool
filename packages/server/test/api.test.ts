@@ -4,6 +4,7 @@ import { after, before, describe, it } from "node:test";
 import type { CaddyRepository } from "@rockpool/caddy";
 import type { DbClient } from "@rockpool/db";
 import { createMemoryDb, createWorkspace, updateWorkspaceStatus } from "@rockpool/db";
+import { WorkspaceStatus as WS } from "@rockpool/enums";
 import { createMemoryQueue } from "@rockpool/queue";
 import type { RuntimeRepository } from "@rockpool/runtime";
 import pino from "pino";
@@ -102,7 +103,7 @@ describe("API", () => {
 		const ws = res.body as Record<string, unknown>;
 		assert.equal(ws.name, "test-ws");
 		assert.equal(ws.image, "alpine-v1");
-		assert.equal(ws.status, "creating");
+		assert.equal(ws.status, WS.creating);
 		assert.equal(typeof ws.id, "string");
 	});
 
@@ -277,7 +278,7 @@ describe("Port API", () => {
 		const app = createApp({ workspaceService, portService, logger });
 
 		const ws = await createWorkspace(db, { name: "port-test-ws", image: "alpine-v1" });
-		await updateWorkspaceStatus(db, ws.id, "running", { vmIp: "10.0.1.50" });
+		await updateWorkspaceStatus(db, ws.id, WS.running, { vmIp: "10.0.1.50" });
 		runningWorkspaceId = ws.id;
 
 		await new Promise<void>((resolve) => {
@@ -392,7 +393,7 @@ describe("Workspace limits", () => {
 		await service.create("finish-ws-2", "alpine-v1");
 		await service.create("finish-ws-3", "alpine-v1");
 
-		await updateWorkspaceStatus(db, ws1.id, "running", { vmIp: "10.0.1.1" });
+		await updateWorkspaceStatus(db, ws1.id, WS.running, { vmIp: "10.0.1.1" });
 
 		const ws4 = await service.create("finish-ws-4", "alpine-v1");
 		assert.equal(ws4.name, "finish-ws-4");
@@ -411,9 +412,9 @@ describe("Workspace limits", () => {
 		await service.create("start-limit-3", "alpine-v1");
 
 		const ws = await createWorkspace(db, { name: "start-limit-stopped", image: "alpine-v1" });
-		await updateWorkspaceStatus(db, ws.id, "running", { vmIp: "10.0.1.1" });
-		await updateWorkspaceStatus(db, ws.id, "stopping");
-		await updateWorkspaceStatus(db, ws.id, "stopped", { vmIp: null });
+		await updateWorkspaceStatus(db, ws.id, WS.running, { vmIp: "10.0.1.1" });
+		await updateWorkspaceStatus(db, ws.id, WS.stopping);
+		await updateWorkspaceStatus(db, ws.id, WS.stopped, { vmIp: null });
 
 		await assert.rejects(
 			() => service.start(ws.id),

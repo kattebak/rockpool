@@ -18,7 +18,7 @@ enum WorkspaceStatus {
   error,
 }
 
-@table("workspaces", "rockpool")
+@table("workspace", "rockpool")
 model Workspace {
   @visibility(Lifecycle.Read)
   @pk
@@ -53,7 +53,15 @@ model Workspace {
   updatedAt: utcDateTime;
 }
 
+@table("port", "rockpool")
 model Port {
+  @pk
+  @uuid("base36", false)
+  @references(Workspace.id)
+  @visibility(Lifecycle.Read)
+  workspaceId: string;
+
+  @pk
   @visibility(Lifecycle.Create, Lifecycle.Read)
   @TypeSpec.minValue(1024)
   @TypeSpec.maxValue(65535)
@@ -62,6 +70,7 @@ model Port {
   @visibility(Lifecycle.Create, Lifecycle.Read)
   label?: string;
 
+  @createdAt
   @visibility(Lifecycle.Read)
   createdAt: utcDateTime;
 }

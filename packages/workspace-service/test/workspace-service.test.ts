@@ -2,13 +2,8 @@ import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import type { CaddyRepository } from "@rockpool/caddy";
 import type { DbClient } from "@rockpool/db";
-import {
-	addPort,
-	createMemoryDb,
-	createWorkspace,
-	getWorkspace,
-	listPorts,
-} from "@rockpool/db";
+import { addPort, createMemoryDb, createWorkspace, getWorkspace, listPorts } from "@rockpool/db";
+import { WorkspaceStatus as WS } from "@rockpool/enums";
 import { createMemoryQueue } from "@rockpool/queue";
 import type { RuntimeRepository, VmStatus } from "@rockpool/runtime";
 import pino from "pino";
@@ -101,7 +96,7 @@ describe("provisionAndStart", () => {
 		assert.deepEqual(caddy.calls, ["addRoute:prov-create"]);
 
 		const updated = await getWorkspace(db, ws.id);
-		assert.equal(updated?.status, "running");
+		assert.equal(updated?.status, WS.running);
 		assert.equal(updated?.vmIp, "10.0.1.50");
 	});
 
@@ -125,7 +120,7 @@ describe("provisionAndStart", () => {
 		assert.deepEqual(caddy.calls, ["addRoute:prov-start-stopped"]);
 
 		const updated = await getWorkspace(db, ws.id);
-		assert.equal(updated?.status, "running");
+		assert.equal(updated?.status, WS.running);
 		assert.equal(updated?.vmIp, "10.0.1.50");
 	});
 
@@ -149,7 +144,7 @@ describe("provisionAndStart", () => {
 		assert.deepEqual(caddy.calls, ["addRoute:prov-running"]);
 
 		const updated = await getWorkspace(db, ws.id);
-		assert.equal(updated?.status, "running");
+		assert.equal(updated?.status, WS.running);
 		assert.equal(updated?.vmIp, "10.0.1.50");
 	});
 
@@ -166,7 +161,7 @@ describe("provisionAndStart", () => {
 			healthCheck: noopHealthCheck,
 		});
 
-		await service.provisionAndStart("nonexistent-id");
+		await service.provisionAndStart("nonexistent");
 
 		assert.deepEqual(runtime.calls, []);
 		assert.deepEqual(caddy.calls, []);
@@ -200,7 +195,7 @@ describe("teardown (stop)", () => {
 		assert.deepEqual(caddy.calls, ["removeRoute:tear-stop"]);
 
 		const updated = await getWorkspace(db, ws.id);
-		assert.equal(updated?.status, "stopped");
+		assert.equal(updated?.status, WS.stopped);
 		assert.equal(updated?.vmIp, null);
 	});
 
@@ -240,7 +235,7 @@ describe("teardown (stop)", () => {
 			healthCheck: noopHealthCheck,
 		});
 
-		await service.teardown("nonexistent-id", "stop");
+		await service.teardown("nonexistent", "stop");
 
 		assert.deepEqual(runtime.calls, []);
 		assert.deepEqual(caddy.calls, []);
@@ -342,7 +337,7 @@ describe("teardown (delete)", () => {
 			healthCheck: noopHealthCheck,
 		});
 
-		await service.teardown("nonexistent-id", "delete");
+		await service.teardown("nonexistent", "delete");
 
 		assert.deepEqual(runtime.calls, []);
 		assert.deepEqual(caddy.calls, []);
@@ -368,7 +363,7 @@ describe("setError", () => {
 		await service.setError(ws.id, "Something went wrong");
 
 		const updated = await getWorkspace(db, ws.id);
-		assert.equal(updated?.status, "error");
+		assert.equal(updated?.status, WS.error);
 		assert.equal(updated?.errorMessage, "Something went wrong");
 	});
 
@@ -386,6 +381,6 @@ describe("setError", () => {
 			healthCheck: noopHealthCheck,
 		});
 
-		await service.setError("nonexistent-id", "error message");
+		await service.setError("nonexistent", "error message");
 	});
 });
