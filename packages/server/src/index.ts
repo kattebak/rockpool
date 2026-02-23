@@ -8,10 +8,9 @@ import {
 import { createDb, listPorts, listWorkspacesByStatus, updateWorkspaceStatus } from "@rockpool/db";
 import { WorkspaceStatus as WS } from "@rockpool/enums";
 import type { QueueRepository } from "@rockpool/queue";
-import { createMemoryQueue, createSqsQueue } from "@rockpool/queue";
+import { createSqsQueue } from "@rockpool/queue";
 import type { RuntimeRepository } from "@rockpool/runtime";
 import { createStubRuntime, createTartRuntime } from "@rockpool/runtime";
-import { createPollLoop, createProcessor } from "@rockpool/worker";
 import pino from "pino";
 import { createApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
@@ -22,17 +21,14 @@ const config = loadConfig();
 const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
 
 const useStubs = process.env.NODE_ENV === "test";
-const inlineWorker = useStubs || process.env.WORKER_INLINE === "true";
 const useStubVm = process.env.RUNTIME !== "tart";
 
 const db = createDb(config.dbPath);
 
-const queue = inlineWorker
-	? createMemoryQueue()
-	: createSqsQueue({
-			endpoint: config.queueEndpoint,
-			queueUrl: config.queueUrl,
-		});
+const queue = createSqsQueue({
+	endpoint: config.queueEndpoint,
+	queueUrl: config.queueUrl,
+});
 
 const caddy = useStubs ? createStubCaddy() : createCaddyClient({ adminUrl: config.caddyAdminUrl });
 const runtime = useStubVm
@@ -131,20 +127,10 @@ async function recoverOrphanedWorkspaces(q: QueueRepository): Promise<void> {
 app.listen(config.port, () => {
 	logger.info({ port: config.port }, "Rockpool control plane started");
 
-	if (inlineWorker) {
-		const processor = createProcessor({ workspaceService, logger });
-		const pollLoop = createPollLoop({ queue, processor, logger });
-
-		logger.info({ runtime: useStubVm ? "stub" : "tart" }, "Starting in-process worker");
-		recoverOrphanedWorkspaces(queue).catch((err) => {
-			logger.error(err, "Failed to recover orphaned workspaces");
-		});
-		pollLoop.start();
-	}
-
 	if (!useStubs) {
 		bootstrapCaddy()
 			.then(() => recoverRunningWorkspaces(runtime, queue))
+			.then(() => recoverOrphanedWorkspaces(queue))
 			.catch((err) => {
 				logger.error(err, "Failed to bootstrap Caddy or recover workspaces");
 			});

@@ -21,7 +21,7 @@ export function loadConfig(): ServerConfig {
 	return {
 		port: Number.parseInt(process.env.PORT ?? "7163", 10),
 		srv1Port: Number.parseInt(process.env.SRV1_PORT ?? "8081", 10),
-		dbPath: process.env.DB_PATH ?? "rockpool.db",
+		dbPath: resolve(projectRoot, process.env.DB_PATH ?? "rockpool.db"),
 		caddyAdminUrl: process.env.CADDY_ADMIN_URL ?? "http://localhost:2019",
 		caddyUsername: process.env.CADDY_USERNAME ?? "",
 		caddyPassword: process.env.CADDY_PASSWORD ?? "",

@@ -7,6 +7,9 @@
 # Tart VM storage
 .tart/
 
+# ElasticMQ JAR download
+.elasticmq/
+
 # Logs
 logs
 *.log
