@@ -39,13 +39,5 @@ module.exports = {
 			max_restarts: 10,
 			restart_delay: 2000,
 		},
-		{
-			name: "test-client",
-			script: "npm",
-			args: "run dev -w packages/client -- --port 9173",
-			autorestart: true,
-			max_restarts: 5,
-			restart_delay: 1000,
-		},
 	],
 };

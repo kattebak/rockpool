@@ -19,20 +19,53 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Cache Caddy binary
+        id: cache-caddy
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/caddy
+          key: caddy-linux-amd64-2.9.1
+
       - name: Install Caddy
+        if: steps.cache-caddy.outputs.cache-hit != 'true'
         run: |
-          curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=amd64" -o /usr/local/bin/caddy
-          chmod +x /usr/local/bin/caddy
+          curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v2.9.1/caddy_2.9.1_linux_amd64.tar.gz" \
+            | sudo tar -xz -C /usr/local/bin caddy
           caddy version
+
+      - name: Cache build artifacts
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: build-${{ hashFiles('typespec/main.tsp', 'typespec/tspconfig.yaml', 'Makefile') }}
 
       - name: Install dependencies
         run: npm ci
 
+      - name: Cache ElasticMQ
+        id: cache-elasticmq
+        uses: actions/cache@v4
+        with:
+          path: .elasticmq
+          key: elasticmq-1.6.9
+
       - name: Download ElasticMQ
+        if: steps.cache-elasticmq.outputs.cache-hit != 'true'
         run: npm-scripts/setup-elasticmq.sh download
 
+      - name: Cache Playwright browsers
+        id: cache-playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('package-lock.json') }}
+
       - name: Install Playwright Chromium
+        if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install chromium
+
+      - name: Build client
+        run: npm run build -w packages/client
 
       - name: Run E2E tests (test profile)
         run: E2E_PROFILE=test npm run test:e2e
