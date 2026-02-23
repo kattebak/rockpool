@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 export interface ServerConfig {
 	port: number;
 	srv1Port: number;
@@ -14,6 +16,8 @@ export interface ServerConfig {
 }
 
 export function loadConfig(): ServerConfig {
+	const projectRoot = new URL("../../..", import.meta.url).pathname;
+
 	return {
 		port: Number.parseInt(process.env.PORT ?? "7163", 10),
 		srv1Port: Number.parseInt(process.env.SRV1_PORT ?? "8081", 10),
@@ -26,6 +30,6 @@ export function loadConfig(): ServerConfig {
 		queueEndpoint: process.env.QUEUE_ENDPOINT ?? "http://localhost:9324",
 		queueUrl: process.env.QUEUE_URL ?? "http://localhost:9324/000000000000/workspace-jobs",
 		platform: (process.env.PLATFORM ?? process.platform) as "darwin" | "linux",
-		sshKeyPath: process.env.SSH_KEY_PATH ?? "images/ssh/rockpool_ed25519",
+		sshKeyPath: resolve(projectRoot, process.env.SSH_KEY_PATH ?? "images/ssh/rockpool_ed25519"),
 	};
 }
