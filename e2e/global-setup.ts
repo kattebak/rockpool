@@ -32,18 +32,14 @@ async function pollUntilReady(
 		await new Promise((r) => setTimeout(r, POLL_INTERVAL));
 	}
 	dumpPm2Logs();
-	throw new Error(
-		`${url} did not become ready within ${timeoutMs}ms (last status: ${lastStatus})`,
-	);
+	throw new Error(`${url} did not become ready within ${timeoutMs}ms (last status: ${lastStatus})`);
 }
 
 async function ensureQueue(): Promise<void> {
 	const deadline = Date.now() + 30_000;
 	while (Date.now() < deadline) {
 		try {
-			const res = await fetch(
-				`${QUEUE_ENDPOINT}/?Action=CreateQueue&QueueName=workspace-jobs`,
-			);
+			const res = await fetch(`${QUEUE_ENDPOINT}/?Action=CreateQueue&QueueName=workspace-jobs`);
 			if (res.ok) return;
 		} catch {}
 		await new Promise((r) => setTimeout(r, POLL_INTERVAL));
