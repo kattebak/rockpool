@@ -31,6 +31,7 @@ import {
 } from "@/hooks/use-workspaces";
 import type { Workspace } from "@/lib/api-types";
 import { timeAgo } from "@/lib/time";
+import { buildIdeUrl } from "@/lib/urls";
 
 export function WorkspaceListPage() {
 	const {
@@ -222,7 +223,7 @@ function WorkspaceRow({
 				<div className="flex items-center gap-1">
 					{isRunning && (
 						<Button variant="outline" size="xs" asChild>
-							<a href={`/workspace/${workspace.name}/`} target="_blank" rel="noopener noreferrer">
+							<a href={buildIdeUrl(workspace.name)} target="_blank" rel="noopener noreferrer">
 								<ExternalLink className="size-3" />
 								Open
 							</a>

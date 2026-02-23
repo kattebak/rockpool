@@ -17,6 +17,7 @@ import {
 	useWorkspace,
 } from "@/hooks/use-workspaces";
 import { timeAgo } from "@/lib/time";
+import { buildIdeUrl } from "@/lib/urls";
 
 export function WorkspaceDetailPage() {
 	const { id } = useParams({ from: "/workspaces/$id" });
@@ -68,11 +69,7 @@ export function WorkspaceDetailPage() {
 				<div className="flex items-center gap-2">
 					{isRunning && (
 						<Button asChild>
-							<a
-								href={`${window.location.protocol}//${window.location.hostname}:8081/workspace/${workspace.name}/`}
-								target="_blank"
-								rel="noopener noreferrer"
-							>
+							<a href={buildIdeUrl(workspace.name)} target="_blank" rel="noopener noreferrer">
 								<ExternalLink />
 								Open IDE
 							</a>
