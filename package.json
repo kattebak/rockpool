@@ -7,7 +7,7 @@
 		"packages/*"
 	],
 	"scripts": {
-		"preinstall": "make && echo 'Build complete'",
+		"preinstall": "make ${CI:+ci} && echo 'Build complete'",
 		"test": "npm run test --workspaces --if-present",
 		"lint": "biome lint .",
 		"format": "biome format --write .",

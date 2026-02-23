@@ -1,4 +1,4 @@
-.PHONY: all clean
+.PHONY: all ci clean
 
 STAMP_DIR := .stamps
 TART_HOME := $(CURDIR)/.tart
@@ -7,6 +7,8 @@ export TART_HOME
 TSP_SOURCES := typespec/main.tsp typespec/tspconfig.yaml
 
 all: development.env build/sdk $(STAMP_DIR)/rockpool-workspace
+
+ci: development.env build/sdk
 
 $(STAMP_DIR):
 	mkdir -p $(STAMP_DIR)
