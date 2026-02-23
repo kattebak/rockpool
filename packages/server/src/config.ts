@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 
 export interface ServerConfig {
 	port: number;
+	srv0Port: number;
 	srv1Port: number;
 	dbPath: string;
 	caddyAdminUrl: string;
@@ -20,6 +21,7 @@ export function loadConfig(): ServerConfig {
 
 	return {
 		port: Number.parseInt(process.env.PORT ?? "7163", 10),
+		srv0Port: Number.parseInt(process.env.SRV0_PORT ?? "8080", 10),
 		srv1Port: Number.parseInt(process.env.SRV1_PORT ?? "8081", 10),
 		dbPath: resolve(projectRoot, process.env.DB_PATH ?? "rockpool.db"),
 		caddyAdminUrl: process.env.CADDY_ADMIN_URL ?? "http://localhost:2019",

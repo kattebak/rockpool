@@ -30,5 +30,6 @@ export interface BootstrapOptions {
 	controlPlaneUrl?: string;
 	spaRoot?: string;
 	spaProxyUrl?: string;
+	srv0Port?: number;
 	srv1Port?: number;
 }
