@@ -5,6 +5,16 @@ const SPA_URL = "http://localhost:9080/app/workspaces";
 const POLL_INTERVAL = 2_000;
 const AUTH_HEADER = `Basic ${Buffer.from("test:test").toString("base64")}`;
 
+function dumpPm2Logs(): void {
+	try {
+		const output = execSync("npx pm2 logs --nostream --lines 30", {
+			encoding: "utf-8",
+			timeout: 10_000,
+		});
+		console.error("--- PM2 logs ---\n", output);
+	} catch {}
+}
+
 async function pollUntilReady(
 	url: string,
 	timeoutMs: number,
@@ -20,6 +30,7 @@ async function pollUntilReady(
 		} catch {}
 		await new Promise((r) => setTimeout(r, POLL_INTERVAL));
 	}
+	dumpPm2Logs();
 	throw new Error(
 		`${url} did not become ready within ${timeoutMs}ms (last status: ${lastStatus})`,
 	);
