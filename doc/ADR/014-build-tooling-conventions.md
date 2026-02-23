@@ -46,8 +46,7 @@ When a task is done more than once, it becomes a script in `npm-scripts/` or a M
 ```json
 {
   "scripts": {
-    "build": "make all",
-    "build:image": "make images/rockpool-workspace"
+    "build": "make all"
   }
 }
 ```

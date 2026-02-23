@@ -25,6 +25,8 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+export TART_HOME="${TART_HOME:-${ROOT_DIR}/.tart}"
+
 cd "$ROOT_DIR"
 
 packer init images/workspace.pkr.hcl

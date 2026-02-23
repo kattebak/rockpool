@@ -481,7 +481,10 @@ POST http://localhost:2019/config/apps/http/servers/srv2/routes
           }
         ]
       },
-      { "handler": "rewrite", "strip_path_prefix": "/workspace/alice/port/3000" },
+      {
+        "handler": "rewrite",
+        "strip_path_prefix": "/workspace/alice/port/3000"
+      },
       {
         "handler": "reverse_proxy",
         "upstreams": [{ "dial": "10.0.1.50:3000" }],
@@ -605,25 +608,35 @@ The base image's code-server init script reads `ROCKPOOL_WORKSPACE_NAME` to set 
 
 ### Prerequisites
 
-- [direnv](https://direnv.net/) installed and hooked into your shell
+- Node.js >= 22 (provides `--env-file` support)
 
-### `.envrc`
+### `development.env`
 
-The project uses `.envrc` (gitignored) for local environment variables. It should contain:
+The project uses `development.env` (gitignored) for local environment variables. Create it from the template:
 
-```bash
-export TART_HOME="$PWD/.tart"
-export GITHUB_OAUTH_CLIENT_ID=<client-id>
-export GITHUB_OAUTH_CLIENT_SECRET=<client-secret>
+```sh
+make development.env
 ```
 
-| Variable                     | Purpose                                                              |
-| ---------------------------- | -------------------------------------------------------------------- |
-| `TART_HOME`                  | Stores tart VMs in `.tart/` inside the project instead of `~/.tart/` |
-| `GITHUB_OAUTH_CLIENT_ID`     | GitHub OAuth App client ID                                           |
-| `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App client secret                                       |
+Then fill in your secrets. The file uses `KEY=VALUE` format (loaded via `node --env-file`):
 
-Run `direnv allow` after creating or modifying `.envrc`.
+```
+RUNTIME=tart
+WORKER_INLINE=true
+SPA_PROXY_URL=http://localhost:5173
+SSH_KEY_PATH=images/ssh/rockpool_ed25519
+GITHUB_OAUTH_CLIENT_ID=<client-id>
+GITHUB_OAUTH_CLIENT_SECRET=<client-secret>
+```
+
+| Variable                     | Purpose                                                  |
+| ---------------------------- | -------------------------------------------------------- |
+| `RUNTIME`                    | VM runtime backend (`tart` for macOS)                    |
+| `WORKER_INLINE`              | Run worker in-process with server (`true` for local dev) |
+| `SPA_PROXY_URL`              | Vite dev server URL for SPA proxy                        |
+| `SSH_KEY_PATH`               | Path to SSH key for VM access                            |
+| `GITHUB_OAUTH_CLIENT_ID`     | GitHub OAuth App client ID                               |
+| `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App client secret                           |
 
 ### GitHub OAuth App
 
@@ -634,7 +647,7 @@ Run `direnv allow` after creating or modifying `.envrc`.
    - **Authorization callback URL**: `http://localhost:8080/api/auth/callback`
 3. Click **Register application**.
 4. Copy the **Client ID** and generate a **Client Secret**.
-5. Add both to `.envrc` (see above).
+5. Add both to `development.env` (see above).
 
 The callback URL is handled by the `@rockpool/auth` package in the control plane. It works on localhost — the redirect happens in the browser, so GitHub's servers don't need to reach it. No tunnel required.
 

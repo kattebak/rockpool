@@ -78,6 +78,8 @@ web_modules/
 .env
 .env.*
 !.env.example
+development.env
+!development.env.example
 .envrc
 
 # parcel-bundler cache (https://parceljs.org/)

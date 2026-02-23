@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+export TART_HOME="${TART_HOME:-${ROOT_DIR}/.tart}"
+
 usage() {
   echo "Usage: $0 [-n <vm_name>] [-w <workspace_name>]"
   echo "Defaults: vm_name=workspace-test, workspace_name=test"
