@@ -36,9 +36,9 @@ Requires Node.js >= 22.
 ## Running
 
 ```sh
-make .envrc        # create .envrc template (fill in secrets, then direnv allow)
-make all           # build everything (TypeSpec, SDK, client, VM image)
-npm run dev        # start API server + worker + client dev server
+make development.env   # create development.env from template (fill in secrets)
+make all              # build everything (TypeSpec, SDK, client, VM image)
+npm run dev           # start API server + worker + client dev server
 ```
 
-See [doc/EDD/003_Caddy_Reverse_Proxy.md](doc/EDD/003_Caddy_Reverse_Proxy.md) appendix for local setup details (GitHub OAuth, `.envrc`).
+See [doc/EDD/003_Caddy_Reverse_Proxy.md](doc/EDD/003_Caddy_Reverse_Proxy.md) appendix for local setup details (GitHub OAuth, `development.env`).

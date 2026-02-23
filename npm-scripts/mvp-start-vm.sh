@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+export TART_HOME="${TART_HOME:-${ROOT_DIR}/.tart}"
+
 usage() {
   echo "Usage: $0 [-i <image_name>] [-n <vm_name>]"
   echo "Defaults: image_name=ghcr.io/cirruslabs/ubuntu-runner-arm64:latest, vm_name=workspace-test"
