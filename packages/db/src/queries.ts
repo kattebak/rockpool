@@ -1,3 +1,4 @@
+import { WorkspaceStatus as WS } from "@rockpool/enums";
 import { and, count, desc, eq, lt, or } from "drizzle-orm";
 import type { DbClient } from "./connection.ts";
 import {
@@ -96,7 +97,7 @@ export function createWorkspace(
 		.values({
 			name: data.name,
 			image: data.image,
-			status: "creating",
+			status: WS.creating,
 		})
 		.returning()
 		.then((rows) => rows[0]);

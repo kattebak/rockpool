@@ -5,7 +5,7 @@ import * as schema from "./schema.ts";
 export type DbClient = ReturnType<typeof createDb>;
 
 const CREATE_WORKSPACES_SQL = `
-CREATE TABLE IF NOT EXISTS workspaces (
+CREATE TABLE IF NOT EXISTS workspace (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL UNIQUE,
 	status TEXT NOT NULL DEFAULT 'creating',
@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS workspaces (
 )`;
 
 const CREATE_PORTS_SQL = `
-CREATE TABLE IF NOT EXISTS ports (
-	workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS port (
+	workspace_id TEXT NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
 	port INTEGER NOT NULL,
 	label TEXT,
 	created_at INTEGER NOT NULL,

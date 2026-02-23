@@ -14,6 +14,7 @@
 		"check": "tsc --noEmit"
 	},
 	"dependencies": {
+		"@rockpool/enums": "*",
 		"@rockpool/caddy": "*",
 		"@rockpool/db": "*",
 		"@rockpool/queue": "*",

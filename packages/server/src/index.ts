@@ -6,6 +6,7 @@ import {
 	hashPassword,
 } from "@rockpool/caddy";
 import { createDb, listPorts, listWorkspacesByStatus, updateWorkspaceStatus } from "@rockpool/db";
+import { WorkspaceStatus as WS } from "@rockpool/enums";
 import type { QueueRepository } from "@rockpool/queue";
 import { createMemoryQueue, createSqsQueue } from "@rockpool/queue";
 import type { RuntimeRepository } from "@rockpool/runtime";
@@ -82,7 +83,7 @@ async function recoverRunningWorkspaces(
 	runtime: RuntimeRepository,
 	q: QueueRepository,
 ): Promise<void> {
-	const running = await listWorkspacesByStatus(db, "running");
+	const running = await listWorkspacesByStatus(db, WS.running);
 	for (const ws of running) {
 		const vmStatus = await runtime.status(ws.name);
 
@@ -108,7 +109,7 @@ async function recoverRunningWorkspaces(
 			{ workspaceId: ws.id, name: ws.name, vmStatus },
 			"DB says running but VM is not, re-enqueuing start",
 		);
-		await updateWorkspaceStatus(db, ws.id, "stopped");
+		await updateWorkspaceStatus(db, ws.id, WS.stopped);
 		await q.send({ type: "start", workspaceId: ws.id });
 	}
 	if (running.length > 0) {
@@ -117,7 +118,7 @@ async function recoverRunningWorkspaces(
 }
 
 async function recoverOrphanedWorkspaces(q: QueueRepository): Promise<void> {
-	const orphaned = await listWorkspacesByStatus(db, "creating");
+	const orphaned = await listWorkspacesByStatus(db, WS.creating);
 	for (const ws of orphaned) {
 		logger.info({ workspaceId: ws.id, name: ws.name }, "Re-enqueuing orphaned workspace");
 		await q.send({ type: "create", workspaceId: ws.id });

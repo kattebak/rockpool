@@ -19,3 +19,5 @@ options:
     emitter-output-dir: "{project-root}/../build/db-schema"
     package-name: "@rockpool/db-schema"
     package-version: "0.0.1"
+    dialect: "sqlite"
+    pluralize: false
