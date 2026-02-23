@@ -13,6 +13,8 @@ $(STAMP_DIR):
 
 build/openapi/openapi.yaml: $(TSP_SOURCES)
 	npx tsp compile typespec/
+	sed -i '' 's/\.optional()/\.nullish()/g' build/validators/schemas.ts
+	cd build/db-schema && npm run build
 	npm-scripts/generate-openapi-package.sh build/openapi
 
 build/sdk: build/openapi/openapi.yaml
