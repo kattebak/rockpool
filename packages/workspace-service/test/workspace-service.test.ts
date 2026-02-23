@@ -4,7 +4,6 @@ import type { CaddyRepository } from "@rockpool/caddy";
 import type { DbClient } from "@rockpool/db";
 import { addPort, createMemoryDb, createWorkspace, getWorkspace, listPorts } from "@rockpool/db";
 import { WorkspaceStatus as WS } from "@rockpool/enums";
-import { createMemoryQueue } from "@rockpool/queue";
 import type { RuntimeRepository, VmStatus } from "@rockpool/runtime";
 import pino from "pino";
 import { createWorkspaceService } from "../src/workspace-service.ts";
@@ -76,7 +75,7 @@ describe("provisionAndStart", () => {
 		const ws = await createWorkspace(db, { name: "prov-create", image: "alpine-v1" });
 		const runtime = createMockRuntime("not_found");
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,
@@ -104,7 +103,7 @@ describe("provisionAndStart", () => {
 		const ws = await createWorkspace(db, { name: "prov-start-stopped", image: "alpine-v1" });
 		const runtime = createMockRuntime("stopped");
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,
@@ -128,7 +127,7 @@ describe("provisionAndStart", () => {
 		const ws = await createWorkspace(db, { name: "prov-running", image: "alpine-v1" });
 		const runtime = createMockRuntime("running");
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,
@@ -151,7 +150,7 @@ describe("provisionAndStart", () => {
 	it("skips silently when workspace not found", async () => {
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,
@@ -179,7 +178,7 @@ describe("teardown (stop)", () => {
 		const ws = await createWorkspace(db, { name: "tear-stop", image: "alpine-v1" });
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,
@@ -206,7 +205,7 @@ describe("teardown (stop)", () => {
 
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,
@@ -225,7 +224,7 @@ describe("teardown (stop)", () => {
 	it("skips silently when workspace not found", async () => {
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,
@@ -253,7 +252,7 @@ describe("teardown (delete)", () => {
 		const ws = await createWorkspace(db, { name: "tear-delete", image: "alpine-v1" });
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,
@@ -279,7 +278,7 @@ describe("teardown (delete)", () => {
 			throw new Error("VM already stopped");
 		};
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,
@@ -305,7 +304,7 @@ describe("teardown (delete)", () => {
 			throw new Error("VM not found");
 		};
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,
@@ -327,7 +326,7 @@ describe("teardown (delete)", () => {
 	it("skips silently when workspace not found", async () => {
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,
@@ -350,7 +349,7 @@ describe("setError", () => {
 		const ws = await createWorkspace(db, { name: "set-error-test", image: "alpine-v1" });
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,
@@ -371,7 +370,7 @@ describe("setError", () => {
 		const db = createMemoryDb();
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const service = createWorkspaceService({
 			db,
 			queue,

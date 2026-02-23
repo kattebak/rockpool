@@ -20,6 +20,15 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
+if ! command -v java &>/dev/null; then
+  echo "ERROR: java is not installed."
+  echo ""
+  echo "ElasticMQ requires a Java Runtime Environment (JRE)."
+  echo "Install Java via Homebrew:"
+  echo "  brew install openjdk"
+  exit 1
+fi
+
 if ! command -v tart &>/dev/null; then
   echo "ERROR: tart is not installed."
   echo ""

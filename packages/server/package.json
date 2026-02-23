@@ -20,7 +20,6 @@
 		"@rockpool/db": "*",
 		"@rockpool/queue": "*",
 		"@rockpool/runtime": "*",
-		"@rockpool/worker": "*",
 		"@rockpool/workspace-service": "*",
 		"express": "^5.1.0",
 		"express-openapi-validator": "^5.4.6",

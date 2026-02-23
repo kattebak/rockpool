@@ -5,7 +5,6 @@ import type { CaddyRepository } from "@rockpool/caddy";
 import type { DbClient } from "@rockpool/db";
 import { createMemoryDb, createWorkspace, updateWorkspaceStatus } from "@rockpool/db";
 import { WorkspaceStatus as WS } from "@rockpool/enums";
-import { createMemoryQueue } from "@rockpool/queue";
 import type { RuntimeRepository } from "@rockpool/runtime";
 import pino from "pino";
 import { createApp } from "../src/app.ts";
@@ -67,7 +66,7 @@ describe("API", () => {
 
 	before((_, done) => {
 		const db = createMemoryDb();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
 		const logger = pino({ level: "silent" });
@@ -263,7 +262,7 @@ describe("Port API", () => {
 
 	before(async () => {
 		db = createMemoryDb();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		mockCaddy = createMockCaddy();
 		const runtime = createMockRuntime();
 		const logger = pino({ level: "silent" });
@@ -361,7 +360,7 @@ describe("Port API", () => {
 describe("Workspace limits", () => {
 	it("rejects create when concurrent starts limit is reached", async () => {
 		const db = createMemoryDb();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
 		const logger = pino({ level: "silent" });
@@ -383,7 +382,7 @@ describe("Workspace limits", () => {
 
 	it("allows create after pending workspaces finish", async () => {
 		const db = createMemoryDb();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
 		const logger = pino({ level: "silent" });
@@ -401,7 +400,7 @@ describe("Workspace limits", () => {
 
 	it("rejects start when concurrent starts limit is reached", async () => {
 		const db = createMemoryDb();
-		const queue = createMemoryQueue();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
 		const logger = pino({ level: "silent" });

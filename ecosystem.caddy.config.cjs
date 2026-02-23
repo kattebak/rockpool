@@ -3,6 +3,14 @@
 module.exports = {
 	apps: [
 		{
+			name: "elasticmq",
+			script: "npm-scripts/setup-elasticmq.sh",
+			interpreter: "bash",
+			autorestart: true,
+			max_restarts: 3,
+			restart_delay: 2000,
+		},
+		{
 			name: "caddy",
 			script: "caddy",
 			args: "run",
@@ -22,6 +30,15 @@ module.exports = {
 			autorestart: true,
 			max_restarts: 10,
 			restart_delay: 1000,
+		},
+		{
+			name: "worker",
+			script: "npm",
+			args: "run start -w packages/worker",
+			cwd: __dirname,
+			autorestart: true,
+			max_restarts: 10,
+			restart_delay: 2000,
 		},
 		{
 			name: "client",
