@@ -46,6 +46,7 @@ async function bootstrapCaddy(): Promise<void> {
 
 	const bootstrapOptions: BootstrapOptions = {
 		controlPlaneUrl,
+		srv0Port: config.srv0Port,
 		srv1Port: config.srv1Port,
 	};
 
