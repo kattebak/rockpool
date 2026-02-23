@@ -35,7 +35,11 @@
 		"worker:pm2:start": "pm2 start npm --name worker -- run start -w packages/worker",
 		"worker:pm2:stop": "pm2 delete worker",
 		"worker:pm2:logs": "pm2 logs worker",
-		"chrome:cdp": "node --experimental-websocket npm-scripts/chrome-cdp.mjs"
+		"chrome:cdp": "node --experimental-websocket npm-scripts/chrome-cdp.mjs",
+		"test:e2e": "npx playwright test --config e2e/playwright.config.ts",
+		"test:e2e:smoke": "npx playwright test --config e2e/playwright.config.ts tests/01-smoke.spec.ts",
+		"test:e2e:lifecycle": "npx playwright test --config e2e/playwright.config.ts tests/02-workspace-lifecycle.spec.ts",
+		"test:e2e:ide": "npx playwright test --config e2e/playwright.config.ts tests/03-ide-loading.spec.ts"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",
@@ -43,6 +47,7 @@
 		"@kattebak/typespec-drizzle-orm-generator": "^3.6.0",
 		"@kattebak/typespec-enum-emitter": "^1.2.2",
 		"@kattebak/typespec-zod-emitter": "^1.3.0",
+		"@playwright/test": "^1.58.2",
 		"@rockpool/db-schema": "file:build/db-schema",
 		"@rockpool/enums": "file:build/enums",
 		"@rockpool/openapi": "file:build/openapi",
