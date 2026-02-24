@@ -29,7 +29,7 @@ export function createApp(deps: AppDeps) {
 			apiSpec,
 			validateRequests: true,
 			validateResponses: false,
-			ignorePaths: /^\/api\/health/,
+			ignorePaths: /^\/api\/(health|ping)/,
 		}),
 	);
 
@@ -41,7 +41,7 @@ export function createApp(deps: AppDeps) {
 		app.use("/api/workspaces/:id/ports", portRouter);
 	}
 
-	app.get("/api/health", (_req, res) => {
+	app.get("/api/ping", (_req, res) => {
 		res.json({ status: "ok" });
 	});
 

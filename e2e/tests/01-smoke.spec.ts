@@ -1,4 +1,4 @@
-import { test, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { connectBrowser, createTestContext, isTestProfile } from "../helpers/platform";
 
 test.describe("Smoke: dashboard loads", () => {
@@ -42,6 +42,12 @@ test.describe("Smoke: dashboard loads", () => {
 		});
 		expect(response.ok()).toBeTruthy();
 		expect(await response.text()).toBe("OK");
+	});
+
+	test("server ping is reachable through Caddy", async () => {
+		const response = await page.request.get("/api/ping");
+		expect(response.ok()).toBeTruthy();
+		expect(await response.json()).toEqual({ status: "ok" });
 	});
 
 	test("API is reachable through Caddy", async () => {

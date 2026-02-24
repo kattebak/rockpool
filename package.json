@@ -37,6 +37,7 @@
 		"worker:pm2:logs": "pm2 logs worker",
 		"chrome:cdp": "node --experimental-websocket npm-scripts/chrome-cdp.mjs",
 		"test:e2e": "npx playwright test --config e2e/playwright.config.ts",
+		"test:e2e:headless": "E2E_PROFILE=test npx playwright test --config e2e/playwright.config.ts",
 		"test:e2e:smoke": "npx playwright test --config e2e/playwright.config.ts tests/01-smoke.spec.ts",
 		"test:e2e:lifecycle": "npx playwright test --config e2e/playwright.config.ts tests/02-workspace-lifecycle.spec.ts",
 		"test:e2e:ide": "npx playwright test --config e2e/playwright.config.ts tests/03-ide-loading.spec.ts"
