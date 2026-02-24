@@ -14,6 +14,14 @@ Do NOT use `EnterPlanMode`. Use the **architect** agent for multi-step work, **d
 - `npm-scripts/` — operational scripts
 - `Makefile` — build artifacts (`make all`)
 
+## Verification
+
+After changes to API routes, server logic, UI components, or frontend UX, run the headless E2E tests:
+
+```bash
+npm run test:e2e:headless
+```
+
 ## Rules
 
 - Coding standards: `.claude/rules/typescript.md`, `.claude/rules/development.md`

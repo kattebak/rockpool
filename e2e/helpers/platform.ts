@@ -25,7 +25,14 @@ export async function connectBrowser(): Promise<Browser> {
 	if (isTest) {
 		return chromium.launch();
 	}
-	return chromium.connectOverCDP(CDP_URL, { timeout: 10_000 });
+	try {
+		return await chromium.connectOverCDP(CDP_URL, { timeout: 5_000 });
+	} catch {
+		const { execSync } = await import("node:child_process");
+		execSync("npm run chrome:debug &", { stdio: "ignore" });
+		await new Promise((r) => setTimeout(r, 3_000));
+		return chromium.connectOverCDP(CDP_URL, { timeout: 10_000 });
+	}
 }
 
 export async function createTestContext(browser: Browser): Promise<BrowserContext> {
