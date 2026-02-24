@@ -82,4 +82,38 @@ export async function removePort(workspaceId: string, port: number): Promise<voi
 	});
 }
 
+export interface CurrentUser {
+	id: number;
+	username: string;
+}
+
+export async function getCurrentUser(): Promise<CurrentUser> {
+	const res = await fetch("/api/auth/me", { credentials: "same-origin" });
+
+	if (!res.ok) {
+		throw Object.assign(new Error("Not authenticated"), { status: res.status });
+	}
+
+	const body: unknown = await res.json();
+	const obj = body as Record<string, unknown>;
+	const user = obj.user as Record<string, unknown>;
+
+	if (typeof user?.id !== "number" || typeof user?.username !== "string") {
+		throw new Error("Unexpected /api/auth/me response");
+	}
+
+	return { id: user.id, username: user.username };
+}
+
+export async function logout(): Promise<void> {
+	const res = await fetch("/api/auth/logout", {
+		method: "POST",
+		credentials: "same-origin",
+	});
+
+	if (!res.ok) {
+		throw new Error("Logout failed");
+	}
+}
+
 export type { Workspace, Port, WorkspaceListResponse };

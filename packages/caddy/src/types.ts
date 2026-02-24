@@ -26,10 +26,10 @@ export interface BasicAuthCredentials {
 }
 
 export interface BootstrapOptions {
-	auth?: BasicAuthCredentials;
-	controlPlaneUrl?: string;
 	spaRoot?: string;
 	spaProxyUrl?: string;
+	controlPlaneUrl?: string;
 	srv0Port?: number;
 	srv1Port?: number;
+	auth?: BasicAuthCredentials;
 }
