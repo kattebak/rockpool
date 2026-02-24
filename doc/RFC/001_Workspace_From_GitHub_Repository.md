@@ -3,7 +3,7 @@
 | Field   | Value                          |
 | ------- | ------------------------------ |
 | Author  | mvhenten                       |
-| Status  | Draft                          |
+| Status  | Accepted (Phase 1 implemented) |
 | Created | 2026-02-24                     |
 | Related | EDD-003, EDD-007, EDD-011, EDD-015 |
 
@@ -403,20 +403,13 @@ The access token is passed through the queue so the worker can inject it into th
 
 ## Implementation Outline
 
-### Phase 1: GitHub App Migration
+### Phase 1: GitHub App Migration -- IMPLEMENTED
 
-1. Create a GitHub App on github.com
-2. Update `@rockpool/auth`:
-   - Remove `scopes` from `AuthConfig`
-   - Add `refreshToken` and `tokenExpiresAt` to session
-   - Add token refresh logic (called before any GitHub API request)
-   - Handle the `refresh_token` and `expires_in` fields from the token exchange response
-3. Update `packages/server/src/config.ts`:
-   - Rename env vars (or keep the same names -- they serve the same purpose)
-   - Remove the `scopes` array
-4. Update `packages/server/src/app.ts`:
-   - Token refresh middleware for API routes that need GitHub access
-5. Test: OAuth login flow works with the new GitHub App
+1. ~~Create a GitHub App on GitHub~~
+2. ~~Update `@rockpool/auth`~~: removed `scopes` from `AuthConfig`, added `refreshToken` and `tokenExpiresAt` to session, added `refreshAccessToken()` and `updateSessionTokens()`, parse `refresh_token`/`expires_in` from token exchange
+3. ~~Update `packages/server/src/config.ts`~~: removed `scopes` array, kept env var names
+4. ~~Update `packages/server/src/app.ts`~~: `requireSession` middleware auto-refreshes tokens within 5min of expiry, callback handles `setup_action` for app installation redirects
+5. ~~Test~~: GitHub App login flow verified working
 
 ### Phase 2: Repository Listing API
 
