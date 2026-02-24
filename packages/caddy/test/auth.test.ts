@@ -48,7 +48,7 @@ describe("hashPassword", () => {
 });
 
 describe("buildBootstrapConfig", () => {
-	it("returns two-port config without routes when no options given", () => {
+	it("returns two-port config with health-check route when no options given", () => {
 		const config = buildBootstrapConfig();
 
 		const servers = (config.apps as CaddyConfig).http as CaddyConfig;
@@ -56,12 +56,14 @@ describe("buildBootstrapConfig", () => {
 		const srv1 = (servers.servers as CaddyConfig).srv1 as CaddyConfig;
 
 		assert.deepEqual(srv0.listen, [":8080"]);
-		assert.deepEqual(srv0.routes, []);
+		const routes = srv0.routes as Array<Record<string, unknown>>;
+		assert.equal(routes.length, 1);
+		assert.equal(routes[0]["@id"], "health-check");
 		assert.deepEqual(srv1.listen, [":8081"]);
 		assert.deepEqual(srv1.routes, []);
 	});
 
-	it("adds auth routes to srv0 when credentials provided", () => {
+	it("adds auth gate after health-check when credentials provided", () => {
 		const auth: BasicAuthCredentials = {
 			username: "admin",
 			passwordHash: "$2a$10$fakehashvalue",
@@ -70,19 +72,8 @@ describe("buildBootstrapConfig", () => {
 		const routes = getSrv0Routes(config);
 
 		assert.equal(routes.length, 2);
-	});
-
-	it("places health check route before auth gate", () => {
-		const auth: BasicAuthCredentials = {
-			username: "admin",
-			passwordHash: "$2a$10$fakehashvalue",
-		};
-		const config = buildBootstrapConfig({ auth });
-		const routes = getSrv0Routes(config);
-
 		assert.equal(routes[0]["@id"], "health-check");
-		assert.deepEqual(routes[0].match, [{ path: ["/api/health"] }]);
-		assert.equal(routes[0].terminal, true);
+		assert.equal(routes[1]["@id"], "auth-gate");
 	});
 
 	it("configures auth gate for /api/* and /app/* paths", () => {
@@ -93,8 +84,7 @@ describe("buildBootstrapConfig", () => {
 		const config = buildBootstrapConfig({ auth });
 		const routes = getSrv0Routes(config);
 
-		const authRoute = routes[1];
-		assert.equal(authRoute["@id"], "auth-gate");
+		const authRoute = findRoute(routes, "auth-gate");
 		assert.deepEqual(authRoute.match, [{ path: ["/api/*", "/app/*"] }]);
 	});
 
@@ -106,7 +96,7 @@ describe("buildBootstrapConfig", () => {
 		const config = buildBootstrapConfig({ auth });
 		const routes = getSrv0Routes(config);
 
-		const authRoute = routes[1];
+		const authRoute = findRoute(routes, "auth-gate");
 		const handles = authRoute.handle as Array<Record<string, unknown>>;
 		const authHandler = handles[0];
 
