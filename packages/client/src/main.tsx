@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { Toaster } from "@/components/ui/sonner";
+import { BannerProvider } from "@/components/ui/banner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useSystemTheme } from "@/hooks/use-system-theme";
 import { router } from "@/router";
@@ -22,10 +22,11 @@ function App() {
 
 	return (
 		<QueryClientProvider client={queryClient}>
-			<TooltipProvider>
-				<RouterProvider router={router} />
-				<Toaster />
-			</TooltipProvider>
+			<BannerProvider>
+				<TooltipProvider>
+					<RouterProvider router={router} />
+				</TooltipProvider>
+			</BannerProvider>
 		</QueryClientProvider>
 	);
 }

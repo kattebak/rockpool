@@ -30,8 +30,8 @@ test.describe("Smoke: dashboard loads", () => {
 		await expect(heading.or(emptyState)).toBeVisible();
 	});
 
-	test("header navigation is visible", async () => {
-		await expect(page.getByRole("link", { name: "Rockpool" })).toBeVisible();
+	test("navigation is visible", async () => {
+		await expect(page.getByText("Rockpool")).toBeVisible();
 		await expect(page.getByRole("link", { name: "Workspaces" })).toBeVisible();
 		await expect(page.getByRole("button", { name: "New workspace" })).toBeVisible();
 	});

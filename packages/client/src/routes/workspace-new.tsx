@@ -1,32 +1,19 @@
+import { Link, useRouter } from "@tanstack/react-router";
+import { ChevronRight } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useNotify } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCreateWorkspace } from "@/hooks/use-workspaces";
-import type { Workspace } from "@/lib/api-types";
 
 const NAME_PATTERN = /^[a-z0-9-]+$/;
 const DEFAULT_IMAGE = "rockpool-workspace";
 
-interface CreateWorkspaceDialogProps {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	onSuccess: (workspace: Workspace) => void;
-}
-
-export function CreateWorkspaceDialog({
-	open,
-	onOpenChange,
-	onSuccess,
-}: CreateWorkspaceDialogProps) {
+export function WorkspaceNewPage() {
+	const router = useRouter();
+	const notify = useNotify();
 	const [name, setName] = useState("");
 	const [nameError, setNameError] = useState<string | null>(null);
 	const createMutation = useCreateWorkspace();
@@ -50,34 +37,32 @@ export function CreateWorkspaceDialog({
 			{ name, image: DEFAULT_IMAGE },
 			{
 				onSuccess: (workspace) => {
-					setName("");
-					setNameError(null);
-					createMutation.reset();
-					onSuccess(workspace);
+					notify.success(`Workspace "${workspace.name}" created`);
+					router.navigate({ to: "/workspaces/$id", params: { id: workspace.id } });
 				},
 			},
 		);
 	}
 
-	function handleOpenChange(nextOpen: boolean) {
-		if (!nextOpen) {
-			setName("");
-			setNameError(null);
-			createMutation.reset();
-		}
-		onOpenChange(nextOpen);
-	}
-
 	return (
-		<Dialog open={open} onOpenChange={handleOpenChange}>
-			<DialogContent className="sm:max-w-[480px]">
-				<form onSubmit={handleSubmit}>
-					<DialogHeader>
-						<DialogTitle>Create workspace</DialogTitle>
-						<DialogDescription>Start a new isolated development environment.</DialogDescription>
-					</DialogHeader>
+		<div className="space-y-6">
+			<nav className="flex items-center gap-1 text-sm text-muted-foreground">
+				<Link to="/workspaces" className="hover:text-foreground">
+					Workspaces
+				</Link>
+				<ChevronRight className="size-4" />
+				<span className="text-foreground font-medium">New workspace</span>
+			</nav>
 
-					<div className="grid gap-4 py-6">
+			<h1 className="text-2xl font-semibold">Create workspace</h1>
+			<p className="text-muted-foreground">Start a new isolated development environment.</p>
+
+			<Card className="max-w-lg">
+				<CardHeader>
+					<CardTitle>Workspace details</CardTitle>
+				</CardHeader>
+				<CardContent>
+					<form onSubmit={handleSubmit} className="space-y-6">
 						<div className="grid gap-2">
 							<label htmlFor="workspace-name" className="text-sm font-medium">
 								Name
@@ -89,7 +74,9 @@ export function CreateWorkspaceDialog({
 									setName(e.target.value);
 									if (nameError) setNameError(validateName(e.target.value));
 								}}
-								onBlur={() => setNameError(validateName(name))}
+								onBlur={() => {
+									if (name) setNameError(validateName(name));
+								}}
 								placeholder="my-workspace"
 								autoFocus
 							/>
@@ -110,18 +97,20 @@ export function CreateWorkspaceDialog({
 								</AlertDescription>
 							</Alert>
 						)}
-					</div>
 
-					<DialogFooter>
-						<Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-							Cancel
-						</Button>
-						<Button type="submit" disabled={createMutation.isPending}>
-							{createMutation.isPending ? "Creating..." : "Create workspace"}
-						</Button>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+						<div className="flex items-center gap-3">
+							<Button type="submit" disabled={createMutation.isPending}>
+								{createMutation.isPending ? "Creating..." : "Create workspace"}
+							</Button>
+							<Link to="/workspaces">
+								<Button type="button" variant="outline">
+									Cancel
+								</Button>
+							</Link>
+						</div>
+					</form>
+				</CardContent>
+			</Card>
+		</div>
 	);
 }

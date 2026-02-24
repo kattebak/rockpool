@@ -26,10 +26,10 @@ test.describe("Workspace lifecycle: create → provision → stop → delete", (
 		if (isTestProfile()) await browser?.close();
 	});
 
-	test("open create workspace dialog", async () => {
+	test("navigate to create workspace page", async () => {
 		await page.goto("/app/workspaces");
 		await page.getByRole("button", { name: "New workspace" }).click();
-		await expect(page.getByRole("dialog")).toBeVisible();
+		await expect(page).toHaveURL(/\/app\/workspaces\/new/);
 		await expect(page.getByRole("heading", { name: "Create workspace" })).toBeVisible();
 	});
 
@@ -55,7 +55,7 @@ test.describe("Workspace lifecycle: create → provision → stop → delete", (
 
 	test("stop the workspace", async () => {
 		await page.getByRole("button", { name: "Stop" }).click();
-		await expect(page.getByRole("dialog")).toBeVisible();
+		await expect(page.getByText("Stopping a workspace disconnects")).toBeVisible();
 		await page.getByRole("button", { name: "Stop workspace" }).click();
 		await expect(page.getByText("Stopped")).toBeVisible({
 			timeout: isTestProfile() ? 10_000 : 60_000,
@@ -64,7 +64,7 @@ test.describe("Workspace lifecycle: create → provision → stop → delete", (
 
 	test("delete the workspace", async () => {
 		await page.getByRole("button", { name: "Delete" }).click();
-		await expect(page.getByRole("dialog")).toBeVisible();
+		await expect(page.getByText("This will permanently delete")).toBeVisible();
 		await page.getByRole("button", { name: "Delete workspace" }).click();
 		await expect(page).toHaveURL(/\/app\/workspaces$/);
 	});
