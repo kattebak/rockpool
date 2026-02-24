@@ -18,6 +18,7 @@ export interface ServerConfig {
 	platform: "darwin" | "linux";
 	sshKeyPath: string;
 	auth: AuthConfig | null;
+	secureCookies: boolean;
 }
 
 export function loadConfig(): ServerConfig {
@@ -56,5 +57,6 @@ export function loadConfig(): ServerConfig {
 		platform: (process.env.PLATFORM ?? process.platform) as "darwin" | "linux",
 		sshKeyPath: resolve(projectRoot, process.env.SSH_KEY_PATH ?? "images/ssh/rockpool_ed25519"),
 		auth,
+		secureCookies: process.env.SECURE_COOKIES === "true",
 	};
 }
