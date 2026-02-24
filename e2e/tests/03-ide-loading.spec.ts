@@ -1,5 +1,11 @@
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
-import { createTestContext, createTestPage, getApiUrl, getAuthHeader, launchBrowser } from "../helpers/platform";
+import {
+	createTestContext,
+	createTestPage,
+	getApiUrl,
+	getAuthHeader,
+	launchBrowser,
+} from "../helpers/platform";
 import { deleteWorkspaceViaApi, pollUntilStatus, uniqueWorkspaceName } from "../helpers/workspace";
 
 const profile = process.env.E2E_PROFILE ?? "development";

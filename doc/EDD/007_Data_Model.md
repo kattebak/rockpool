@@ -3,7 +3,7 @@
 | Field   | Value      |
 | ------- | ---------- |
 | Author  | mvhenten   |
-| Status  | Draft      |
+| Status  | Implemented |
 | Created | 2026-02-22 |
 | Updated | 2026-02-23 |
 
