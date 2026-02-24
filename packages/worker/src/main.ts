@@ -28,7 +28,9 @@ const sshKeyPath = resolve(projectRoot, process.env.SSH_KEY_PATH ?? "images/ssh/
 const useStubVm = process.env.RUNTIME !== "tart";
 const runtime = useStubVm ? createStubRuntime() : createTartRuntime({ sshKeyPath });
 
-const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger });
+const noopHealthCheck = async () => {};
+const healthCheck = useStubVm ? noopHealthCheck : undefined;
+const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger, healthCheck });
 const processor = createProcessor({ workspaceService, logger });
 const pollLoop = createPollLoop({ queue, processor, logger });
 
