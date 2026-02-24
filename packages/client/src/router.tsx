@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter, redirect } from "@tanstack/
 import { AppShell } from "@/components/app-shell";
 import { SettingsPage } from "@/routes/settings";
 import { WorkspaceDetailPage } from "@/routes/workspace-detail";
+import { WorkspaceNewPage } from "@/routes/workspace-new";
 import { WorkspaceListPage } from "@/routes/workspaces";
 
 const rootRoute = createRootRoute({
@@ -22,6 +23,12 @@ const workspacesRoute = createRoute({
 	component: WorkspaceListPage,
 });
 
+const workspaceNewRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/workspaces/new",
+	component: WorkspaceNewPage,
+});
+
 const workspaceDetailRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/workspaces/$id",
@@ -37,6 +44,7 @@ const settingsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
 	indexRoute,
 	workspacesRoute,
+	workspaceNewRoute,
 	workspaceDetailRoute,
 	settingsRoute,
 ]);

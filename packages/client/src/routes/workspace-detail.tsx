@@ -1,10 +1,10 @@
 import { Link, useParams, useRouter } from "@tanstack/react-router";
 import { ChevronRight, ExternalLink, Play, Square, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ConfirmPanel } from "@/components/confirm-panel";
 import { PortsPanel } from "@/components/ports-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useNotify } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -22,6 +22,7 @@ import { buildIdeUrl } from "@/lib/urls";
 export function WorkspaceDetailPage() {
 	const { id } = useParams({ from: "/workspaces/$id" });
 	const router = useRouter();
+	const notify = useNotify();
 	const { data: workspace, isPending, isError, error, refetch } = useWorkspace(id);
 
 	const startMutation = useStartWorkspace();
@@ -66,7 +67,7 @@ export function WorkspaceDetailPage() {
 					<h1 className="text-2xl font-semibold">{workspace.name}</h1>
 					<WorkspaceStatusBadge status={workspace.status} />
 				</div>
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-4">
 					{isRunning && (
 						<Button asChild>
 							<a href={buildIdeUrl(workspace.name)} target="_blank" rel="noopener noreferrer">
@@ -81,8 +82,8 @@ export function WorkspaceDetailPage() {
 							disabled={isTransitioning || startMutation.isPending}
 							onClick={() =>
 								startMutation.mutate(id, {
-									onSuccess: () => toast.success(`Starting ${workspace.name}`),
-									onError: (err) => toast.error(err.message),
+									onSuccess: () => notify.success(`Starting ${workspace.name}`),
+									onError: (err) => notify.error(err.message),
 								})
 							}
 						>
@@ -102,8 +103,8 @@ export function WorkspaceDetailPage() {
 							disabled={startMutation.isPending}
 							onClick={() =>
 								startMutation.mutate(id, {
-									onSuccess: () => toast.success(`Retrying ${workspace.name}`),
-									onError: (err) => toast.error(err.message),
+									onSuccess: () => notify.success(`Retrying ${workspace.name}`),
+									onError: (err) => notify.error(err.message),
 								})
 							}
 						>
@@ -126,6 +127,46 @@ export function WorkspaceDetailPage() {
 				<Alert variant="destructive">
 					<AlertDescription>{workspace.errorMessage}</AlertDescription>
 				</Alert>
+			)}
+
+			{showStop && (
+				<ConfirmPanel
+					title="Stop workspace"
+					description="Stopping a workspace disconnects the IDE and any forwarded ports."
+					confirmLabel="Stop workspace"
+					variant="destructive"
+					isPending={stopMutation.isPending}
+					onConfirm={() =>
+						stopMutation.mutate(id, {
+							onSuccess: () => {
+								notify.success(`Stopping ${workspace.name}`);
+								setShowStop(false);
+							},
+							onError: (err) => notify.error(err.message),
+						})
+					}
+					onCancel={() => setShowStop(false)}
+				/>
+			)}
+
+			{showDelete && (
+				<ConfirmPanel
+					title="Delete workspace"
+					description={`This will permanently delete "${workspace.name}" and all its data. This action cannot be undone.`}
+					confirmLabel="Delete workspace"
+					variant="destructive"
+					isPending={deleteMutation.isPending}
+					onConfirm={() =>
+						deleteMutation.mutate(id, {
+							onSuccess: () => {
+								notify.success(`Deleted ${workspace.name}`);
+								router.navigate({ to: "/workspaces" });
+							},
+							onError: (err) => notify.error(err.message),
+						})
+					}
+					onCancel={() => setShowDelete(false)}
+				/>
 			)}
 
 			<Separator />
@@ -159,44 +200,6 @@ export function WorkspaceDetailPage() {
 
 				<PortsPanel workspaceId={workspace.id} workspaceName={workspace.name} />
 			</div>
-
-			<ConfirmDialog
-				open={showStop}
-				onOpenChange={setShowStop}
-				title="Stop workspace"
-				description="Stopping a workspace disconnects the IDE and any forwarded ports."
-				confirmLabel="Stop workspace"
-				variant="destructive"
-				isPending={stopMutation.isPending}
-				onConfirm={() =>
-					stopMutation.mutate(id, {
-						onSuccess: () => {
-							toast.success(`Stopping ${workspace.name}`);
-							setShowStop(false);
-						},
-						onError: (err) => toast.error(err.message),
-					})
-				}
-			/>
-
-			<ConfirmDialog
-				open={showDelete}
-				onOpenChange={setShowDelete}
-				title="Delete workspace"
-				description={`This will permanently delete "${workspace.name}" and all its data. This action cannot be undone.`}
-				confirmLabel="Delete workspace"
-				variant="destructive"
-				isPending={deleteMutation.isPending}
-				onConfirm={() =>
-					deleteMutation.mutate(id, {
-						onSuccess: () => {
-							toast.success(`Deleted ${workspace.name}`);
-							router.navigate({ to: "/workspaces" });
-						},
-						onError: (err) => toast.error(err.message),
-					})
-				}
-			/>
 		</div>
 	);
 }

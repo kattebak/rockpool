@@ -1,27 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import { ExternalLink, Loader2, MoreHorizontal, Play, Search, Square, Trash2 } from "lucide-react";
+import { ExternalLink, Loader2, Pencil, Play, Search, Square, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { toast } from "sonner";
-import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ConfirmPanel } from "@/components/confirm-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useNotify } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
 import { WorkspaceStatusBadge } from "@/components/workspace-status-badge";
 import {
 	useDeleteWorkspace,
@@ -44,6 +30,7 @@ export function WorkspaceListPage() {
 		hasNextPage,
 		isFetchingNextPage,
 	} = useWorkspaces();
+	const notify = useNotify();
 	const [search, setSearch] = useState("");
 	const [stopTarget, setStopTarget] = useState<Workspace | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<Workspace | null>(null);
@@ -81,8 +68,8 @@ export function WorkspaceListPage() {
 	if (workspaces.length === 0) return <EmptyState />;
 
 	return (
-		<div className="space-y-4">
-			<div className="flex items-center gap-4">
+		<div className="space-y-8">
+			<div className="flex items-center gap-6">
 				<h1 className="text-2xl font-semibold">Workspaces</h1>
 				<div className="relative ml-auto w-64">
 					<Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -95,42 +82,66 @@ export function WorkspaceListPage() {
 				</div>
 			</div>
 
-			<div className="rounded-lg border bg-card">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Name</TableHead>
-							<TableHead>Status</TableHead>
-							<TableHead>Image</TableHead>
-							<TableHead>Updated</TableHead>
-							<TableHead className="w-[120px]">Actions</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{filtered.map((workspace) => (
-							<WorkspaceRow
-								key={workspace.id}
-								workspace={workspace}
-								onStart={(w) => {
-									startMutation.mutate(w.id, {
-										onSuccess: () => toast.success(`Starting ${w.name}`),
-										onError: (err) => toast.error(err.message),
-									});
-								}}
-								onStop={setStopTarget}
-								onDelete={setDeleteTarget}
-							/>
-						))}
-						{filtered.length === 0 && (
-							<TableRow>
-								<TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-									No workspaces match your filter.
-								</TableCell>
-							</TableRow>
-						)}
-					</TableBody>
-				</Table>
+			{stopTarget && (
+				<ConfirmPanel
+					title="Stop workspace"
+					description="Stopping a workspace disconnects the IDE and any forwarded ports."
+					confirmLabel="Stop workspace"
+					variant="destructive"
+					isPending={stopMutation.isPending}
+					onConfirm={() => {
+						stopMutation.mutate(stopTarget.id, {
+							onSuccess: () => {
+								notify.success(`Stopping ${stopTarget.name}`);
+								setStopTarget(null);
+							},
+							onError: (err) => notify.error(err.message),
+						});
+					}}
+					onCancel={() => setStopTarget(null)}
+				/>
+			)}
+
+			{deleteTarget && (
+				<ConfirmPanel
+					title="Delete workspace"
+					description={`This will permanently delete "${deleteTarget.name}" and all its data. This action cannot be undone.`}
+					confirmLabel="Delete workspace"
+					variant="destructive"
+					isPending={deleteMutation.isPending}
+					onConfirm={() => {
+						deleteMutation.mutate(deleteTarget.id, {
+							onSuccess: () => {
+								notify.success(`Deleted ${deleteTarget.name}`);
+								setDeleteTarget(null);
+							},
+							onError: (err) => notify.error(err.message),
+						});
+					}}
+					onCancel={() => setDeleteTarget(null)}
+				/>
+			)}
+
+			<div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6">
+				{filtered.map((workspace) => (
+					<WorkspaceCard
+						key={workspace.id}
+						workspace={workspace}
+						onStart={(w) => {
+							startMutation.mutate(w.id, {
+								onSuccess: () => notify.success(`Starting ${w.name}`),
+								onError: (err) => notify.error(err.message),
+							});
+						}}
+						onStop={setStopTarget}
+						onDelete={setDeleteTarget}
+					/>
+				))}
 			</div>
+
+			{filtered.length === 0 && (
+				<p className="text-center text-muted-foreground py-8">No workspaces match your filter.</p>
+			)}
 
 			{hasNextPage && !search && (
 				<div className="flex justify-center">
@@ -140,51 +151,11 @@ export function WorkspaceListPage() {
 					</Button>
 				</div>
 			)}
-
-			<ConfirmDialog
-				open={stopTarget !== null}
-				onOpenChange={(open) => !open && setStopTarget(null)}
-				title="Stop workspace"
-				description="Stopping a workspace disconnects the IDE and any forwarded ports."
-				confirmLabel="Stop workspace"
-				variant="destructive"
-				isPending={stopMutation.isPending}
-				onConfirm={() => {
-					if (!stopTarget) return;
-					stopMutation.mutate(stopTarget.id, {
-						onSuccess: () => {
-							toast.success(`Stopping ${stopTarget.name}`);
-							setStopTarget(null);
-						},
-						onError: (err) => toast.error(err.message),
-					});
-				}}
-			/>
-
-			<ConfirmDialog
-				open={deleteTarget !== null}
-				onOpenChange={(open) => !open && setDeleteTarget(null)}
-				title="Delete workspace"
-				description={`This will permanently delete "${deleteTarget?.name ?? ""}" and all its data. This action cannot be undone.`}
-				confirmLabel="Delete workspace"
-				variant="destructive"
-				isPending={deleteMutation.isPending}
-				onConfirm={() => {
-					if (!deleteTarget) return;
-					deleteMutation.mutate(deleteTarget.id, {
-						onSuccess: () => {
-							toast.success(`Deleted ${deleteTarget.name}`);
-							setDeleteTarget(null);
-						},
-						onError: (err) => toast.error(err.message),
-					});
-				}}
-			/>
 		</div>
 	);
 }
 
-function WorkspaceRow({
+function WorkspaceCard({
 	workspace,
 	onStart,
 	onStop,
@@ -200,74 +171,62 @@ function WorkspaceRow({
 	const isStopped = workspace.status === "stopped";
 
 	return (
-		<TableRow>
-			<TableCell>
+		<Card className="gap-0 py-0">
+			<div className="flex items-center justify-between px-6 pt-6 pb-4">
 				<Link
 					to="/workspaces/$id"
 					params={{ id: workspace.id }}
-					className="font-medium text-foreground hover:underline"
+					className="text-base font-medium text-foreground hover:underline truncate"
 				>
 					{workspace.name}
 				</Link>
-			</TableCell>
-			<TableCell>
-				<WorkspaceStatusBadge status={workspace.status} />
-			</TableCell>
-			<TableCell>
-				<code className="font-mono text-xs text-muted-foreground">{workspace.image}</code>
-			</TableCell>
-			<TableCell className="text-muted-foreground text-sm">
-				{timeAgo(workspace.updatedAt)}
-			</TableCell>
-			<TableCell>
-				<div className="flex items-center gap-1">
+				{isRunning && (
+					<Button variant="ghost" size="icon-xs" className="shrink-0" onClick={() => onStop(workspace)}>
+						<Square />
+					</Button>
+				)}
+			</div>
+
+			<CardContent className="space-y-4 px-6 pb-6">
+				<div className="flex items-center gap-3">
+					<WorkspaceStatusBadge status={workspace.status} />
+					<code className="font-mono text-xs text-muted-foreground truncate">{workspace.image}</code>
+				</div>
+
+				<p className="text-sm text-muted-foreground">Updated {timeAgo(workspace.updatedAt)}</p>
+
+				<div className="flex items-center gap-3">
 					{isRunning && (
-						<Button variant="outline" size="xs" asChild>
+						<Button variant="outline" size="sm" asChild>
 							<a href={buildIdeUrl(workspace.name)} target="_blank" rel="noopener noreferrer">
-								<ExternalLink className="size-3" />
-								Open
+								<ExternalLink className="size-4" />
+								Open IDE
 							</a>
 						</Button>
 					)}
 					{isStopped && (
 						<Button
 							variant="outline"
-							size="xs"
+							size="sm"
 							disabled={isTransitioning}
 							onClick={() => onStart(workspace)}
 						>
-							<Play className="size-3" />
+							<Play className="size-4" />
 							Start
 						</Button>
 					)}
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="icon-xs">
-								<MoreHorizontal />
-							</Button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end">
-							{isRunning && (
-								<DropdownMenuItem onClick={() => onStop(workspace)}>
-									<Square className="size-4" />
-									Stop
-								</DropdownMenuItem>
-							)}
-							{isStopped && (
-								<DropdownMenuItem onClick={() => onStart(workspace)}>
-									<Play className="size-4" />
-									Start
-								</DropdownMenuItem>
-							)}
-							<DropdownMenuItem className="text-destructive" onClick={() => onDelete(workspace)}>
-								<Trash2 className="size-4" />
-								Delete
-							</DropdownMenuItem>
-						</DropdownMenuContent>
-					</DropdownMenu>
+					<Button variant="outline" size="sm" asChild>
+						<Link to="/workspaces/$id" params={{ id: workspace.id }}>
+							<Pencil className="size-4" />
+							Edit
+						</Link>
+					</Button>
+					<Button variant="ghost" size="icon-xs" onClick={() => onDelete(workspace)}>
+						<Trash2 className="size-4" />
+					</Button>
 				</div>
-			</TableCell>
-		</TableRow>
+			</CardContent>
+		</Card>
 	);
 }
 
@@ -288,46 +247,26 @@ function EmptyState() {
 
 function WorkspaceListSkeleton() {
 	return (
-		<div className="space-y-4">
+		<div className="space-y-6">
 			<div className="flex items-center gap-4">
 				<Skeleton className="h-8 w-40" />
 				<div className="ml-auto">
 					<Skeleton className="h-9 w-64" />
 				</div>
 			</div>
-			<div className="rounded-lg border bg-card">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Name</TableHead>
-							<TableHead>Status</TableHead>
-							<TableHead>Image</TableHead>
-							<TableHead>Updated</TableHead>
-							<TableHead>Actions</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{["a", "b", "c", "d", "e"].map((key) => (
-							<TableRow key={key}>
-								<TableCell>
-									<Skeleton className="h-4 w-24" />
-								</TableCell>
-								<TableCell>
-									<Skeleton className="h-5 w-16" />
-								</TableCell>
-								<TableCell>
-									<Skeleton className="h-4 w-28" />
-								</TableCell>
-								<TableCell>
-									<Skeleton className="h-4 w-16" />
-								</TableCell>
-								<TableCell>
-									<Skeleton className="h-6 w-20" />
-								</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
+			<div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-6">
+				{["a", "b", "c", "d", "e", "f"].map((key) => (
+					<Card key={key} className="gap-0 py-0">
+						<div className="px-6 pt-6 pb-4">
+							<Skeleton className="h-5 w-36" />
+						</div>
+						<CardContent className="space-y-4 px-6 pb-6">
+							<Skeleton className="h-5 w-28" />
+							<Skeleton className="h-4 w-24" />
+							<Skeleton className="h-9 w-20" />
+						</CardContent>
+					</Card>
+				))}
 			</div>
 		</div>
 	);
