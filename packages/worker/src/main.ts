@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 import { createCaddyClient } from "@rockpool/caddy";
 import { createDb } from "@rockpool/db";
 import { createSqsQueue } from "@rockpool/queue";
-import { createTartRuntime } from "@rockpool/runtime";
+import { createStubRuntime, createTartRuntime } from "@rockpool/runtime";
 import { createWorkspaceService } from "@rockpool/workspace-service";
 import pino from "pino";
 import { createPollLoop } from "./poll-loop.ts";
@@ -25,7 +25,8 @@ const caddy = createCaddyClient({
 });
 
 const sshKeyPath = resolve(projectRoot, process.env.SSH_KEY_PATH ?? "images/ssh/rockpool_ed25519");
-const runtime = createTartRuntime({ sshKeyPath });
+const useStubVm = process.env.RUNTIME !== "tart";
+const runtime = useStubVm ? createStubRuntime() : createTartRuntime({ sshKeyPath });
 
 const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger });
 const processor = createProcessor({ workspaceService, logger });
