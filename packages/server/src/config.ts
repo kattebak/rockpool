@@ -34,7 +34,6 @@ export function loadConfig(): ServerConfig {
 					clientSecret,
 					callbackUrl:
 						process.env.GITHUB_OAUTH_CALLBACK_URL ?? "http://localhost:8080/api/auth/callback",
-					scopes: ["read:user", "email"],
 					sessionMaxAgeMs: Number.parseInt(
 						process.env.SESSION_MAX_AGE_MS ?? String(TWENTY_FOUR_HOURS_MS),
 						10,

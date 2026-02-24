@@ -1,5 +1,5 @@
 import { createRequire } from "node:module";
-import type { AuthService } from "@rockpool/auth";
+import type { AuthService, Session } from "@rockpool/auth";
 import cookieParser from "cookie-parser";
 import express, { type NextFunction, type Request, type Response } from "express";
 import * as OpenApiValidator from "express-openapi-validator";
@@ -139,8 +139,13 @@ function mountAuthRoutes(
 	});
 
 	app.get("/api/auth/callback", async (req, res) => {
-		const { code, state, error } = req.query;
+		const { code, state, error, setup_action } = req.query;
 		const cookies = parseCookies(req);
+
+		if (typeof setup_action === "string") {
+			res.redirect("/api/auth/github");
+			return;
+		}
 
 		if (error) {
 			logger.error({ error }, "OAuth error from GitHub");
@@ -163,9 +168,9 @@ function mountAuthRoutes(
 			return;
 		}
 
-		const accessToken = await authService.exchangeCodeForToken(code);
-		const githubUser = await authService.getGitHubUser(accessToken);
-		const session = await authService.createSession(accessToken, githubUser);
+		const tokenResult = await authService.exchangeCodeForToken(code);
+		const githubUser = await authService.getGitHubUser(tokenResult.accessToken);
+		const session = await authService.createSession(tokenResult, githubUser);
 
 		const maxAgeSeconds = Math.floor(authService.config.sessionMaxAgeMs / 1000);
 
@@ -244,6 +249,12 @@ function mountAuthRoutes(
 	});
 }
 
+const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
+
+function isTokenExpiringSoon(session: Session): boolean {
+	return Date.now() + TOKEN_REFRESH_BUFFER_MS >= session.tokenExpiresAt;
+}
+
 function requireSession(
 	authService: AuthService,
 ): (req: Request, res: Response, next: NextFunction) => Promise<void> {
@@ -265,6 +276,11 @@ function requireSession(
 		if (!session) {
 			res.status(401).json({ error: "Invalid session" });
 			return;
+		}
+
+		if (isTokenExpiringSoon(session)) {
+			const tokenResult = await authService.refreshAccessToken(session.refreshToken);
+			await authService.updateSessionTokens(sessionId, tokenResult);
 		}
 
 		next();

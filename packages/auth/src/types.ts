@@ -11,6 +11,8 @@ export interface Session {
 	userId: number;
 	username: string;
 	githubAccessToken: string;
+	refreshToken: string;
+	tokenExpiresAt: number;
 	createdAt: number;
 	expiresAt: number;
 }
@@ -19,7 +21,6 @@ export interface AuthConfig {
 	clientId: string;
 	clientSecret: string;
 	callbackUrl: string;
-	scopes: string[];
 	sessionMaxAgeMs: number;
 }
 

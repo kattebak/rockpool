@@ -54,6 +54,8 @@ export function createSession(
 	userId: number,
 	username: string,
 	githubAccessToken: string,
+	refreshToken: string,
+	tokenExpiresAt: number,
 	sessionMaxAgeMs: number,
 ): Session {
 	const now = Date.now();
@@ -62,6 +64,8 @@ export function createSession(
 		userId,
 		username,
 		githubAccessToken,
+		refreshToken,
+		tokenExpiresAt,
 		createdAt: now,
 		expiresAt: now + sessionMaxAgeMs,
 	};
