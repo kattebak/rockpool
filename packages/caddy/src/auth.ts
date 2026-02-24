@@ -26,12 +26,6 @@ function buildBasicAuthHandler(credentials: BasicAuthCredentials): Record<string
 function buildAuthRoutes(auth: BasicAuthCredentials): unknown[] {
 	return [
 		{
-			"@id": "health-check",
-			match: [{ path: ["/api/health"] }],
-			handle: [{ handler: "static_response", status_code: 200, body: "OK" }],
-			terminal: true,
-		},
-		{
 			"@id": "auth-gate",
 			match: [{ path: ["/api/*", "/app/*"] }],
 			handle: [buildBasicAuthHandler(auth)],
@@ -141,7 +135,14 @@ function buildRootRedirect(): Record<string, unknown> {
 }
 
 export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<string, unknown> {
-	const srv0Routes: unknown[] = [];
+	const srv0Routes: unknown[] = [
+		{
+			"@id": "health-check",
+			match: [{ path: ["/api/health"] }],
+			handle: [{ handler: "static_response", status_code: 200, body: "OK" }],
+			terminal: true,
+		},
+	];
 
 	if (options.auth) {
 		srv0Routes.push(...buildAuthRoutes(options.auth));
