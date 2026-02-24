@@ -25,16 +25,29 @@ Caddy does **not** handle OAuth. GitHub OAuth is handled by the control plane it
 
 ### Authentication Modes
 
-#### Basic Auth (Caddy-level, for dev/CI)
+The server supports two authentication modes based on the environment:
 
-- Use Caddy's built-in `basic_auth` directive.
-- No external identity provider required.
-- Suitable for localhost, quick testing, and CI integration tests.
-- Controlled via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars.
+#### Development Mode (GitHub OAuth)
 
-#### GitHub OAuth (control plane, for production)
+When `NODE_ENV=development` and `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` are provided, Caddy uses its built-in GitHub OAuth provider. This is the default for local development.
 
-OAuth is handled in the control plane as a separate `@rockpool/auth` package, not in Caddy. This gives the server full control over the GitHub access token, which is needed for:
+- Uses Caddy's `authentication` handler with OAuth provider
+- Controlled via `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET` env vars
+- Simpler setup than control-plane OAuth - no `@rockpool/auth` package needed
+- Requested scopes: `read:user`, `email`
+
+#### Test/Production Mode (Basic Auth)
+
+When GitHub OAuth credentials are not provided (or in test environment), Caddy falls back to basic authentication.
+
+- Use Caddy's built-in `http_basic` directive
+- No external identity provider required
+- Suitable for CI integration tests and production when OAuth is not configured
+- Controlled via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars
+
+#### GitHub OAuth (control plane, alternative)
+
+For production deployments requiring full GitHub API access (cloning private repos, querying org membership), OAuth can be handled in the control plane as a separate `@rockpool/auth` package, not in Caddy. This gives the server full control over the GitHub access token, which is needed for:
 
 - Cloning private repos into workspace VMs
 - Querying the GitHub API (list repos, org membership)
@@ -629,14 +642,16 @@ GITHUB_OAUTH_CLIENT_ID=<client-id>
 GITHUB_OAUTH_CLIENT_SECRET=<client-secret>
 ```
 
-| Variable                     | Purpose                                                  |
-| ---------------------------- | -------------------------------------------------------- |
-| `RUNTIME`                    | VM runtime backend (`tart` for macOS)                    |
-| `WORKER_INLINE`              | Run worker in-process with server (`true` for local dev) |
-| `SPA_PROXY_URL`              | Vite dev server URL for SPA proxy                        |
-| `SSH_KEY_PATH`               | Path to SSH key for VM access                            |
-| `GITHUB_OAUTH_CLIENT_ID`     | GitHub OAuth App client ID                               |
-| `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App client secret                           |
+| Variable               | Purpose                                                    |
+| ---------------------- | ---------------------------------------------------------- |
+| `RUNTIME`              | VM runtime backend (`tart` for macOS)                      |
+| `WORKER_INLINE`        | Run worker in-process with server (`true` for local dev)   |
+| `SPA_PROXY_URL`        | Vite dev server URL for SPA proxy                          |
+| `SSH_KEY_PATH`         | Path to SSH key for VM access                              |
+| `GITHUB_CLIENT_ID`     | GitHub OAuth App client ID (Caddy-level, for dev mode)     |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth App client secret (Caddy-level, for dev mode) |
+| `CADDY_USERNAME`       | Basic auth username (fallback for test mode)               |
+| `CADDY_PASSWORD`       | Basic auth password (fallback for test mode)               |
 
 ### GitHub OAuth App
 

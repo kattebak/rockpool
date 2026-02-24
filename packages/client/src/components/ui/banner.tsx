@@ -41,7 +41,10 @@ export function BannerProvider({ children }: { children: React.ReactNode }) {
 		[dismissBanner],
 	);
 
-	const value = useMemo(() => ({ banners, addBanner, dismissBanner }), [banners, addBanner, dismissBanner]);
+	const value = useMemo(
+		() => ({ banners, addBanner, dismissBanner }),
+		[banners, addBanner, dismissBanner],
+	);
 
 	return <BannerContext.Provider value={value}>{children}</BannerContext.Provider>;
 }
@@ -86,13 +89,7 @@ const variantIcons: Record<BannerVariant, React.ReactNode> = {
 	info: <Info className="size-4 shrink-0" />,
 };
 
-function Banner({
-	item,
-	onDismiss,
-}: {
-	item: BannerItem;
-	onDismiss: () => void;
-}) {
+function Banner({ item, onDismiss }: { item: BannerItem; onDismiss: () => void }) {
 	return (
 		<div className={cn(bannerVariants({ variant: item.variant }))} role="alert">
 			{variantIcons[item.variant]}

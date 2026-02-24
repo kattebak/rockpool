@@ -8,14 +8,35 @@ import { useSystemTheme } from "@/hooks/use-system-theme";
 import { router } from "@/router";
 import "@/styles/globals.css";
 
+function isUnauthorized(error: unknown): boolean {
+	if (typeof error === "object" && error !== null && "status" in error) {
+		return (error as { status: number }).status === 401;
+	}
+	return false;
+}
+
+function handleGlobal401(error: unknown): void {
+	if (!isUnauthorized(error)) return;
+	if (window.location.pathname === "/app/login") return;
+	router.navigate({ to: "/login" });
+}
+
 const queryClient = new QueryClient({
 	defaultOptions: {
 		queries: {
-			retry: 1,
+			retry: (failureCount, error) => {
+				if (isUnauthorized(error)) return false;
+				return failureCount < 1;
+			},
 			staleTime: 2000,
+		},
+		mutations: {
+			onError: handleGlobal401,
 		},
 	},
 });
+
+queryClient.getQueryCache().config.onError = handleGlobal401;
 
 function App() {
 	useSystemTheme();

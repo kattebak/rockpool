@@ -20,7 +20,7 @@ import { timeAgo } from "@/lib/time";
 import { buildIdeUrl } from "@/lib/urls";
 
 export function WorkspaceDetailPage() {
-	const { id } = useParams({ from: "/workspaces/$id" });
+	const { id } = useParams({ from: "/authenticated/workspaces/$id" });
 	const router = useRouter();
 	const notify = useNotify();
 	const { data: workspace, isPending, isError, error, refetch } = useWorkspace(id);

@@ -181,7 +181,12 @@ function WorkspaceCard({
 					{workspace.name}
 				</Link>
 				{isRunning && (
-					<Button variant="ghost" size="icon-xs" className="shrink-0" onClick={() => onStop(workspace)}>
+					<Button
+						variant="ghost"
+						size="icon-xs"
+						className="shrink-0"
+						onClick={() => onStop(workspace)}
+					>
 						<Square />
 					</Button>
 				)}
@@ -190,7 +195,9 @@ function WorkspaceCard({
 			<CardContent className="space-y-4 px-6 pb-6">
 				<div className="flex items-center gap-3">
 					<WorkspaceStatusBadge status={workspace.status} />
-					<code className="font-mono text-xs text-muted-foreground truncate">{workspace.image}</code>
+					<code className="font-mono text-xs text-muted-foreground truncate">
+						{workspace.image}
+					</code>
 				</div>
 
 				<p className="text-sm text-muted-foreground">Updated {timeAgo(workspace.updatedAt)}</p>

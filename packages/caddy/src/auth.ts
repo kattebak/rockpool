@@ -144,6 +144,7 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 		},
 	];
 
+	// Basic auth for dev/CI - GitHub OAuth is handled in control plane via @rockpool/auth
 	if (options.auth) {
 		srv0Routes.push(...buildAuthRoutes(options.auth));
 	}

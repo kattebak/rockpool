@@ -11,10 +11,14 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import { useCurrentUser, useLogout } from "@/hooks/use-auth";
 
 const SIDEBAR_WIDTH = "w-60";
 
 export function AppShell() {
+	const { data: user } = useCurrentUser();
+	const logoutMutation = useLogout();
+
 	return (
 		<div className="flex min-h-screen flex-col bg-background">
 			<header className="sticky top-0 z-50 flex h-16 shrink-0 items-center border-b bg-card">
@@ -37,11 +41,11 @@ export function AppShell() {
 						<DropdownMenuTrigger asChild>
 							<Button variant="ghost" size="sm" className="gap-2">
 								<User className="size-4" />
-								Account
+								{user?.username ?? "Account"}
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="w-48">
-							<DropdownMenuLabel>My Account</DropdownMenuLabel>
+							<DropdownMenuLabel>{user?.username ?? "My Account"}</DropdownMenuLabel>
 							<DropdownMenuSeparator />
 							<DropdownMenuItem asChild>
 								<Link to="/settings">
@@ -50,7 +54,10 @@ export function AppShell() {
 								</Link>
 							</DropdownMenuItem>
 							<DropdownMenuSeparator />
-							<DropdownMenuItem>
+							<DropdownMenuItem
+								onClick={() => logoutMutation.mutate()}
+								disabled={logoutMutation.isPending}
+							>
 								<LogOut className="size-4" />
 								Log out
 							</DropdownMenuItem>
@@ -60,7 +67,9 @@ export function AppShell() {
 			</header>
 
 			<div className="flex flex-1">
-				<aside className={`sticky top-16 flex h-[calc(100vh-4rem)] ${SIDEBAR_WIDTH} shrink-0 flex-col border-r bg-card`}>
+				<aside
+					className={`sticky top-16 flex h-[calc(100vh-4rem)] ${SIDEBAR_WIDTH} shrink-0 flex-col border-r bg-card`}
+				>
 					<nav className="flex flex-col gap-3 px-5 pt-8">
 						<NavLink to="/workspaces">
 							<LayoutDashboard className="size-4" />
