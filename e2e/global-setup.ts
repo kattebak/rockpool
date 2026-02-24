@@ -1,6 +1,7 @@
 import { execSync } from "node:child_process";
 
-const HEALTH_URL = "http://localhost:9080/api/health";
+const CADDY_HEALTH_URL = "http://localhost:9080/api/health";
+const SERVER_PING_URL = "http://localhost:9080/api/ping";
 const SPA_URL = "http://localhost:9080/app/workspaces";
 const QUEUE_ENDPOINT = "http://localhost:9424";
 const POLL_INTERVAL = 2_000;
@@ -54,8 +55,9 @@ export default async function globalSetup(): Promise<void> {
 	execSync("npx pm2 start ecosystem.test.config.cjs", { stdio: "inherit" });
 
 	await ensureQueue();
-	await pollUntilReady(HEALTH_URL, 60_000);
+	await pollUntilReady(CADDY_HEALTH_URL, 60_000);
 	// biome-ignore lint/style/useNamingConvention: HTTP header
 	const authHeaders = { Authorization: AUTH_HEADER };
+	await pollUntilReady(SERVER_PING_URL, 30_000, authHeaders);
 	await pollUntilReady(SPA_URL, 30_000, authHeaders);
 }

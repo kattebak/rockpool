@@ -1,4 +1,4 @@
-import { chromium, type Browser, type BrowserContext } from "@playwright/test";
+import { type Browser, type BrowserContext, chromium } from "@playwright/test";
 
 const profile = process.env.E2E_PROFILE ?? "development";
 const isTest = profile === "test";

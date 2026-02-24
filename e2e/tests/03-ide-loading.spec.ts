@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, type Page, expect, test } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { connectBrowser, createTestContext, getApiUrl, getAuthHeader } from "../helpers/platform";
 import { deleteWorkspaceViaApi, pollUntilStatus, uniqueWorkspaceName } from "../helpers/workspace";
 
@@ -63,9 +63,9 @@ test.describe("IDE loading: code-server renders in browser", () => {
 	});
 
 	test("IDE shows activity bar", async () => {
-		await expect(
-			page.locator("[id='workbench.parts.activitybar']"),
-		).toBeVisible({ timeout: 30_000 });
+		await expect(page.locator("[id='workbench.parts.activitybar']")).toBeVisible({
+			timeout: 30_000,
+		});
 	});
 
 	test("IDE menu bar is present", async () => {
