@@ -79,8 +79,8 @@ describe("API", () => {
 		server.close(done);
 	});
 
-	it("GET /api/health returns ok", async () => {
-		const res = await request(server, "GET", "/api/health");
+	it("GET /api/ping returns ok", async () => {
+		const res = await request(server, "GET", "/api/ping");
 		assert.equal(res.status, 200);
 		assert.deepEqual(res.body, { status: "ok" });
 	});
