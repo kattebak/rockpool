@@ -4,12 +4,27 @@ import * as schema from "./schema.ts";
 
 export type DbClient = ReturnType<typeof createDb>;
 
+const CREATE_REPOSITORY_SQL = `
+CREATE TABLE IF NOT EXISTS repository (
+	id TEXT PRIMARY KEY,
+	full_name TEXT NOT NULL,
+	owner TEXT NOT NULL,
+	owner_type TEXT NOT NULL,
+	owner_avatar TEXT NOT NULL,
+	description TEXT,
+	default_branch TEXT NOT NULL,
+	private INTEGER NOT NULL,
+	created_at INTEGER NOT NULL
+)`;
+
 const CREATE_WORKSPACES_SQL = `
 CREATE TABLE IF NOT EXISTS workspace (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL UNIQUE,
 	status TEXT NOT NULL DEFAULT 'creating',
 	image TEXT NOT NULL,
+	description TEXT,
+	repository_id TEXT REFERENCES repository(id),
 	vm_ip TEXT,
 	error_message TEXT,
 	created_at INTEGER NOT NULL,
@@ -29,6 +44,7 @@ export function createDb(dbPath: string) {
 	const sqlite = new Database(dbPath);
 	sqlite.pragma("journal_mode = WAL");
 	sqlite.pragma("foreign_keys = ON");
+	sqlite.exec(CREATE_REPOSITORY_SQL);
 	sqlite.exec(CREATE_WORKSPACES_SQL);
 	sqlite.exec(CREATE_PORTS_SQL);
 

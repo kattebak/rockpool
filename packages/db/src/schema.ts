@@ -1,4 +1,4 @@
-import { port, workspace as workspaces } from "@rockpool/db-schema";
+import { port, repository as repositories, workspace as workspaces } from "@rockpool/db-schema";
 import short from "short-uuid";
 
 const translator = short(short.constants.uuid25Base36);
@@ -7,7 +7,7 @@ export function generateId(): string {
 	return translator.generate();
 }
 
-export { workspaces };
+export { workspaces, repositories };
 
 export const ports = port;
 

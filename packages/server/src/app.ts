@@ -5,6 +5,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import * as OpenApiValidator from "express-openapi-validator";
 import pino from "pino";
 import { pinoHttp } from "pino-http";
+import { createGitHubRouter } from "./routes/github.ts";
 import { createPortRouter } from "./routes/ports.ts";
 import { createWorkspaceRouter } from "./routes/workspaces.ts";
 import type { createPortService } from "./services/port-service.ts";
@@ -51,6 +52,9 @@ export function createApp(deps: AppDeps) {
 	if (deps.authService) {
 		const authService = deps.authService;
 		app.use("/api/workspaces", requireSession(authService), workspaceRouter);
+
+		const githubRouter = createGitHubRouter();
+		app.use("/api/github", requireSession(authService), githubRouter);
 	} else {
 		app.use("/api/workspaces", workspaceRouter);
 	}
@@ -280,7 +284,10 @@ function requireSession(
 
 		if (isTokenExpiringSoon(session)) {
 			const tokenResult = await authService.refreshAccessToken(session.refreshToken);
-			await authService.updateSessionTokens(sessionId, tokenResult);
+			const updated = await authService.updateSessionTokens(sessionId, tokenResult);
+			res.locals.session = updated ?? session;
+		} else {
+			res.locals.session = session;
 		}
 
 		next();
