@@ -180,7 +180,7 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 			http: {
 				servers: {
 					srv0: {
-						listen: [":8080"],
+						listen: [`:${options.srv0Port ?? 8080}`],
 						routes: srv0Routes,
 					},
 					srv1: {
