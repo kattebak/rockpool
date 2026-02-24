@@ -18,6 +18,7 @@ export type FetchFn = (url: string, init?: RequestInit) => Promise<Response>;
 export interface CaddyClientOptions {
 	adminUrl?: string;
 	fetch?: FetchFn;
+	authMode?: AuthMode;
 }
 
 export interface BasicAuthCredentials {
@@ -25,11 +26,16 @@ export interface BasicAuthCredentials {
 	passwordHash: string;
 }
 
+export type AuthMode =
+	| { mode: "basic"; credentials: BasicAuthCredentials }
+	| { mode: "oauth"; controlPlaneDial: string; srv0Port: number };
+
 export interface BootstrapOptions {
 	spaRoot?: string;
 	spaProxyUrl?: string;
 	controlPlaneUrl?: string;
 	srv0Port?: number;
 	srv1Port?: number;
-	auth?: BasicAuthCredentials;
+	srv2Port?: number;
+	authMode?: AuthMode;
 }

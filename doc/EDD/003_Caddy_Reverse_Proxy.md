@@ -607,18 +607,15 @@ Implemented:
 - [x] **Unambiguous URL scheme**: `/api/*` for control plane, `/app/*` for SPA, `/workspace/{name}/*` for IDE sessions (srv1), `/workspace/{name}/port/{port}/*` for app previews (srv2)
 - [x] **Dynamic port forwarding**: user registers actual app ports (e.g. 3000, 5000) via API, Caddy routes created/removed on srv2, max 5 per workspace
 
-Partially implemented:
-
-- [x] **`/api/auth/verify` endpoint** — implemented in `@rockpool/auth`, validates session, returns 200 + `X-Authenticated-User` or 401. Not yet wired into Caddy via forward_auth.
-- [x] **Cookie hardening**: `HttpOnly` + `SameSite=Lax` implemented on all auth cookies. `Secure` is hardcoded `false` — needs to be env-gated for production (HTTPS).
-- [x] **Port route building**: `buildPortRoute()` and `CaddyRepository.addPortRoute()`/`removePortRoute()` exist in `@rockpool/caddy`. Not yet called from the server when ports are registered.
+- [x] **`/api/auth/verify` endpoint** — implemented in `@rockpool/auth`, validates session, returns 200 + `X-Authenticated-User` or 401. Wired into Caddy via forward_auth on srv1 and srv2.
+- [x] **Cookie hardening**: `HttpOnly` + `SameSite=Lax` + `Secure` (gated on `SECURE_COOKIES=true` env var for production HTTPS) implemented on all auth cookies.
+- [x] **Port route building**: `buildPortRoute()` and `CaddyRepository.addPortRoute()`/`removePortRoute()` exist in `@rockpool/caddy`, post to srv2 as top-level routes with redirect routes. Called from `PortService` when ports are registered via the API.
+- [x] **Workspace auth via forward_auth on srv1 + srv2**: `buildBootstrapConfig()` supports `AuthMode` discriminated union — basic auth mode (dev/CI) generates `http_basic` handlers, OAuth mode generates forward_auth handlers (reverse_proxy + handle_response chain) pointing to `/api/auth/verify`. Forward_auth gates on srv1 and srv2 bootstrap configs, plus per-route auth on dynamic workspace and port routes. Unauthenticated requests redirect to `/api/auth/github?return_to=...` for login with return URL.
+- [x] **srv2 app preview routes wired to API**: port registration API endpoint (`POST /api/workspaces/{id}/ports`) implemented in the server via `PortService` and `PortRouter`. Port routes are top-level on srv2 with redirect routes.
 
 Not yet implemented:
 
-- [ ] **Workspace auth via forward_auth on srv1 + srv2**: `buildBootstrapConfig()` only generates basic auth handlers. Needs an OAuth mode that generates forward_auth handlers (reverse_proxy + handle_response chain) pointing to `/api/auth/verify`. The verify endpoint already exists — this is Caddy config generation work.
-- [ ] **Cookie `Secure` flag**: gate on production env so cookies are `Secure` over HTTPS
 - [ ] **Rate limiting via `caddy-ratelimit`** compiled into Caddy with `xcaddy`. Default policy: 60/min soft, 300/min hard for general endpoints; 10/min soft, 30/min hard for lifecycle endpoints. Identity key: authenticated user → `CF-Connecting-IP` → client IP (see [EDD 007](007_Data_Model.md)).
-- [ ] **srv2 app preview routes wired to API**: port registration API endpoint (`POST /api/workspaces/{id}/ports`) not yet implemented in the server; existing `CaddyRepository` methods need to be called from `WorkspaceService`
 
 ## Appendix: Local Development Setup
 

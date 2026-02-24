@@ -18,6 +18,7 @@ export interface AppDeps {
 	portService?: ReturnType<typeof createPortService>;
 	logger?: pino.Logger;
 	authService: AuthService | null;
+	secureCookies?: boolean;
 }
 
 function parseCookies(req: Request): Record<string, string> {
@@ -42,7 +43,7 @@ export function createApp(deps: AppDeps) {
 	);
 
 	if (deps.authService) {
-		mountAuthRoutes(app, deps.authService, logger);
+		mountAuthRoutes(app, deps.authService, logger, deps.secureCookies ?? false);
 	}
 
 	const workspaceRouter = createWorkspaceRouter(deps.workspaceService);
@@ -117,17 +118,18 @@ function mountAuthRoutes(
 	app: express.Express,
 	authService: AuthService,
 	logger: pino.Logger,
+	secureCookies: boolean,
 ): void {
 	app.get("/api/auth/github", (req, res) => {
 		const state = crypto.randomUUID();
 		const returnTo = req.query.return_to;
 
-		res.cookie("oauth_state", state, { httpOnly: true, secure: false, sameSite: "lax" });
+		res.cookie("oauth_state", state, { httpOnly: true, secure: secureCookies, sameSite: "lax" });
 
 		if (typeof returnTo === "string" && returnTo.length > 0) {
 			res.cookie("oauth_return_to", returnTo, {
 				httpOnly: true,
-				secure: false,
+				secure: secureCookies,
 				sameSite: "lax",
 			});
 		}
@@ -169,7 +171,7 @@ function mountAuthRoutes(
 
 		res.cookie("session", session.id, {
 			httpOnly: true,
-			secure: false,
+			secure: secureCookies,
 			sameSite: "lax",
 			maxAge: maxAgeSeconds,
 		});

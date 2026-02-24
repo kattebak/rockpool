@@ -1,10 +1,35 @@
 import bcrypt from "bcryptjs";
-import type { BasicAuthCredentials, BootstrapOptions } from "./types.ts";
+import type { AuthMode, BasicAuthCredentials, BootstrapOptions } from "./types.ts";
 
 const BCRYPT_ROUNDS = 10;
 
 export async function hashPassword(plaintext: string): Promise<string> {
 	return bcrypt.hash(plaintext, BCRYPT_ROUNDS);
+}
+
+function buildBasicAuthSubroute(credentials: BasicAuthCredentials): Record<string, unknown> {
+	return {
+		handler: "subroute",
+		routes: [
+			{
+				handle: [
+					{
+						handler: "authentication",
+						providers: {
+							http_basic: {
+								accounts: [
+									{
+										username: credentials.username,
+										password: credentials.passwordHash,
+									},
+								],
+							},
+						},
+					},
+				],
+			},
+		],
+	};
 }
 
 function buildBasicAuthHandler(credentials: BasicAuthCredentials): Record<string, unknown> {
@@ -23,12 +48,77 @@ function buildBasicAuthHandler(credentials: BasicAuthCredentials): Record<string
 	};
 }
 
-function buildAuthRoutes(auth: BasicAuthCredentials): unknown[] {
+export function buildForwardAuthHandler(
+	controlPlaneDial: string,
+	srv0Port: number,
+): Record<string, unknown> {
+	return {
+		handler: "reverse_proxy",
+		upstreams: [{ dial: controlPlaneDial }],
+		rewrite: { method: "GET", uri: "/api/auth/verify" },
+		headers: {
+			request: {
+				set: {
+					"X-Forwarded-Method": ["{http.request.method}"],
+					"X-Forwarded-Uri": ["{http.request.uri}"],
+					"X-Forwarded-Host": ["{http.request.host}"],
+					"X-Forwarded-Proto": ["{http.request.scheme}"],
+				},
+			},
+		},
+		handle_response: [
+			{
+				match: { status_code: [2] },
+				routes: [
+					{
+						handle: [
+							{
+								handler: "headers",
+								request: {
+									set: {
+										"X-Authenticated-User": ["{http.reverse_proxy.header.X-Authenticated-User}"],
+									},
+								},
+							},
+						],
+					},
+				],
+			},
+			{
+				match: { status_code: [401] },
+				routes: [
+					{
+						handle: [
+							{
+								handler: "static_response",
+								status_code: 302,
+								headers: {
+									Location: [
+										`http://{http.request.host}:${srv0Port}/api/auth/github?return_to={http.request.scheme}://{http.request.hostport}{http.request.uri}`,
+									],
+								},
+							},
+						],
+					},
+				],
+			},
+		],
+	};
+}
+
+export function buildAuthHandler(authMode: AuthMode): Record<string, unknown> {
+	if (authMode.mode === "basic") {
+		return buildBasicAuthSubroute(authMode.credentials);
+	}
+	return buildForwardAuthHandler(authMode.controlPlaneDial, authMode.srv0Port);
+}
+
+function buildSrv0AuthRoutes(credentials: BasicAuthCredentials): unknown[] {
 	return [
 		{
 			"@id": "auth-gate",
 			match: [{ path: ["/api/*", "/app/*"] }],
-			handle: [buildBasicAuthHandler(auth)],
+			handle: [buildBasicAuthHandler(credentials)],
 		},
 	];
 }
@@ -110,7 +200,7 @@ function buildWorkspaceRedirect(srv1Port: number): Record<string, unknown> {
 				status_code: 302,
 				headers: {
 					Location: [
-						`{http.request.scheme}://{http.request.hostname}:${srv1Port}{http.request.uri}`,
+						`{http.request.scheme}://{http.request.host}:${srv1Port}{http.request.uri}`,
 					],
 				},
 			},
@@ -134,6 +224,21 @@ function buildRootRedirect(): Record<string, unknown> {
 	};
 }
 
+function buildAuthGate(id: string, paths: string[], authMode: AuthMode): Record<string, unknown> {
+	if (authMode.mode === "basic") {
+		return {
+			"@id": id,
+			match: [{ path: paths }],
+			handle: [buildBasicAuthHandler(authMode.credentials)],
+		};
+	}
+	return {
+		"@id": id,
+		match: [{ path: paths }],
+		handle: [buildForwardAuthHandler(authMode.controlPlaneDial, authMode.srv0Port)],
+	};
+}
+
 export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<string, unknown> {
 	const srv0Routes: unknown[] = [
 		{
@@ -144,9 +249,8 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 		},
 	];
 
-	// Basic auth for dev/CI - GitHub OAuth is handled in control plane via @rockpool/auth
-	if (options.auth) {
-		srv0Routes.push(...buildAuthRoutes(options.auth));
+	if (options.authMode?.mode === "basic") {
+		srv0Routes.push(...buildSrv0AuthRoutes(options.authMode.credentials));
 	}
 
 	if (options.controlPlaneUrl) {
@@ -168,13 +272,11 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 	}
 
 	const srv1Routes: unknown[] = [];
+	const srv2Routes: unknown[] = [];
 
-	if (options.auth) {
-		srv1Routes.push({
-			"@id": "srv1-auth-gate",
-			match: [{ path: ["/workspace/*"] }],
-			handle: [buildBasicAuthHandler(options.auth)],
-		});
+	if (options.authMode) {
+		srv1Routes.push(buildAuthGate("srv1-auth-gate", ["/workspace/*"], options.authMode));
+		srv2Routes.push(buildAuthGate("srv2-auth-gate", ["/workspace/*"], options.authMode));
 	}
 
 	return {
@@ -186,8 +288,12 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 						routes: srv0Routes,
 					},
 					srv1: {
-						listen: [":8081"],
+						listen: [`:${options.srv1Port ?? 8081}`],
 						routes: srv1Routes,
+					},
+					srv2: {
+						listen: [`:${options.srv2Port ?? 8082}`],
+						routes: srv2Routes,
 					},
 				},
 			},
