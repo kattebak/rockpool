@@ -3,13 +3,16 @@ export { createDb, createMemoryDb } from "./connection.ts";
 export type { PaginatedResult, PaginationParams } from "./queries.ts";
 export {
 	addPort,
+	conditionalUpsertPrefsBlob,
 	countWorkspaces,
 	countWorkspacesByStatus,
 	createWorkspace,
 	decodeCursor,
 	deleteWorkspace,
 	encodeCursor,
+	getAllUserPrefsBlobs,
 	getRepository,
+	getUserPrefsBlob,
 	getWorkspace,
 	getWorkspaceByName,
 	getWorkspaceRepository,
@@ -21,16 +24,27 @@ export {
 	removePort,
 	updateWorkspaceStatus,
 	upsertRepository,
+	upsertUserPrefsBlob,
 } from "./queries.ts";
 export type {
 	NewPort,
 	NewRepository,
+	NewUserPrefsBlob,
 	NewWorkspace,
 	NewWorkspaceRepository,
 	Port,
 	Repository,
+	UserPrefsBlob,
+	UserPrefsFileName,
 	Workspace,
 	WorkspaceRepository,
 	WorkspaceStatus,
 } from "./schema.ts";
-export { generateId, ports, repositories, workspaceRepositories, workspaces } from "./schema.ts";
+export {
+	generateId,
+	ports,
+	repositories,
+	userPrefsBlobs,
+	workspaceRepositories,
+	workspaces,
+} from "./schema.ts";

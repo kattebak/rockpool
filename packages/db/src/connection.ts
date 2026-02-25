@@ -47,6 +47,13 @@ CREATE TABLE IF NOT EXISTS workspace_repository (
 	PRIMARY KEY (workspace_id, repository_id)
 )`;
 
+const CREATE_USER_PREFS_BLOB_SQL = `
+CREATE TABLE IF NOT EXISTS user_prefs_blob (
+	name TEXT PRIMARY KEY,
+	blob TEXT NOT NULL,
+	updated_at INTEGER NOT NULL
+)`;
+
 function addColumnIfMissing(
 	sqlite: Database.Database,
 	table: string,
@@ -72,8 +79,10 @@ export function createDb(dbPath: string) {
 	sqlite.exec(CREATE_WORKSPACES_SQL);
 	sqlite.exec(CREATE_PORTS_SQL);
 	sqlite.exec(CREATE_WORKSPACE_REPOSITORY_SQL);
+	sqlite.exec(CREATE_USER_PREFS_BLOB_SQL);
 
 	addColumnIfMissing(sqlite, "workspace", "description", "TEXT");
+	addColumnIfMissing(sqlite, "workspace", "auto_sync_prefs", "INTEGER");
 	dropColumnIfPresent(sqlite, "workspace", "repository_id");
 
 	return drizzle({ client: sqlite, schema });
