@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import type { AuthService, Session } from "@rockpool/auth";
+import type { DbClient } from "@rockpool/db";
 import cookieParser from "cookie-parser";
 import express, { type NextFunction, type Request, type Response } from "express";
 import * as OpenApiValidator from "express-openapi-validator";
@@ -20,6 +21,7 @@ export interface AppDeps {
 	logger?: pino.Logger;
 	authService: AuthService | null;
 	secureCookies?: boolean;
+	db: DbClient;
 }
 
 function parseCookies(req: Request): Record<string, string> {
@@ -51,16 +53,16 @@ export function createApp(deps: AppDeps) {
 		});
 	}
 
-	const workspaceRouter = createWorkspaceRouter(deps.workspaceService);
+	const workspaceRouter = createWorkspaceRouter(deps.workspaceService, { db: deps.db });
+	const githubRouter = createGitHubRouter();
 
 	if (deps.authService) {
 		const authService = deps.authService;
 		app.use("/api/workspaces", requireSession(authService), workspaceRouter);
-
-		const githubRouter = createGitHubRouter();
 		app.use("/api/github", requireSession(authService), githubRouter);
 	} else {
 		app.use("/api/workspaces", workspaceRouter);
+		app.use("/api/github", githubRouter);
 	}
 
 	if (deps.portService) {

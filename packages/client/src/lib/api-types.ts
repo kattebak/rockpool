@@ -1,4 +1,7 @@
 export type {
+	GitHubRepo,
+	GitHubRepoListResponse,
+	GitHubRepoSearchResponse,
 	Port,
 	PortWritable as AddPortRequest,
 	Workspace,

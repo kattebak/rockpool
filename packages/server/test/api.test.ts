@@ -71,7 +71,7 @@ describe("API", () => {
 		const caddy = createMockCaddy();
 		const logger = pino({ level: "silent" });
 		const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger });
-		const app = createApp({ workspaceService, logger, authService: null });
+		const app = createApp({ workspaceService, logger, authService: null, db });
 		server = app.listen(0, done);
 	});
 
@@ -274,7 +274,7 @@ describe("Port API", () => {
 			logger,
 		});
 		const portService = createPortService({ db, caddy: mockCaddy });
-		const app = createApp({ workspaceService, portService, logger, authService: null });
+		const app = createApp({ workspaceService, portService, logger, authService: null, db });
 
 		const ws = await createWorkspace(db, { name: "port-test-ws", image: "alpine-v1" });
 		await updateWorkspaceStatus(db, ws.id, WS.running, { vmIp: "10.0.1.50" });

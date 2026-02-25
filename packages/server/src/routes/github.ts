@@ -1,6 +1,6 @@
-import type { Session } from "@rockpool/auth";
 import { request } from "@octokit/request";
-import { Router, type Request, type Response, type NextFunction } from "express";
+import type { Session } from "@rockpool/auth";
+import { type NextFunction, type Request, type Response, Router } from "express";
 
 interface GitHubRepo {
 	full_name: string;
@@ -59,8 +59,8 @@ function handleGitHubError(err: OctokitError, res: Response): void {
 	res.status(502).json({ error: "GitHub is unavailable" });
 }
 
-function getSession(res: Response): Session {
-	return res.locals.session as Session;
+function getOptionalSession(res: Response): Session | undefined {
+	return res.locals.session as Session | undefined;
 }
 
 function clampInt(raw: unknown, defaultVal: number, min: number, max: number): number {
@@ -73,7 +73,13 @@ export function createGitHubRouter(): Router {
 	const router = Router();
 
 	router.get("/repos", async (req: Request, res: Response, next: NextFunction) => {
-		const session = getSession(res);
+		const session = getOptionalSession(res);
+
+		if (!session?.githubAccessToken) {
+			res.json({ items: [], next_page: null });
+			return;
+		}
+
 		const page = clampInt(req.query.page, 1, 1, Number.MAX_SAFE_INTEGER);
 		const perPage = clampInt(req.query.per_page, 30, 1, 100);
 		type SortField = "created" | "updated" | "pushed" | "full_name";
@@ -108,7 +114,7 @@ export function createGitHubRouter(): Router {
 	});
 
 	router.get("/repos/search", async (req: Request, res: Response, next: NextFunction) => {
-		const session = getSession(res);
+		const session = getOptionalSession(res);
 		const q = req.query.q;
 
 		if (!q || typeof q !== "string") {
@@ -119,12 +125,14 @@ export function createGitHubRouter(): Router {
 		const page = clampInt(req.query.page, 1, 1, Number.MAX_SAFE_INTEGER);
 		const perPage = clampInt(req.query.per_page, 30, 1, 100);
 
+		const headers: Record<string, string> = { "X-GitHub-Api-Version": "2022-11-28" };
+		if (session?.githubAccessToken) {
+			headers.authorization = `Bearer ${session.githubAccessToken}`;
+		}
+
 		try {
 			const response = await request("GET /search/repositories", {
-				headers: {
-					authorization: `Bearer ${session.githubAccessToken}`,
-					"X-GitHub-Api-Version": "2022-11-28",
-				},
+				headers,
 				q,
 				per_page: perPage,
 				page,
