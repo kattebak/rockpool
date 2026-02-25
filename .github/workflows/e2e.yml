@@ -67,8 +67,8 @@ jobs:
       - name: Build client
         run: npm run build -w packages/client
 
-      - name: Run E2E tests (test profile)
-        run: E2E_PROFILE=test npm run test:e2e
+      - name: Run E2E tests (CI profile)
+        run: npm run test:e2e:ci
 
       - name: Upload test artifacts
         if: failure()

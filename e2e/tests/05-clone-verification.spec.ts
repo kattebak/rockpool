@@ -72,8 +72,8 @@ test.describe("Clone verification: code-server opens in cloned repository", () =
 	});
 
 	test("file explorer shows cloned repository files", async () => {
-		await expect(
-			page.getByRole("button", { name: "Explorer Section: Hello-World" }),
-		).toBeVisible({ timeout: 30_000 });
+		await expect(page.getByRole("button", { name: "Explorer Section: Hello-World" })).toBeVisible({
+			timeout: 30_000,
+		});
 	});
 });
