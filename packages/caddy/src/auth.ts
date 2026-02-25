@@ -199,9 +199,7 @@ function buildWorkspaceRedirect(srv1Port: number): Record<string, unknown> {
 				handler: "static_response",
 				status_code: 302,
 				headers: {
-					Location: [
-						`{http.request.scheme}://{http.request.host}:${srv1Port}{http.request.uri}`,
-					],
+					Location: [`{http.request.scheme}://{http.request.host}:${srv1Port}{http.request.uri}`],
 				},
 			},
 		],

@@ -23,7 +23,6 @@ export async function launchBrowser(): Promise<Browser> {
 export async function createTestContext(browser: Browser): Promise<BrowserContext> {
 	const context = await browser.newContext();
 	const credentials = Buffer.from(`${CADDY_USERNAME}:${CADDY_PASSWORD}`).toString("base64");
-	// biome-ignore lint/style/useNamingConvention: HTTP header
 	await context.setExtraHTTPHeaders({ Authorization: `Basic ${credentials}` });
 	return context;
 }

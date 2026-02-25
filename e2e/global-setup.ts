@@ -56,7 +56,6 @@ export default async function globalSetup(): Promise<void> {
 
 	await ensureQueue();
 	await pollUntilReady(CADDY_HEALTH_URL, 60_000);
-	// biome-ignore lint/style/useNamingConvention: HTTP header
 	const authHeaders = { Authorization: AUTH_HEADER };
 	await pollUntilReady(SERVER_PING_URL, 30_000, authHeaders);
 	await pollUntilReady(SPA_URL, 30_000, authHeaders);
