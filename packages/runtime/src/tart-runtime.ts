@@ -171,6 +171,17 @@ export function createTartRuntime(options: TartRuntimeOptions = {}): RuntimeRepo
 			);
 		},
 
+		async readFile(_name: string, vmIp: string, filePath: string): Promise<string> {
+			return sshExec(vmIp, `cat /home/${sshUser}/${filePath}`);
+		},
+
+		async writeFile(_name: string, vmIp: string, filePath: string, content: string): Promise<void> {
+			const dir = filePath.substring(0, filePath.lastIndexOf("/"));
+			const escaped = content.replace(/'/g, "'\\''");
+			const mkdirCmd = dir ? `mkdir -p /home/${sshUser}/${dir} && ` : "";
+			await sshExec(vmIp, `${mkdirCmd}printf '%s' '${escaped}' > /home/${sshUser}/${filePath}`);
+		},
+
 		async configure(name: string, env: Record<string, string>): Promise<void> {
 			const workspaceName = env.ROCKPOOL_WORKSPACE_NAME;
 			if (!workspaceName) {

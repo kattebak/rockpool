@@ -16,6 +16,7 @@ $(STAMP_DIR):
 build/openapi/openapi.yaml: $(TSP_SOURCES)
 	npx tsp compile typespec/
 	sed -i.bak 's/\.optional()/\.nullish()/g' build/validators/schemas.ts && rm -f build/validators/schemas.ts.bak
+	sed -i.bak 's/where: { name },/where: { name: name as any },/g' build/db-schema/describe.ts && rm -f build/db-schema/describe.ts.bak
 	cd build/db-schema && npm run build
 	npm-scripts/generate-openapi-package.sh build/openapi
 

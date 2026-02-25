@@ -4,11 +4,15 @@ import type { DbClient } from "./connection.ts";
 import {
 	type NewPort,
 	type NewRepository,
+	type NewUserPrefsBlob,
 	type NewWorkspace,
 	type Port,
 	ports,
 	type Repository,
 	repositories,
+	type UserPrefsBlob,
+	type UserPrefsFileName,
+	userPrefsBlobs,
 	type Workspace,
 	type WorkspaceRepository,
 	type WorkspaceStatus,
@@ -245,4 +249,65 @@ export function listWorkspacesByStatus(
 	status: WorkspaceStatus,
 ): Promise<Workspace[]> {
 	return db.select().from(workspaces).where(eq(workspaces.status, status));
+}
+
+export function getAllUserPrefsBlobs(db: DbClient): Promise<UserPrefsBlob[]> {
+	return db.select().from(userPrefsBlobs);
+}
+
+export function getUserPrefsBlob(
+	db: DbClient,
+	name: UserPrefsFileName,
+): Promise<UserPrefsBlob | undefined> {
+	return db
+		.select()
+		.from(userPrefsBlobs)
+		.where(eq(userPrefsBlobs.name, name))
+		.then((rows) => rows[0]);
+}
+
+export function upsertUserPrefsBlob(
+	db: DbClient,
+	data: Pick<NewUserPrefsBlob, "name" | "blob">,
+): Promise<UserPrefsBlob> {
+	return db
+		.insert(userPrefsBlobs)
+		.values({
+			name: data.name,
+			blob: data.blob,
+			updatedAt: new Date(),
+		})
+		.onConflictDoUpdate({
+			target: userPrefsBlobs.name,
+			set: {
+				blob: data.blob,
+				updatedAt: new Date(),
+			},
+		})
+		.returning()
+		.then((rows) => rows[0]);
+}
+
+export function conditionalUpsertPrefsBlob(
+	db: DbClient,
+	data: Pick<NewUserPrefsBlob, "name" | "blob">,
+): Promise<UserPrefsBlob | undefined> {
+	const now = new Date();
+	return db
+		.insert(userPrefsBlobs)
+		.values({
+			name: data.name,
+			blob: data.blob,
+			updatedAt: now,
+		})
+		.onConflictDoUpdate({
+			target: userPrefsBlobs.name,
+			set: {
+				blob: data.blob,
+				updatedAt: now,
+			},
+			where: lt(userPrefsBlobs.updatedAt, now),
+		})
+		.returning()
+		.then((rows) => rows[0]);
 }

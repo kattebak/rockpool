@@ -66,6 +66,7 @@ const authService = config.auth ? createAuthService(config.auth) : null;
 const app = createApp({
 	workspaceService,
 	portService,
+	settingsRouterDeps: { db, runtime },
 	logger,
 	authService,
 	secureCookies: config.secureCookies,
