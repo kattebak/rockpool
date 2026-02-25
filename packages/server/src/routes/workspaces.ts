@@ -1,7 +1,7 @@
 import { request } from "@octokit/request";
 import type { Session } from "@rockpool/auth";
 import type { DbClient } from "@rockpool/db";
-import { upsertRepository } from "@rockpool/db";
+import { linkWorkspaceRepository, upsertRepository } from "@rockpool/db";
 import { Router } from "express";
 
 type WorkspaceService = ReturnType<
@@ -34,9 +34,11 @@ export function createWorkspaceRouter(
 		try {
 			const { name, image, description, repositoryId } = req.body;
 			let resolvedRepoId: string | undefined;
+			let repoFullName: string | undefined;
+
+			const session = res.locals.session as Session | undefined;
 
 			if (repositoryId?.includes("/")) {
-				const session = res.locals.session as Session | undefined;
 				const headers: Record<string, string> = {
 					"X-GitHub-Api-Version": "2022-11-28",
 				};
@@ -60,14 +62,21 @@ export function createWorkspaceRouter(
 					private: ghRepo.private,
 				});
 				resolvedRepoId = record.id;
+				repoFullName = ghRepo.full_name;
 			} else if (repositoryId) {
 				resolvedRepoId = repositoryId;
 			}
 
 			const workspace = await service.create(name, image, {
 				description,
-				repositoryId: resolvedRepoId,
+				repository: repoFullName,
+				githubAccessToken: session?.githubAccessToken,
 			});
+
+			if (resolvedRepoId) {
+				await linkWorkspaceRepository(deps.db, workspace.id, resolvedRepoId);
+			}
+
 			res.status(201).json(workspace);
 		} catch (err) {
 			next(err);

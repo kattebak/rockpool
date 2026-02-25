@@ -3,6 +3,8 @@ export type JobType = "create" | "start" | "stop" | "delete";
 export interface WorkspaceJob {
 	type: JobType;
 	workspaceId: string;
+	repository?: string;
+	githubAccessToken?: string;
 }
 
 export interface ReceivedJob {

@@ -74,10 +74,6 @@ model Workspace {
   @visibility(Lifecycle.Create, Lifecycle.Read)
   description?: string;
 
-  @visibility(Lifecycle.Create, Lifecycle.Read)
-  @references(Repository.id)
-  repositoryId?: string;
-
   @visibility(Lifecycle.Read)
   vmIp?: string;
 
@@ -109,6 +105,23 @@ model Port {
 
   @visibility(Lifecycle.Create, Lifecycle.Read)
   label?: string;
+
+  @createdAt
+  @visibility(Lifecycle.Read)
+  createdAt: utcDateTime;
+}
+
+@table("workspace_repository", "rockpool")
+model WorkspaceRepository {
+  @pk
+  @references(Workspace.id)
+  @uuid("base36", false)
+  workspaceId: string;
+
+  @pk
+  @references(Repository.id)
+  @uuid("base36", false)
+  repositoryId: string;
 
   @createdAt
   @visibility(Lifecycle.Read)

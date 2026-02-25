@@ -1,3 +1,5 @@
+import type { WorkspaceWritable } from "@rockpool/sdk";
+
 export type {
 	GitHubRepo,
 	GitHubRepoListResponse,
@@ -7,5 +9,8 @@ export type {
 	Workspace,
 	WorkspaceListResponse,
 	WorkspaceStatus,
-	WorkspaceWritable as CreateWorkspaceRequest,
 } from "@rockpool/sdk";
+
+export type CreateWorkspaceRequest = WorkspaceWritable & {
+	repositoryId?: string;
+};

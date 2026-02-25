@@ -10,7 +10,9 @@ import {
 	type Repository,
 	repositories,
 	type Workspace,
+	type WorkspaceRepository,
 	type WorkspaceStatus,
+	workspaceRepositories,
 	workspaces,
 } from "./schema.ts";
 
@@ -95,7 +97,6 @@ export function createWorkspace(
 	db: DbClient,
 	data: Pick<NewWorkspace, "name" | "image"> & {
 		description?: string | null;
-		repositoryId?: string | null;
 	},
 ): Promise<Workspace> {
 	return db
@@ -105,10 +106,45 @@ export function createWorkspace(
 			image: data.image,
 			status: WS.creating,
 			description: data.description ?? null,
-			repositoryId: data.repositoryId ?? null,
 		})
 		.returning()
 		.then((rows) => rows[0]);
+}
+
+export function getRepository(db: DbClient, id: string): Promise<Repository | undefined> {
+	return db
+		.select()
+		.from(repositories)
+		.where(eq(repositories.id, id))
+		.then((rows) => rows[0]);
+}
+
+export function linkWorkspaceRepository(
+	db: DbClient,
+	workspaceId: string,
+	repositoryId: string,
+): Promise<WorkspaceRepository> {
+	return db
+		.insert(workspaceRepositories)
+		.values({ workspaceId, repositoryId })
+		.returning()
+		.then((rows) => rows[0]);
+}
+
+export function getWorkspaceRepository(
+	db: DbClient,
+	workspaceId: string,
+): Promise<(WorkspaceRepository & { repository: Repository }) | undefined> {
+	return db
+		.select()
+		.from(workspaceRepositories)
+		.innerJoin(repositories, eq(workspaceRepositories.repositoryId, repositories.id))
+		.where(eq(workspaceRepositories.workspaceId, workspaceId))
+		.then((rows) => {
+			if (rows.length === 0) return undefined;
+			const row = rows[0];
+			return { ...row.workspace_repository, repository: row.repository };
+		});
 }
 
 export function upsertRepository(

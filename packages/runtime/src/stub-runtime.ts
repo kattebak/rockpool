@@ -53,5 +53,12 @@ export function createStubRuntime(): RuntimeRepository {
 			}
 			return `10.0.1.${ipCounter++}`;
 		},
+
+		async clone(
+			_name: string,
+			_vmIp: string,
+			_repository: string,
+			_token?: string,
+		): Promise<void> {},
 	};
 }

@@ -237,4 +237,110 @@ describe("TartRuntime", () => {
 			/sshKeyPath is required/,
 		);
 	});
+
+	it("configure writes systemd drop-in when ROCKPOOL_FOLDER is set", async () => {
+		const calls: Array<{ bin: string; args: string[] }> = [];
+		async function exec(bin: string, args: string[]): Promise<string> {
+			calls.push({ bin, args });
+			if (bin === "tart" && args[0] === "ip") {
+				return "192.168.64.5";
+			}
+			return "";
+		}
+
+		const runtime = createTartRuntime({ exec, sshKeyPath: "/tmp/test_key" });
+
+		assert.ok(runtime.configure, "configure should be defined");
+		await runtime.configure("my-workspace", {
+			ROCKPOOL_WORKSPACE_NAME: "my-workspace",
+			ROCKPOOL_FOLDER: "/home/admin/rockpool",
+		});
+
+		assert.equal(calls.length, 2);
+		const shellCmd = calls[1].args[calls[1].args.length - 1];
+		assert.ok(shellCmd.includes("code-server@admin.service.d"));
+		assert.ok(shellCmd.includes("/home/admin/rockpool"));
+		assert.ok(shellCmd.includes("daemon-reload"));
+	});
+
+	it("clone writes credential helper and runs git clone with token", async () => {
+		const calls: Array<{ bin: string; args: string[] }> = [];
+		async function exec(bin: string, args: string[]): Promise<string> {
+			calls.push({ bin, args });
+			return "";
+		}
+
+		const runtime = createTartRuntime({ exec, sshKeyPath: "/tmp/test_key" });
+
+		assert.ok(runtime.clone, "clone should be defined");
+		await runtime.clone("my-workspace", "192.168.64.5", "octocat/Hello-World", "ghp_testtoken123");
+
+		assert.equal(calls.length, 3);
+
+		const credentialCmd = calls[0].args[calls[0].args.length - 1];
+		assert.ok(credentialCmd.includes(".rockpool/git-credential-helper"));
+		assert.ok(credentialCmd.includes("ghp_testtoken123"));
+		assert.ok(credentialCmd.includes("chmod +x"));
+
+		const gitConfigCmd = calls[1].args[calls[1].args.length - 1];
+		assert.ok(gitConfigCmd.includes("git config --global credential.helper"));
+		assert.ok(gitConfigCmd.includes(".rockpool/git-credential-helper"));
+
+		const cloneCmd = calls[2].args[calls[2].args.length - 1];
+		assert.ok(cloneCmd.includes("git clone --depth 1 --single-branch"));
+		assert.ok(cloneCmd.includes("https://github.com/octocat/Hello-World.git"));
+		assert.ok(cloneCmd.includes("/home/admin/Hello-World"));
+	});
+
+	it("clone skips credential helper when no token is provided", async () => {
+		const calls: Array<{ bin: string; args: string[] }> = [];
+		async function exec(bin: string, args: string[]): Promise<string> {
+			calls.push({ bin, args });
+			return "";
+		}
+
+		const runtime = createTartRuntime({ exec, sshKeyPath: "/tmp/test_key" });
+
+		assert.ok(runtime.clone, "clone should be defined");
+		await runtime.clone("my-workspace", "192.168.64.5", "octocat/Hello-World");
+
+		assert.equal(calls.length, 1);
+
+		const cloneCmd = calls[0].args[calls[0].args.length - 1];
+		assert.ok(cloneCmd.includes("git clone --depth 1 --single-branch"));
+		assert.ok(cloneCmd.includes("https://github.com/octocat/Hello-World.git"));
+	});
+
+	it("clone propagates SSH errors", async () => {
+		async function exec(bin: string, _args: string[]): Promise<string> {
+			if (bin === "ssh") {
+				throw new Error("Repository not found");
+			}
+			return "";
+		}
+
+		const runtime = createTartRuntime({ exec, sshKeyPath: "/tmp/test_key" });
+
+		const clone = runtime.clone;
+		assert.ok(clone, "clone should be defined");
+		await assert.rejects(
+			() => clone("my-workspace", "192.168.64.5", "octocat/nonexistent"),
+			/Repository not found/,
+		);
+	});
+
+	it("clone throws when sshKeyPath is not set", async () => {
+		async function exec(): Promise<string> {
+			return "";
+		}
+
+		const runtime = createTartRuntime({ exec });
+
+		const clone = runtime.clone;
+		assert.ok(clone, "clone should be defined");
+		await assert.rejects(
+			() => clone("my-workspace", "192.168.64.5", "octocat/Hello-World"),
+			/sshKeyPath is required/,
+		);
+	});
 });

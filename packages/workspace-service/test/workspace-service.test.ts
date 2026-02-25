@@ -37,6 +37,9 @@ function createMockRuntime(
 		async configure(name: string, _env: Record<string, string>) {
 			calls.push(`configure:${name}`);
 		},
+		async clone(name: string, _vmIp: string, repository: string, _token?: string) {
+			calls.push(`clone:${name}:${repository}`);
+		},
 	};
 }
 
@@ -340,6 +343,89 @@ describe("teardown (delete)", () => {
 
 		assert.deepEqual(runtime.calls, []);
 		assert.deepEqual(caddy.calls, []);
+	});
+});
+
+describe("provisionAndStart with clone", () => {
+	let db: DbClient;
+
+	before(() => {
+		db = createMemoryDb();
+	});
+
+	it("calls clone when repository and token are provided", async () => {
+		const ws = await createWorkspace(db, { name: "prov-clone", image: "alpine-v1" });
+		const runtime = createMockRuntime("not_found");
+		const caddy = createMockCaddy();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
+		const service = createWorkspaceService({
+			db,
+			queue,
+			runtime,
+			caddy,
+			logger,
+			healthCheck: noopHealthCheck,
+		});
+
+		await service.provisionAndStart(ws.id, {
+			repository: "octocat/Hello-World",
+			githubAccessToken: "ghp_test123",
+		});
+
+		assert.ok(runtime.calls.includes("clone:prov-clone:octocat/Hello-World"));
+		assert.ok(runtime.calls.includes("configure:prov-clone"));
+		assert.deepEqual(caddy.calls, ["addRoute:prov-clone"]);
+
+		const updated = await getWorkspace(db, ws.id);
+		assert.equal(updated?.status, WS.running);
+	});
+
+	it("skips clone when no repository is set", async () => {
+		const ws = await createWorkspace(db, { name: "prov-no-clone", image: "alpine-v1" });
+		const runtime = createMockRuntime("not_found");
+		const caddy = createMockCaddy();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
+		const service = createWorkspaceService({
+			db,
+			queue,
+			runtime,
+			caddy,
+			logger,
+			healthCheck: noopHealthCheck,
+		});
+
+		await service.provisionAndStart(ws.id);
+
+		const cloneCalls = runtime.calls.filter((c) => c.startsWith("clone:"));
+		assert.equal(cloneCalls.length, 0);
+		assert.ok(runtime.calls.includes("configure:prov-no-clone"));
+	});
+
+	it("clone failure puts workspace in error state via thrown error", async () => {
+		const ws = await createWorkspace(db, { name: "prov-clone-fail", image: "alpine-v1" });
+		const runtime = createMockRuntime("not_found");
+		runtime.clone = async () => {
+			throw new Error("Repository not found or not accessible");
+		};
+		const caddy = createMockCaddy();
+		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
+		const service = createWorkspaceService({
+			db,
+			queue,
+			runtime,
+			caddy,
+			logger,
+			healthCheck: noopHealthCheck,
+		});
+
+		await assert.rejects(
+			() =>
+				service.provisionAndStart(ws.id, {
+					repository: "octocat/nonexistent",
+					githubAccessToken: "ghp_test123",
+				}),
+			/Repository not found or not accessible/,
+		);
 	});
 });
 
