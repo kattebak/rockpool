@@ -22,10 +22,33 @@ $SUDO apt-get install -y -qq \
   openssh-server \
   make \
   ca-certificates \
-  openssl
+  openssl \
+  htop \
+  less \
+  file \
+  tree \
+  man-db \
+  net-tools \
+  dnsutils \
+  iputils-ping \
+  socat \
+  build-essential \
+  python3 \
+  python3-pip \
+  python3-venv \
+  vim \
+  tmux \
+  unzip \
+  zip \
+  rsync \
+  strace
 
 $SUDO systemctl enable ssh
 $SUDO systemctl start ssh || true
+
+$SUDO -u "${CS_USER}" bash -c 'curl -fsSL https://fnm.vercel.app/install | bash'
+# shellcheck disable=SC2016
+$SUDO -u "${CS_USER}" bash -c 'export PATH="/home/admin/.local/share/fnm:$PATH" && eval "$(fnm env)" && fnm install --lts'
 
 $SUDO mkdir -p "/home/${CS_USER}/workspace"
 $SUDO chown -R "${CS_USER}:${CS_USER}" "/home/${CS_USER}"
