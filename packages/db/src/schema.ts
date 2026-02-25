@@ -1,6 +1,7 @@
 import {
 	port,
 	repository as repositories,
+	user_prefs_blob as userPrefsBlobs,
 	workspace_repository as workspaceRepositories,
 	workspace as workspaces,
 } from "@rockpool/db-schema";
@@ -12,7 +13,7 @@ export function generateId(): string {
 	return translator.generate();
 }
 
-export { workspaces, repositories, workspaceRepositories };
+export { workspaces, repositories, workspaceRepositories, userPrefsBlobs };
 
 export const ports = port;
 
@@ -28,3 +29,7 @@ export type NewRepository = typeof repositories.$inferInsert;
 
 export type WorkspaceRepository = typeof workspaceRepositories.$inferSelect;
 export type NewWorkspaceRepository = typeof workspaceRepositories.$inferInsert;
+
+export type UserPrefsBlob = typeof userPrefsBlobs.$inferSelect;
+export type NewUserPrefsBlob = typeof userPrefsBlobs.$inferInsert;
+export type UserPrefsFileName = UserPrefsBlob["name"];

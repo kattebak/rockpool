@@ -1,9 +1,17 @@
-import type { PaginatedResult, PaginationParams, Workspace, WorkspaceStatus } from "@rockpool/db";
+import type {
+	PaginatedResult,
+	PaginationParams,
+	UserPrefsFileName,
+	Workspace,
+	WorkspaceStatus,
+} from "@rockpool/db";
 import {
+	conditionalUpsertPrefsBlob,
 	countWorkspaces,
 	countWorkspacesByStatus,
 	createWorkspace as dbCreateWorkspace,
 	deleteWorkspace,
+	getAllUserPrefsBlobs,
 	getWorkspace,
 	getWorkspaceByName,
 	listWorkspaces,
@@ -11,6 +19,7 @@ import {
 	updateWorkspaceStatus,
 } from "@rockpool/db";
 import { WorkspaceStatus as WS } from "@rockpool/enums";
+import { PREFS_FILE_PATHS } from "@rockpool/runtime";
 import { ConflictError, NotFoundError } from "./errors.ts";
 import { defaultHealthCheck } from "./health-check.ts";
 import type { WorkspaceServiceDeps } from "./types.ts";
@@ -177,6 +186,23 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 					: Promise.resolve();
 
 			await Promise.all([configureAndWait(workspace.name, vmIp, folder), clonePromise]);
+
+			if (runtime.writeFile) {
+				const blobs = await getAllUserPrefsBlobs(db);
+				await Promise.all(
+					blobs.map((blob) =>
+						runtime
+							.writeFile?.(workspace.name, vmIp, PREFS_FILE_PATHS[blob.name], blob.blob)
+							?.catch((err) => {
+								logger.warn(
+									{ workspaceId: id, prefsFile: blob.name, error: err },
+									"Failed to push preference file, continuing",
+								);
+							}),
+					),
+				);
+			}
+
 			await caddy.addWorkspaceRoute(workspace.name, vmIp);
 			await updateWorkspaceStatus(db, id, WS.running, { vmIp, errorMessage: null });
 
@@ -193,6 +219,25 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 			logger.info({ workspaceId: id, name: workspace.name, mode }, "Tearing down workspace");
 
 			if (mode === "stop") {
+				if (workspace.autoSyncPrefs && workspace.vmIp && runtime.readFile) {
+					for (const [name, filePath] of Object.entries(PREFS_FILE_PATHS)) {
+						const content = await runtime
+							.readFile(workspace.name, workspace.vmIp, filePath)
+							.catch(() => null);
+						if (content === null) continue;
+
+						await conditionalUpsertPrefsBlob(db, {
+							name: name as UserPrefsFileName,
+							blob: content,
+						}).catch((err) => {
+							logger.warn(
+								{ workspaceId: id, prefsFile: name, error: err },
+								"Failed to auto-sync preference file, continuing",
+							);
+						});
+					}
+				}
+
 				await removeAllPorts(db, id);
 				await runtime.stop(workspace.name);
 				await caddy.removeWorkspaceRoute(workspace.name);

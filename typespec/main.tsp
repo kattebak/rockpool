@@ -18,6 +18,12 @@ enum WorkspaceStatus {
   error,
 }
 
+enum UserPrefsFileName {
+  CodeServerSettings,
+  CodeServerKeybindings,
+  GitConfig,
+}
+
 @table("repository", "rockpool")
 model Repository {
   @visibility(Lifecycle.Read)
@@ -83,6 +89,21 @@ model Workspace {
   @createdAt
   @visibility(Lifecycle.Read)
   createdAt: utcDateTime;
+
+  @visibility(Lifecycle.Create, Lifecycle.Read, Lifecycle.Update)
+  autoSyncPrefs?: boolean;
+
+  @updatedAt
+  @visibility(Lifecycle.Read)
+  updatedAt: utcDateTime;
+}
+
+@table("user_prefs_blob", "rockpool")
+model UserPrefsBlob {
+  @pk
+  name: UserPrefsFileName;
+
+  blob: string;
 
   @updatedAt
   @visibility(Lifecycle.Read)
@@ -197,6 +218,18 @@ model GitHubRepoSearchResponse {
   items: GitHubRepo[];
   total_count: int32;
   next_page: int32 | null;
+}
+
+@route("/api/settings")
+interface Settings {
+  @get list(): UserPrefsBlob[];
+
+  @get read(@path name: UserPrefsFileName): UserPrefsBlob;
+
+  @put save(
+    @path name: UserPrefsFileName,
+    @query workspaceId: string,
+  ): UserPrefsBlob;
 }
 
 @route("/api/github")

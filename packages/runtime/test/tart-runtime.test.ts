@@ -275,18 +275,21 @@ describe("TartRuntime", () => {
 		assert.ok(runtime.clone, "clone should be defined");
 		await runtime.clone("my-workspace", "192.168.64.5", "octocat/Hello-World", "ghp_testtoken123");
 
-		assert.equal(calls.length, 3);
+		assert.equal(calls.length, 4);
 
-		const credentialCmd = calls[0].args[calls[0].args.length - 1];
+		const readyCheck = calls[0].args[calls[0].args.length - 1];
+		assert.equal(readyCheck, "true");
+
+		const credentialCmd = calls[1].args[calls[1].args.length - 1];
 		assert.ok(credentialCmd.includes(".rockpool/git-credential-helper"));
 		assert.ok(credentialCmd.includes("ghp_testtoken123"));
 		assert.ok(credentialCmd.includes("chmod +x"));
 
-		const gitConfigCmd = calls[1].args[calls[1].args.length - 1];
+		const gitConfigCmd = calls[2].args[calls[2].args.length - 1];
 		assert.ok(gitConfigCmd.includes("git config --global credential.helper"));
 		assert.ok(gitConfigCmd.includes(".rockpool/git-credential-helper"));
 
-		const cloneCmd = calls[2].args[calls[2].args.length - 1];
+		const cloneCmd = calls[3].args[calls[3].args.length - 1];
 		assert.ok(cloneCmd.includes("git clone --depth 1 --single-branch"));
 		assert.ok(cloneCmd.includes("https://github.com/octocat/Hello-World.git"));
 		assert.ok(cloneCmd.includes("/home/admin/Hello-World"));
@@ -304,17 +307,24 @@ describe("TartRuntime", () => {
 		assert.ok(runtime.clone, "clone should be defined");
 		await runtime.clone("my-workspace", "192.168.64.5", "octocat/Hello-World");
 
-		assert.equal(calls.length, 1);
+		assert.equal(calls.length, 2);
 
-		const cloneCmd = calls[0].args[calls[0].args.length - 1];
+		const readyCheck = calls[0].args[calls[0].args.length - 1];
+		assert.equal(readyCheck, "true");
+
+		const cloneCmd = calls[1].args[calls[1].args.length - 1];
 		assert.ok(cloneCmd.includes("git clone --depth 1 --single-branch"));
 		assert.ok(cloneCmd.includes("https://github.com/octocat/Hello-World.git"));
 	});
 
 	it("clone propagates SSH errors", async () => {
+		let sshCallCount = 0;
 		async function exec(bin: string, _args: string[]): Promise<string> {
 			if (bin === "ssh") {
-				throw new Error("Repository not found");
+				sshCallCount++;
+				if (sshCallCount > 1) {
+					throw new Error("Repository not found");
+				}
 			}
 			return "";
 		}

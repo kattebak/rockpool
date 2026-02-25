@@ -8,6 +8,7 @@ import pino from "pino";
 import { pinoHttp } from "pino-http";
 import { createGitHubRouter } from "./routes/github.ts";
 import { createPortRouter } from "./routes/ports.ts";
+import { createSettingsRouter, type SettingsRouterDeps } from "./routes/settings.ts";
 import { createWorkspaceRouter } from "./routes/workspaces.ts";
 import type { createPortService } from "./services/port-service.ts";
 import type { createWorkspaceService } from "./services/workspace-service.ts";
@@ -18,6 +19,7 @@ const apiSpec = require.resolve("@rockpool/openapi");
 export interface AppDeps {
 	workspaceService: ReturnType<typeof createWorkspaceService>;
 	portService?: ReturnType<typeof createPortService>;
+	settingsRouterDeps?: SettingsRouterDeps;
 	logger?: pino.Logger;
 	authService: AuthService | null;
 	secureCookies?: boolean;
@@ -72,6 +74,16 @@ export function createApp(deps: AppDeps) {
 			app.use("/api/workspaces/:id/ports", requireSession(authService), portRouter);
 		} else {
 			app.use("/api/workspaces/:id/ports", portRouter);
+		}
+	}
+
+	if (deps.settingsRouterDeps) {
+		const settingsRouter = createSettingsRouter(deps.settingsRouterDeps);
+		if (deps.authService) {
+			const authService = deps.authService;
+			app.use("/api/settings", requireSession(authService), settingsRouter);
+		} else {
+			app.use("/api/settings", settingsRouter);
 		}
 	}
 
