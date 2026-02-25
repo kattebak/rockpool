@@ -18,7 +18,10 @@ export function createProcessor(deps: ProcessorDeps) {
 				switch (job.type) {
 					case "create":
 					case "start":
-						await workspaceService.provisionAndStart(job.workspaceId);
+						await workspaceService.provisionAndStart(job.workspaceId, {
+							repository: job.repository,
+							githubAccessToken: job.githubAccessToken,
+						});
 						break;
 					case "stop":
 						await workspaceService.teardown(job.workspaceId, "stop");

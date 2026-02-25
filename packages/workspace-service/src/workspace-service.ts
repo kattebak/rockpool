@@ -32,11 +32,19 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 	const { db, queue, runtime, caddy, logger } = deps;
 	const healthCheck = deps.healthCheck ?? defaultHealthCheck(logger);
 
-	async function configureAndWait(workspaceName: string, vmIp: string): Promise<void> {
+	async function configureAndWait(
+		workspaceName: string,
+		vmIp: string,
+		folder?: string,
+	): Promise<void> {
 		if (runtime.configure) {
-			await runtime.configure(workspaceName, {
+			const env: Record<string, string> = {
 				ROCKPOOL_WORKSPACE_NAME: workspaceName,
-			});
+			};
+			if (folder) {
+				env.ROCKPOOL_FOLDER = folder;
+			}
+			await runtime.configure(workspaceName, env);
 		}
 		await healthCheck(vmIp);
 	}
@@ -53,7 +61,11 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 		async create(
 			name: string,
 			image: string,
-			opts?: { description?: string; repositoryId?: string },
+			opts?: {
+				description?: string;
+				repository?: string;
+				githubAccessToken?: string;
+			},
 		): Promise<Workspace> {
 			const existing = await getWorkspaceByName(db, name);
 			if (existing) {
@@ -76,9 +88,13 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				name,
 				image,
 				description: opts?.description,
-				repositoryId: opts?.repositoryId,
 			});
-			await queue.send({ type: "create", workspaceId: workspace.id });
+			await queue.send({
+				type: "create",
+				workspaceId: workspace.id,
+				repository: opts?.repository,
+				githubAccessToken: opts?.githubAccessToken,
+			});
 			return workspace;
 		},
 
@@ -122,7 +138,10 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 			await queue.send({ type: "delete", workspaceId: id });
 		},
 
-		async provisionAndStart(id: string): Promise<void> {
+		async provisionAndStart(
+			id: string,
+			opts?: { repository?: string; githubAccessToken?: string },
+		): Promise<void> {
 			const workspace = await getWorkspace(db, id);
 			if (!workspace) {
 				logger.warn({ workspaceId: id }, "Workspace not found, skipping provision");
@@ -148,7 +167,16 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 
 			const vmIp = await runtime.getIp(workspace.name);
 
-			await configureAndWait(workspace.name, vmIp);
+			const repository = opts?.repository;
+			const repoName = repository?.split("/")[1];
+			const folder = repoName ? `/home/admin/${repoName}` : undefined;
+
+			const clonePromise =
+				repository && runtime.clone
+					? runtime.clone(workspace.name, vmIp, repository, opts?.githubAccessToken)
+					: Promise.resolve();
+
+			await Promise.all([configureAndWait(workspace.name, vmIp, folder), clonePromise]);
 			await caddy.addWorkspaceRoute(workspace.name, vmIp);
 			await updateWorkspaceStatus(db, id, WS.running, { vmIp, errorMessage: null });
 

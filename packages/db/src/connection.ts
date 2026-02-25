@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS workspace (
 	status TEXT NOT NULL DEFAULT 'creating',
 	image TEXT NOT NULL,
 	description TEXT,
-	repository_id TEXT REFERENCES repository(id),
 	vm_ip TEXT,
 	error_message TEXT,
 	created_at INTEGER NOT NULL,
@@ -40,6 +39,14 @@ CREATE TABLE IF NOT EXISTS port (
 	PRIMARY KEY (workspace_id, port)
 )`;
 
+const CREATE_WORKSPACE_REPOSITORY_SQL = `
+CREATE TABLE IF NOT EXISTS workspace_repository (
+	workspace_id TEXT NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+	repository_id TEXT NOT NULL REFERENCES repository(id),
+	created_at INTEGER NOT NULL,
+	PRIMARY KEY (workspace_id, repository_id)
+)`;
+
 function addColumnIfMissing(
 	sqlite: Database.Database,
 	table: string,
@@ -51,6 +58,12 @@ function addColumnIfMissing(
 	sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
 }
 
+function dropColumnIfPresent(sqlite: Database.Database, table: string, column: string): void {
+	const columns = sqlite.pragma(`table_info(${table})`) as Array<{ name: string }>;
+	if (!columns.some((c) => c.name === column)) return;
+	sqlite.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+}
+
 export function createDb(dbPath: string) {
 	const sqlite = new Database(dbPath);
 	sqlite.pragma("journal_mode = WAL");
@@ -58,9 +71,10 @@ export function createDb(dbPath: string) {
 	sqlite.exec(CREATE_REPOSITORY_SQL);
 	sqlite.exec(CREATE_WORKSPACES_SQL);
 	sqlite.exec(CREATE_PORTS_SQL);
+	sqlite.exec(CREATE_WORKSPACE_REPOSITORY_SQL);
 
 	addColumnIfMissing(sqlite, "workspace", "description", "TEXT");
-	addColumnIfMissing(sqlite, "workspace", "repository_id", "TEXT REFERENCES repository(id)");
+	dropColumnIfPresent(sqlite, "workspace", "repository_id");
 
 	return drizzle({ client: sqlite, schema });
 }
