@@ -12,7 +12,7 @@ Browser automation and debugging using Chrome DevTools Protocol (CDP) directly.
 Chrome must be running with remote debugging enabled. **Always launch it automatically** before using any DevTools commands:
 
 ```bash
-npm run chrome:debug &
+.claude/skills/chrome-devtools/chrome.sh launch &
 ```
 
 Then wait a few seconds and verify the connection:
@@ -33,15 +33,15 @@ This opens Chrome with:
 
 ## CLI Tool
 
-Use `npm run chrome:cdp` for all CDP operations. The script at `npm-scripts/chrome-cdp.mjs` wraps the Chrome DevTools Protocol using Node.js built-in WebSocket (no external deps).
+Use `.claude/skills/chrome-devtools/chrome.sh` for all CDP operations. The co-located `chrome-cdp.mjs` uses Node.js built-in WebSocket (no external deps).
 
 ```bash
-npm run chrome:cdp -- list                          # List open tabs
-npm run chrome:cdp -- navigate <url>                # Navigate to a URL
-npm run chrome:cdp -- screenshot [path]             # Screenshot (default: /tmp/screenshot.png)
-npm run chrome:cdp -- eval <expression>             # Run JS in the page
-npm run chrome:cdp -- reload                        # Reload current page
-npm run chrome:cdp -- version                       # Browser version info
+.claude/skills/chrome-devtools/chrome.sh list                          # List open tabs
+.claude/skills/chrome-devtools/chrome.sh navigate <url>                # Navigate to a URL
+.claude/skills/chrome-devtools/chrome.sh screenshot [path]             # Screenshot (default: /tmp/screenshot.png)
+.claude/skills/chrome-devtools/chrome.sh eval <expression>             # Run JS in the page
+.claude/skills/chrome-devtools/chrome.sh reload                        # Reload current page
+.claude/skills/chrome-devtools/chrome.sh version                       # Browser version info
 ```
 
 Environment variables:
@@ -126,7 +126,7 @@ Environment variables:
 Chrome isn't running with remote debugging. Run:
 
 ```bash
-npm run chrome:debug
+.claude/skills/chrome-devtools/chrome.sh launch
 ```
 
 ### Empty response from `/json/list`
@@ -139,7 +139,6 @@ Increase the `setTimeout` delay before `Page.captureScreenshot`. For SPAs that d
 
 ## Tips
 
-- Always use `--experimental-websocket` flag with Node.js for the built-in WebSocket
 - Use `Runtime.evaluate` as a Swiss Army knife — you can query DOM, fill forms, click buttons, read text, all via JS expressions
 - Screenshots are base64-encoded in the CDP response; decode with `Buffer.from(data, 'base64')`
 - CDP docs: https://chromedevtools.github.io/devtools-protocol/

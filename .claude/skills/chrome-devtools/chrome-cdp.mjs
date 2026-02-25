@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Chrome DevTools Protocol CLI
 //
-// Usage: node npm-scripts/chrome-cdp.mjs <command> [args...]
+// Usage: node chrome-cdp.mjs <command> [args...]
 //
 // Commands:
 //   list                    List open tabs
@@ -58,7 +58,7 @@ async function getTab() {
 	const pages = tabs.filter((t) => t.type === "page");
 
 	if (pages.length === 0) {
-		console.error("No open tabs. Launch Chrome with: npm run chrome:debug");
+		console.error("No open tabs. Launch Chrome with: chrome.sh launch");
 		process.exit(1);
 	}
 
