@@ -17,6 +17,15 @@ export {
 	removeAllPorts,
 	removePort,
 	updateWorkspaceStatus,
+	upsertRepository,
 } from "./queries.ts";
-export type { NewPort, NewWorkspace, Port, Workspace, WorkspaceStatus } from "./schema.ts";
-export { generateId, ports, workspaces } from "./schema.ts";
+export type {
+	NewPort,
+	NewRepository,
+	NewWorkspace,
+	Port,
+	Repository,
+	Workspace,
+	WorkspaceStatus,
+} from "./schema.ts";
+export { generateId, ports, repositories, workspaces } from "./schema.ts";

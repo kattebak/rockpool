@@ -40,6 +40,17 @@ CREATE TABLE IF NOT EXISTS port (
 	PRIMARY KEY (workspace_id, port)
 )`;
 
+function addColumnIfMissing(
+	sqlite: Database.Database,
+	table: string,
+	column: string,
+	type: string,
+): void {
+	const columns = sqlite.pragma(`table_info(${table})`) as Array<{ name: string }>;
+	if (columns.some((c) => c.name === column)) return;
+	sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+}
+
 export function createDb(dbPath: string) {
 	const sqlite = new Database(dbPath);
 	sqlite.pragma("journal_mode = WAL");
@@ -47,6 +58,9 @@ export function createDb(dbPath: string) {
 	sqlite.exec(CREATE_REPOSITORY_SQL);
 	sqlite.exec(CREATE_WORKSPACES_SQL);
 	sqlite.exec(CREATE_PORTS_SQL);
+
+	addColumnIfMissing(sqlite, "workspace", "description", "TEXT");
+	addColumnIfMissing(sqlite, "workspace", "repository_id", "TEXT REFERENCES repository(id)");
 
 	return drizzle({ client: sqlite, schema });
 }

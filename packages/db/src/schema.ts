@@ -17,3 +17,6 @@ export type WorkspaceStatus = Workspace["status"];
 
 export type Port = typeof ports.$inferSelect;
 export type NewPort = typeof ports.$inferInsert;
+
+export type Repository = typeof repositories.$inferSelect;
+export type NewRepository = typeof repositories.$inferInsert;

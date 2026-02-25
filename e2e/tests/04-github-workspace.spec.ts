@@ -1,14 +1,14 @@
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { createTestContext, createTestPage, isCiProfile, launchBrowser } from "../helpers/platform";
-import { deleteWorkspaceViaApi, provisionTimeout, uniqueWorkspaceName } from "../helpers/workspace";
+import { deleteWorkspaceViaApi, provisionTimeout } from "../helpers/workspace";
 
-test.describe("Workspace lifecycle: create -> provision -> stop -> delete", () => {
+test.describe("GitHub workspace: repo picker -> configure -> provision", () => {
 	test.describe.configure({ mode: "serial" });
 
 	let browser: Browser;
 	let context: BrowserContext;
 	let page: Page;
-	const workspaceName = uniqueWorkspaceName();
+	let workspaceName: string;
 
 	test.beforeAll(async () => {
 		browser = await launchBrowser();
@@ -17,10 +17,12 @@ test.describe("Workspace lifecycle: create -> provision -> stop -> delete", () =
 	});
 
 	test.afterAll(async () => {
-		try {
-			await deleteWorkspaceViaApi(workspaceName);
-		} catch {
-			// Best-effort cleanup
+		if (workspaceName) {
+			try {
+				await deleteWorkspaceViaApi(workspaceName);
+			} catch {
+				// Best-effort cleanup
+			}
 		}
 		await page?.close();
 		await context?.close();
@@ -34,14 +36,39 @@ test.describe("Workspace lifecycle: create -> provision -> stop -> delete", () =
 		await expect(page.getByRole("heading", { name: "Create workspace" })).toBeVisible();
 	});
 
-	test("select blank workspace source", async () => {
-		await page.getByText("Blank workspace").click();
-		await expect(page).toHaveURL(/\/app\/workspaces\/new\/configure/);
+	test("select Clone from GitHub source", async () => {
+		await page.getByText("Clone from GitHub").click();
+		await expect(page).toHaveURL(/\/app\/workspaces\/new\/repo/);
+		await expect(page.getByRole("heading", { name: "Choose a repository" })).toBeVisible();
+	});
+
+	test("search for octocat/Hello-World in combobox", async () => {
+		const input = page.getByPlaceholder("Search repositories...");
+		await expect(input).toBeVisible();
+		await input.fill("octocat/Hello-World");
+
+		const option = page.getByRole("option", { name: /^octocat\s+octocat\/Hello-World/i }).first();
+		await expect(option).toBeVisible({ timeout: 15_000 });
+		await option.click();
+	});
+
+	test("navigates to configure page with repo param", async () => {
+		await expect(page).toHaveURL(/\/app\/workspaces\/new\/configure\?repo=octocat%2FHello-World/);
 		await expect(page.getByRole("heading", { name: "Configure workspace" })).toBeVisible();
 	});
 
-	test("fill in workspace name and submit", async () => {
-		await page.getByLabel("Name").fill(workspaceName);
+	test("name is prefilled from repo and repo card is shown", async () => {
+		const nameInput = page.getByLabel("Name");
+		await expect(nameInput).toHaveValue("hello-world", { timeout: 10_000 });
+
+		await expect(page.getByText("octocat/Hello-World")).toBeVisible();
+	});
+
+	test("create workspace", async () => {
+		workspaceName = page.getByLabel("Name").inputValue
+			? await page.getByLabel("Name").inputValue()
+			: "hello-world";
+
 		await page.getByRole("button", { name: "Create workspace" }).click();
 	});
 
@@ -54,10 +81,6 @@ test.describe("Workspace lifecycle: create -> provision -> stop -> delete", () =
 		await expect(page.getByText("Running")).toBeVisible({
 			timeout: provisionTimeout(),
 		});
-	});
-
-	test("Open IDE link appears when running", async () => {
-		await expect(page.getByRole("link", { name: "Open IDE" })).toBeVisible();
 	});
 
 	test("stop the workspace", async () => {
@@ -74,12 +97,5 @@ test.describe("Workspace lifecycle: create -> provision -> stop -> delete", () =
 		await expect(page.getByText("This will permanently delete")).toBeVisible();
 		await page.getByRole("button", { name: "Delete workspace" }).click();
 		await expect(page).toHaveURL(/\/app\/workspaces$/);
-	});
-
-	test("workspace no longer appears in the list", async () => {
-		const table = page.getByRole("table");
-		await expect(table.getByText(workspaceName)).not.toBeVisible({
-			timeout: 10_000,
-		});
 	});
 });

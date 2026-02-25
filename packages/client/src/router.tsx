@@ -11,6 +11,8 @@ import { LoginPage } from "@/routes/login";
 import { SettingsPage } from "@/routes/settings";
 import { WorkspaceDetailPage } from "@/routes/workspace-detail";
 import { WorkspaceNewPage } from "@/routes/workspace-new";
+import { WorkspaceNewConfigurePage } from "@/routes/workspace-new-configure";
+import { WorkspaceNewRepoPage } from "@/routes/workspace-new-repo";
 import { WorkspaceListPage } from "@/routes/workspaces";
 
 const rootRoute = createRootRoute({
@@ -56,6 +58,21 @@ const workspaceNewRoute = createRoute({
 	component: WorkspaceNewPage,
 });
 
+const workspaceNewRepoRoute = createRoute({
+	getParentRoute: () => authenticatedRoute,
+	path: "/workspaces/new/repo",
+	component: WorkspaceNewRepoPage,
+});
+
+const workspaceNewConfigureRoute = createRoute({
+	getParentRoute: () => authenticatedRoute,
+	path: "/workspaces/new/configure",
+	component: WorkspaceNewConfigurePage,
+	validateSearch: (search: Record<string, unknown>) => ({
+		repo: typeof search.repo === "string" ? search.repo : undefined,
+	}),
+});
+
 const workspaceDetailRoute = createRoute({
 	getParentRoute: () => authenticatedRoute,
 	path: "/workspaces/$id",
@@ -74,6 +91,8 @@ const routeTree = rootRoute.addChildren([
 		indexRoute,
 		workspacesRoute,
 		workspaceNewRoute,
+		workspaceNewRepoRoute,
+		workspaceNewConfigureRoute,
 		workspaceDetailRoute,
 		settingsRoute,
 	]),

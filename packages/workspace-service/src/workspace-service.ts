@@ -50,7 +50,11 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 			return getWorkspace(db, id);
 		},
 
-		async create(name: string, image: string): Promise<Workspace> {
+		async create(
+			name: string,
+			image: string,
+			opts?: { description?: string; repositoryId?: string },
+		): Promise<Workspace> {
 			const existing = await getWorkspaceByName(db, name);
 			if (existing) {
 				throw new ConflictError(`Workspace "${name}" already exists`);
@@ -68,7 +72,12 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				);
 			}
 
-			const workspace = await dbCreateWorkspace(db, { name, image });
+			const workspace = await dbCreateWorkspace(db, {
+				name,
+				image,
+				description: opts?.description,
+				repositoryId: opts?.repositoryId,
+			});
 			await queue.send({ type: "create", workspaceId: workspace.id });
 			return workspace;
 		},

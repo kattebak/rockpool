@@ -69,6 +69,7 @@ const app = createApp({
 	logger,
 	authService,
 	secureCookies: config.secureCookies,
+	db,
 });
 
 async function bootstrapCaddy(): Promise<void> {

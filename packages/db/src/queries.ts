@@ -3,9 +3,12 @@ import { and, count, desc, eq, lt, or } from "drizzle-orm";
 import type { DbClient } from "./connection.ts";
 import {
 	type NewPort,
+	type NewRepository,
 	type NewWorkspace,
 	type Port,
 	ports,
+	type Repository,
+	repositories,
 	type Workspace,
 	type WorkspaceStatus,
 	workspaces,
@@ -90,7 +93,10 @@ export function getWorkspaceByName(db: DbClient, name: string): Promise<Workspac
 
 export function createWorkspace(
 	db: DbClient,
-	data: Pick<NewWorkspace, "name" | "image">,
+	data: Pick<NewWorkspace, "name" | "image"> & {
+		description?: string | null;
+		repositoryId?: string | null;
+	},
 ): Promise<Workspace> {
 	return db
 		.insert(workspaces)
@@ -98,7 +104,28 @@ export function createWorkspace(
 			name: data.name,
 			image: data.image,
 			status: WS.creating,
+			description: data.description ?? null,
+			repositoryId: data.repositoryId ?? null,
 		})
+		.returning()
+		.then((rows) => rows[0]);
+}
+
+export function upsertRepository(
+	db: DbClient,
+	data: Omit<NewRepository, "id" | "createdAt">,
+): Promise<Repository> {
+	const existing = db
+		.select()
+		.from(repositories)
+		.where(eq(repositories.full_name, data.full_name))
+		.get();
+
+	if (existing) return Promise.resolve(existing);
+
+	return db
+		.insert(repositories)
+		.values(data)
 		.returning()
 		.then((rows) => rows[0]);
 }
