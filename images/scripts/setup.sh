@@ -47,6 +47,7 @@ $SUDO systemctl enable ssh
 $SUDO systemctl start ssh || true
 
 $SUDO -u "${CS_USER}" bash -c 'curl -fsSL https://fnm.vercel.app/install | bash'
+# shellcheck disable=SC2016
 $SUDO -u "${CS_USER}" bash -c 'export PATH="/home/admin/.local/share/fnm:$PATH" && eval "$(fnm env)" && fnm install --lts'
 
 $SUDO mkdir -p "/home/${CS_USER}/workspace"
