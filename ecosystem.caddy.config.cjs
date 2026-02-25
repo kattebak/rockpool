@@ -1,5 +1,8 @@
 // Caddy dev config: Caddy on :8080 proxies /app to Vite dev server on :5173
 // Server env vars loaded via node --env-file=development.env (see packages/server/package.json)
+const path = require("node:path");
+const TART_HOME = process.env.TART_HOME || path.join(__dirname, ".tart");
+
 module.exports = {
 	apps: [
 		{
@@ -24,6 +27,7 @@ module.exports = {
 			script: "npm",
 			args: "run start -w packages/server",
 			cwd: __dirname,
+			env: { TART_HOME },
 			watch: ["packages/server/src"],
 			watch_delay: 1000,
 			ignore_watch: ["node_modules", "*.test.ts"],
@@ -36,6 +40,7 @@ module.exports = {
 			script: "npm",
 			args: "run start -w packages/worker",
 			cwd: __dirname,
+			env: { TART_HOME },
 			autorestart: true,
 			max_restarts: 10,
 			restart_delay: 2000,

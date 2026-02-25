@@ -1,4 +1,5 @@
-import type { BootstrapOptions } from "@rockpool/caddy";
+import { createAuthService } from "@rockpool/auth";
+import type { AuthMode, BootstrapOptions } from "@rockpool/caddy";
 import {
 	buildBootstrapConfig,
 	createCaddyClient,
@@ -21,6 +22,15 @@ const config = loadConfig();
 const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
 
 const useStubs = process.env.NODE_ENV === "test";
+
+const hasBasicAuth = Boolean(config.caddyUsername && config.caddyPassword);
+const hasOAuth = Boolean(config.auth);
+
+if (!useStubs && !hasBasicAuth && !hasOAuth) {
+	throw new Error(
+		"Authentication required: set GITHUB_OAUTH_CLIENT_ID + GITHUB_OAUTH_CLIENT_SECRET, or CADDY_USERNAME + CADDY_PASSWORD",
+	);
+}
 const useStubVm = process.env.RUNTIME !== "tart";
 
 const db = createDb(config.dbPath);
@@ -30,7 +40,19 @@ const queue = createSqsQueue({
 	queueUrl: config.queueUrl,
 });
 
-const caddy = useStubs ? createStubCaddy() : createCaddyClient({ adminUrl: config.caddyAdminUrl });
+function resolveAuthMode(): AuthMode | undefined {
+	if (hasOAuth) {
+		const host = "127.0.0.1";
+		return { mode: "oauth", controlPlaneDial: `${host}:${config.port}`, srv0Port: config.srv0Port };
+	}
+	return undefined;
+}
+
+const authMode = resolveAuthMode();
+
+const caddy = useStubs
+	? createStubCaddy()
+	: createCaddyClient({ adminUrl: config.caddyAdminUrl, authMode });
 const runtime = useStubVm
 	? createStubRuntime()
 	: createTartRuntime({ sshKeyPath: config.sshKeyPath });
@@ -39,7 +61,16 @@ const healthCheck = useStubVm ? async () => {} : undefined;
 const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger, healthCheck });
 const portService = createPortService({ db, caddy });
 
-const app = createApp({ workspaceService, portService, logger });
+const authService = config.auth ? createAuthService(config.auth) : null;
+
+const app = createApp({
+	workspaceService,
+	portService,
+	logger,
+	authService,
+	secureCookies: config.secureCookies,
+	db,
+});
 
 async function bootstrapCaddy(): Promise<void> {
 	const controlPlaneUrl = `http://localhost:${config.port}`;
@@ -56,12 +87,14 @@ async function bootstrapCaddy(): Promise<void> {
 		bootstrapOptions.spaRoot = config.spaRoot;
 	}
 
-	if (config.caddyUsername && config.caddyPassword) {
+	if (hasBasicAuth && !hasOAuth) {
 		const passwordHash = await hashPassword(config.caddyPassword);
-		bootstrapOptions.auth = {
-			username: config.caddyUsername,
-			passwordHash,
+		bootstrapOptions.authMode = {
+			mode: "basic",
+			credentials: { username: config.caddyUsername, passwordHash },
 		};
+	} else if (authMode) {
+		bootstrapOptions.authMode = authMode;
 	}
 
 	const caddyConfig = buildBootstrapConfig(bootstrapOptions);
@@ -70,7 +103,7 @@ async function bootstrapCaddy(): Promise<void> {
 		{
 			controlPlaneUrl,
 			spaRoot: config.spaRoot || "(none)",
-			auth: Boolean(config.caddyUsername),
+			authMode: hasOAuth ? "oauth" : "basic",
 		},
 		"Caddy bootstrapped",
 	);

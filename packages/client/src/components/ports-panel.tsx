@@ -1,7 +1,7 @@
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { type FormEvent, useState } from "react";
-import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useNotify } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -89,6 +89,7 @@ function PortRow({
 	workspaceName: string;
 }) {
 	const removeMutation = useRemovePort(workspaceId);
+	const notify = useNotify();
 
 	return (
 		<TableRow>
@@ -113,8 +114,8 @@ function PortRow({
 						disabled={removeMutation.isPending}
 						onClick={() =>
 							removeMutation.mutate(port.port, {
-								onSuccess: () => toast.success(`Removed port ${port.port}`),
-								onError: (err) => toast.error(err.message),
+								onSuccess: () => notify.success(`Removed port ${port.port}`),
+								onError: (err) => notify.error(err.message),
 							})
 						}
 					>
@@ -131,6 +132,7 @@ function AddPortForm({ workspaceId, onDone }: { workspaceId: string; onDone: () 
 	const [label, setLabel] = useState("");
 	const [portError, setPortError] = useState<string | null>(null);
 	const addMutation = useAddPort(workspaceId);
+	const notify = useNotify();
 
 	function handleSubmit(e: FormEvent) {
 		e.preventDefault();
@@ -144,10 +146,10 @@ function AddPortForm({ workspaceId, onDone }: { workspaceId: string; onDone: () 
 			{ port: num, label: label || undefined },
 			{
 				onSuccess: () => {
-					toast.success(`Port ${num} added`);
+					notify.success(`Port ${num} added`);
 					onDone();
 				},
-				onError: (err) => toast.error(err.message),
+				onError: (err) => notify.error(err.message),
 			},
 		);
 	}

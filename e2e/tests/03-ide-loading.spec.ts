@@ -1,9 +1,15 @@
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
-import { connectBrowser, createTestContext, getApiUrl, getAuthHeader } from "../helpers/platform";
+import {
+	createTestContext,
+	createTestPage,
+	getApiUrl,
+	getAuthHeader,
+	launchBrowser,
+} from "../helpers/platform";
 import { deleteWorkspaceViaApi, pollUntilStatus, uniqueWorkspaceName } from "../helpers/workspace";
 
 const profile = process.env.E2E_PROFILE ?? "development";
-test.skip(profile === "test", "IDE loading requires real VMs — development profile only");
+test.skip(profile === "ci", "IDE loading requires real VMs — skipped in CI profile");
 
 const IDE_PORT = Number.parseInt(process.env.SRV1_PORT ?? "8081", 10);
 
@@ -20,9 +26,9 @@ test.describe("IDE loading: code-server renders in browser", () => {
 	const workspaceName = uniqueWorkspaceName();
 
 	test.beforeAll(async () => {
-		browser = await connectBrowser();
+		browser = await launchBrowser();
 		context = await createTestContext(browser);
-		page = await context.newPage();
+		page = await createTestPage(context);
 
 		const apiUrl = getApiUrl();
 		const headers: Record<string, string> = {
@@ -48,7 +54,9 @@ test.describe("IDE loading: code-server renders in browser", () => {
 		} catch {
 			// Best-effort cleanup
 		}
+		await page?.close();
 		await context?.close();
+		await browser?.close();
 	});
 
 	test("IDE URL responds (no 502)", async () => {

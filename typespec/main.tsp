@@ -18,6 +18,39 @@ enum WorkspaceStatus {
   error,
 }
 
+@table("repository", "rockpool")
+model Repository {
+  @visibility(Lifecycle.Read)
+  @pk
+  @uuid("base36", true)
+  id: string;
+
+  @visibility(Lifecycle.Create, Lifecycle.Read)
+  full_name: string;
+
+  @visibility(Lifecycle.Create, Lifecycle.Read)
+  owner: string;
+
+  @visibility(Lifecycle.Create, Lifecycle.Read)
+  owner_type: "User" | "Organization";
+
+  @visibility(Lifecycle.Create, Lifecycle.Read)
+  owner_avatar: string;
+
+  @visibility(Lifecycle.Create, Lifecycle.Read)
+  description?: string;
+
+  @visibility(Lifecycle.Create, Lifecycle.Read)
+  default_branch: string;
+
+  @visibility(Lifecycle.Create, Lifecycle.Read)
+  private: boolean;
+
+  @createdAt
+  @visibility(Lifecycle.Read)
+  createdAt: utcDateTime;
+}
+
 @table("workspace", "rockpool")
 model Workspace {
   @visibility(Lifecycle.Read)
@@ -37,6 +70,9 @@ model Workspace {
 
   @visibility(Lifecycle.Create, Lifecycle.Read)
   image: string;
+
+  @visibility(Lifecycle.Create, Lifecycle.Read)
+  description?: string;
 
   @visibility(Lifecycle.Read)
   vmIp?: string;
@@ -69,6 +105,23 @@ model Port {
 
   @visibility(Lifecycle.Create, Lifecycle.Read)
   label?: string;
+
+  @createdAt
+  @visibility(Lifecycle.Read)
+  createdAt: utcDateTime;
+}
+
+@table("workspace_repository", "rockpool")
+model WorkspaceRepository {
+  @pk
+  @references(Workspace.id)
+  @uuid("base36", false)
+  workspaceId: string;
+
+  @pk
+  @references(Repository.id)
+  @uuid("base36", false)
+  repositoryId: string;
 
   @createdAt
   @visibility(Lifecycle.Read)
@@ -122,4 +175,45 @@ interface Workspaces {
   removePort(@path id: string, @path port: int32): {
     @statusCode statusCode: 204;
   };
+}
+
+model GitHubRepo {
+  full_name: string;
+  owner: string;
+  owner_type: "User" | "Organization";
+  owner_avatar: string;
+  description: string | null;
+  private: boolean;
+  default_branch: string;
+  updated_at: utcDateTime;
+}
+
+model GitHubRepoListResponse {
+  items: GitHubRepo[];
+  next_page: int32 | null;
+}
+
+model GitHubRepoSearchResponse {
+  items: GitHubRepo[];
+  total_count: int32;
+  next_page: int32 | null;
+}
+
+@route("/api/github")
+interface GitHub {
+  @route("repos")
+  @get
+  listRepos(
+    @query page?: int32,
+    @query per_page?: int32,
+    @query sort?: "created" | "updated" | "pushed" | "full_name",
+  ): GitHubRepoListResponse;
+
+  @route("repos/search")
+  @get
+  searchRepos(
+    @query q: string,
+    @query page?: int32,
+    @query per_page?: int32,
+  ): GitHubRepoSearchResponse;
 }

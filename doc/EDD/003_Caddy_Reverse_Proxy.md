@@ -3,9 +3,9 @@
 | Field   | Value      |
 | ------- | ---------- |
 | Author  | mvhenten   |
-| Status  | Draft      |
-| Created | 2026-02-21 |
-| Updated | 2026-02-23 |
+| Status  | In Progress |
+| Created | 2026-02-21  |
+| Updated | 2026-02-24  |
 
 ## Summary
 
@@ -25,16 +25,19 @@ Caddy does **not** handle OAuth. GitHub OAuth is handled by the control plane it
 
 ### Authentication Modes
 
-#### Basic Auth (Caddy-level, for dev/CI)
+The server supports two authentication modes, selected automatically based on environment variables:
 
-- Use Caddy's built-in `basic_auth` directive.
-- No external identity provider required.
-- Suitable for localhost, quick testing, and CI integration tests.
-- Controlled via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars.
+#### Basic Auth Mode (dev/CI)
 
-#### GitHub OAuth (control plane, for production)
+When `CADDY_USERNAME`/`CADDY_PASSWORD` are set and GitHub OAuth credentials are not provided, Caddy applies basic auth on all three ports. This is the default for CI integration tests and local development without OAuth.
 
-OAuth is handled in the control plane as a separate `@rockpool/auth` package, not in Caddy. This gives the server full control over the GitHub access token, which is needed for:
+- Uses Caddy's built-in `http_basic` directive
+- No external identity provider required
+- Controlled via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars
+
+#### GitHub OAuth Mode (production/development)
+
+When `GITHUB_OAUTH_CLIENT_ID`/`GITHUB_OAUTH_CLIENT_SECRET` are set, OAuth is handled by the control plane via the `@rockpool/auth` package — not by Caddy. Caddy acts as a pass-through proxy on srv0 and uses `forward_auth` subrequests on srv1/srv2 (see Workspace Authentication below). This gives the server full control over the GitHub access token, which is needed for:
 
 - Cloning private repos into workspace VMs
 - Querying the GitHub API (list repos, org membership)
@@ -595,14 +598,24 @@ The base image's code-server init script reads `ROCKPOOL_WORKSPACE_NAME` to set 
 
 ## Decisions
 
-- **Caddy runs in the root VM** alongside the control plane — admin API on localhost only, network-isolated from host LAN
-- **Three-port origin isolation**: `:8080` for control plane + SPA, `:8081` for IDE sessions, `:8082` for app previews — each a separate browser origin, prevents cross-boundary JS access ([ADR-015](../ADR/015-three-port-origin-isolation.md))
-- **Basic auth in Caddy** for dev/CI. **Implemented** in `@rockpool/caddy`: `hashPassword()` generates bcrypt hashes, `buildBootstrapConfig({ auth })` adds authentication handlers to srv0 protecting `/api/*` and `/app/*` with a health check bypass on `/api/health`. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars — server bootstraps Caddy with auth on startup when not in stub mode.
-- **GitHub OAuth in the control plane** via `@rockpool/auth` package. Server handles the full OAuth flow, stores GitHub access tokens server-side, and manages sessions via cookies. Caddy stays as a pass-through proxy when OAuth is enabled. This gives the control plane direct access to GitHub tokens for repo cloning, API queries, and git credential injection into workspaces.
-- **Workspace auth via forward_auth**: srv1 and srv2 authenticate workspace and preview traffic by making a subrequest to the control plane's `/api/auth/verify` endpoint. The session cookie flows cross-port per RFC 6265 §8.5 (domain-scoped, not port-scoped) or cross-subdomain via `Domain=.rockpool.dev` in production. Cookie is set `HttpOnly` + `SameSite=Lax` + `Secure` — workspace JS cannot read it. Verify returns 200 + `X-Authenticated-User` on valid session, 401 otherwise. No plugins required — forward_auth expands to built-in `reverse_proxy` + `handle_response` handlers. The `X-Authenticated-User` header also serves as the identity key for `caddy-ratelimit` in OAuth mode. IDEs run with auth disabled (e.g. code-server `--auth none`) — Caddy is the single auth boundary, making the IDE backend interchangeable.
-- **Rate limiting via `caddy-ratelimit`** compiled into Caddy with `xcaddy`. Default policy: 60/min soft, 300/min hard for general endpoints; 10/min soft, 30/min hard for lifecycle endpoints. Identity key: authenticated user → `CF-Connecting-IP` → client IP (see [EDD 007](007_Data_Model.md)).
-- **Unambiguous URL scheme**: `/api/*` for control plane, `/app/*` for SPA, `/workspace/{name}/*` for IDE sessions (srv1), `/workspace/{name}/port/{port}/*` for app previews (srv2)
-- **Dynamic port forwarding**: user registers actual app ports (e.g. 3000, 5000) via API, Caddy routes created/removed on srv2, max 5 per workspace
+Implemented:
+
+- [x] **Caddy runs in the root VM** alongside the control plane — admin API on localhost only, network-isolated from host LAN
+- [x] **Three-port origin isolation**: `:8080` for control plane + SPA, `:8081` for IDE sessions, `:8082` for app previews — each a separate browser origin, prevents cross-boundary JS access ([ADR-015](../ADR/015-three-port-origin-isolation.md))
+- [x] **Basic auth in Caddy** for E2E/CI. Implemented in `@rockpool/caddy`: `hashPassword()` generates bcrypt hashes, `buildBootstrapConfig({ auth })` adds authentication handlers to srv0 protecting `/api/*` and `/app/*` with a health check bypass on `/api/health`. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars — server bootstraps Caddy with auth on startup when not in stub mode.
+- [x] **GitHub OAuth in the control plane** via `@rockpool/auth` package. Server handles the full OAuth flow (`/api/auth/github`, `/api/auth/callback`, `/api/auth/me`, `/api/auth/logout`), stores GitHub access tokens server-side, and manages sessions via cookies. Caddy stays as a pass-through proxy when OAuth is enabled (`GITHUB_OAUTH_CLIENT_ID` + `GITHUB_OAUTH_CLIENT_SECRET` set). Auth mode selection with fail-fast preflight check on startup.
+- [x] **Unambiguous URL scheme**: `/api/*` for control plane, `/app/*` for SPA, `/workspace/{name}/*` for IDE sessions (srv1), `/workspace/{name}/port/{port}/*` for app previews (srv2)
+- [x] **Dynamic port forwarding**: user registers actual app ports (e.g. 3000, 5000) via API, Caddy routes created/removed on srv2, max 5 per workspace
+
+- [x] **`/api/auth/verify` endpoint** — implemented in `@rockpool/auth`, validates session, returns 200 + `X-Authenticated-User` or 401. Wired into Caddy via forward_auth on srv1 and srv2.
+- [x] **Cookie hardening**: `HttpOnly` + `SameSite=Lax` + `Secure` (gated on `SECURE_COOKIES=true` env var for production HTTPS) implemented on all auth cookies.
+- [x] **Port route building**: `buildPortRoute()` and `CaddyRepository.addPortRoute()`/`removePortRoute()` exist in `@rockpool/caddy`, post to srv2 as top-level routes with redirect routes. Called from `PortService` when ports are registered via the API.
+- [x] **Workspace auth via forward_auth on srv1 + srv2**: `buildBootstrapConfig()` supports `AuthMode` discriminated union — basic auth mode (dev/CI) generates `http_basic` handlers, OAuth mode generates forward_auth handlers (reverse_proxy + handle_response chain) pointing to `/api/auth/verify`. Forward_auth gates on srv1 and srv2 bootstrap configs, plus per-route auth on dynamic workspace and port routes. Unauthenticated requests redirect to `/api/auth/github?return_to=...` for login with return URL.
+- [x] **srv2 app preview routes wired to API**: port registration API endpoint (`POST /api/workspaces/{id}/ports`) implemented in the server via `PortService` and `PortRouter`. Port routes are top-level on srv2 with redirect routes.
+
+Not yet implemented:
+
+- [ ] **Rate limiting via `caddy-ratelimit`** compiled into Caddy with `xcaddy`. Default policy: 60/min soft, 300/min hard for general endpoints; 10/min soft, 30/min hard for lifecycle endpoints. Identity key: authenticated user → `CF-Connecting-IP` → client IP (see [EDD 007](007_Data_Model.md)).
 
 ## Appendix: Local Development Setup
 
@@ -629,14 +642,16 @@ GITHUB_OAUTH_CLIENT_ID=<client-id>
 GITHUB_OAUTH_CLIENT_SECRET=<client-secret>
 ```
 
-| Variable                     | Purpose                                                  |
-| ---------------------------- | -------------------------------------------------------- |
-| `RUNTIME`                    | VM runtime backend (`tart` for macOS)                    |
-| `WORKER_INLINE`              | Run worker in-process with server (`true` for local dev) |
-| `SPA_PROXY_URL`              | Vite dev server URL for SPA proxy                        |
-| `SSH_KEY_PATH`               | Path to SSH key for VM access                            |
-| `GITHUB_OAUTH_CLIENT_ID`     | GitHub OAuth App client ID                               |
-| `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App client secret                           |
+| Variable               | Purpose                                                    |
+| ---------------------- | ---------------------------------------------------------- |
+| `RUNTIME`              | VM runtime backend (`tart` for macOS)                      |
+| `WORKER_INLINE`        | Run worker in-process with server (`true` for local dev)   |
+| `SPA_PROXY_URL`        | Vite dev server URL for SPA proxy                          |
+| `SSH_KEY_PATH`         | Path to SSH key for VM access                              |
+| `GITHUB_OAUTH_CLIENT_ID`     | GitHub OAuth App client ID (control-plane OAuth via `@rockpool/auth`) |
+| `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App client secret (control-plane OAuth)                  |
+| `CADDY_USERNAME`       | Basic auth username (E2E/CI mode)                          |
+| `CADDY_PASSWORD`       | Basic auth password (E2E/CI mode)                          |
 
 ### GitHub OAuth App
 
