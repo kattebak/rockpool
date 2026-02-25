@@ -116,7 +116,7 @@ export function WorkspaceNewConfigurePage() {
 					<form onSubmit={handleSubmit} className="space-y-6">
 						{resolvedRepo && (
 							<div className="grid gap-2">
-								<label className="text-sm font-medium">Repository</label>
+								<span className="text-sm font-medium">Repository</span>
 								<RepoCard
 									repo={resolvedRepo}
 									action={

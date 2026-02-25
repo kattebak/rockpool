@@ -19,32 +19,7 @@
 		"rules": {
 			"recommended": true,
 			"style": {
-				"useNamingConvention": {
-					"level": "warn",
-					"options": {
-						"strictCase": false,
-						"conventions": [
-							{
-								"selector": {
-									"kind": "variable"
-								},
-								"formats": ["camelCase", "CONSTANT_CASE", "PascalCase"]
-							},
-							{
-								"selector": {
-									"kind": "typeLike"
-								},
-								"formats": ["PascalCase"]
-							},
-							{
-								"selector": {
-									"kind": "function"
-								},
-								"formats": ["camelCase", "PascalCase"]
-							}
-						]
-					}
-				}
+				"useNamingConvention": "off"
 			}
 		}
 	},

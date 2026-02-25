@@ -16,6 +16,12 @@ Do NOT use `EnterPlanMode`. Use the **architect** agent for multi-step work, **d
 
 ## Verification
 
+After making code changes, always run the formatter/linter before committing:
+
+```bash
+npm run fix -- --unsafe
+```
+
 After changes to API routes, server logic, UI components, or frontend UX, run the headless E2E tests:
 
 ```bash
