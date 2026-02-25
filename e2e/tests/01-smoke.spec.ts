@@ -1,5 +1,5 @@
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
-import { connectBrowser, createTestContext, isTestProfile } from "../helpers/platform";
+import { createTestContext, createTestPage, launchBrowser } from "../helpers/platform";
 
 test.describe("Smoke: dashboard loads", () => {
 	test.describe.configure({ mode: "serial" });
@@ -9,14 +9,15 @@ test.describe("Smoke: dashboard loads", () => {
 	let page: Page;
 
 	test.beforeAll(async () => {
-		browser = await connectBrowser();
+		browser = await launchBrowser();
 		context = await createTestContext(browser);
-		page = await context.newPage();
+		page = await createTestPage(context);
 	});
 
 	test.afterAll(async () => {
+		await page?.close();
 		await context?.close();
-		if (isTestProfile()) await browser?.close();
+		await browser?.close();
 	});
 
 	test("can reach the dashboard through Caddy", async () => {
@@ -30,7 +31,7 @@ test.describe("Smoke: dashboard loads", () => {
 		await expect(heading.or(emptyState)).toBeVisible();
 	});
 
-	test("header navigation is visible", async () => {
+	test("navigation is visible", async () => {
 		await expect(page.getByRole("link", { name: "Rockpool" })).toBeVisible();
 		await expect(page.getByRole("link", { name: "Workspaces" })).toBeVisible();
 		await expect(page.getByRole("button", { name: "New workspace" })).toBeVisible();

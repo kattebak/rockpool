@@ -133,6 +133,44 @@ export function createTartRuntime(options: TartRuntimeOptions = {}): RuntimeRepo
 
 		getIp: getIpForVm,
 
+		async clone(_name: string, vmIp: string, repository: string, token?: string): Promise<void> {
+			for (let attempt = 0; attempt < pollMaxAttempts; attempt++) {
+				const ready = await sshExec(vmIp, "true")
+					.then(() => true)
+					.catch(() => false);
+				if (ready) break;
+				if (attempt === pollMaxAttempts - 1) {
+					throw new Error(`Tart: timed out waiting for SSH on VM (${vmIp}) for clone`);
+				}
+				await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+			}
+
+			if (token) {
+				const helperScript = [
+					"#!/bin/sh",
+					'echo "protocol=https"',
+					'echo "host=github.com"',
+					'echo "username=x-access-token"',
+					`echo "password=${token}"`,
+				].join("\n");
+
+				await sshExec(
+					vmIp,
+					`mkdir -p /home/${sshUser}/.rockpool && printf '%s\\n' '${helperScript}' > /home/${sshUser}/.rockpool/git-credential-helper && chmod +x /home/${sshUser}/.rockpool/git-credential-helper`,
+				);
+				await sshExec(
+					vmIp,
+					`git config --global credential.helper '/home/${sshUser}/.rockpool/git-credential-helper'`,
+				);
+			}
+
+			const repoName = repository.split("/")[1];
+			await sshExec(
+				vmIp,
+				`git clone --depth 1 --single-branch https://github.com/${repository}.git /home/${sshUser}/${repoName}`,
+			);
+		},
+
 		async configure(name: string, env: Record<string, string>): Promise<void> {
 			const workspaceName = env.ROCKPOOL_WORKSPACE_NAME;
 			if (!workspaceName) {
@@ -140,6 +178,7 @@ export function createTartRuntime(options: TartRuntimeOptions = {}): RuntimeRepo
 			}
 
 			const vmIp = await getIpForVm(name);
+			const folder = env.ROCKPOOL_FOLDER;
 
 			const yamlContent = [
 				"bind-addr: 0.0.0.0:8080",
@@ -148,7 +187,11 @@ export function createTartRuntime(options: TartRuntimeOptions = {}): RuntimeRepo
 				`abs-proxy-base-path: /workspace/${workspaceName}`,
 			].join("\n");
 
-			const cmd = `printf '%s\\n' '${yamlContent}' > /home/admin/.config/code-server/config.yaml && sudo systemctl restart code-server@admin`;
+			const folderOverride = folder
+				? ` && sudo mkdir -p /etc/systemd/system/code-server@admin.service.d && printf '[Service]\\nExecStart=\\nExecStart=/usr/bin/code-server --bind-addr 0.0.0.0:8080 ${folder}\\n' | sudo tee /etc/systemd/system/code-server@admin.service.d/folder.conf > /dev/null && sudo systemctl daemon-reload`
+				: "";
+
+			const cmd = `printf '%s\\n' '${yamlContent}' > /home/${sshUser}/.config/code-server/config.yaml${folderOverride} && sudo systemctl restart code-server@admin`;
 
 			for (let attempt = 0; attempt < pollMaxAttempts; attempt++) {
 				const ok = await sshExec(vmIp, cmd)

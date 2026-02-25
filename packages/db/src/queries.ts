@@ -3,11 +3,16 @@ import { and, count, desc, eq, lt, or } from "drizzle-orm";
 import type { DbClient } from "./connection.ts";
 import {
 	type NewPort,
+	type NewRepository,
 	type NewWorkspace,
 	type Port,
 	ports,
+	type Repository,
+	repositories,
 	type Workspace,
+	type WorkspaceRepository,
 	type WorkspaceStatus,
+	workspaceRepositories,
 	workspaces,
 } from "./schema.ts";
 
@@ -90,7 +95,9 @@ export function getWorkspaceByName(db: DbClient, name: string): Promise<Workspac
 
 export function createWorkspace(
 	db: DbClient,
-	data: Pick<NewWorkspace, "name" | "image">,
+	data: Pick<NewWorkspace, "name" | "image"> & {
+		description?: string | null;
+	},
 ): Promise<Workspace> {
 	return db
 		.insert(workspaces)
@@ -98,7 +105,63 @@ export function createWorkspace(
 			name: data.name,
 			image: data.image,
 			status: WS.creating,
+			description: data.description ?? null,
 		})
+		.returning()
+		.then((rows) => rows[0]);
+}
+
+export function getRepository(db: DbClient, id: string): Promise<Repository | undefined> {
+	return db
+		.select()
+		.from(repositories)
+		.where(eq(repositories.id, id))
+		.then((rows) => rows[0]);
+}
+
+export function linkWorkspaceRepository(
+	db: DbClient,
+	workspaceId: string,
+	repositoryId: string,
+): Promise<WorkspaceRepository> {
+	return db
+		.insert(workspaceRepositories)
+		.values({ workspaceId, repositoryId })
+		.returning()
+		.then((rows) => rows[0]);
+}
+
+export function getWorkspaceRepository(
+	db: DbClient,
+	workspaceId: string,
+): Promise<(WorkspaceRepository & { repository: Repository }) | undefined> {
+	return db
+		.select()
+		.from(workspaceRepositories)
+		.innerJoin(repositories, eq(workspaceRepositories.repositoryId, repositories.id))
+		.where(eq(workspaceRepositories.workspaceId, workspaceId))
+		.then((rows) => {
+			if (rows.length === 0) return undefined;
+			const row = rows[0];
+			return { ...row.workspace_repository, repository: row.repository };
+		});
+}
+
+export function upsertRepository(
+	db: DbClient,
+	data: Omit<NewRepository, "id" | "createdAt">,
+): Promise<Repository> {
+	const existing = db
+		.select()
+		.from(repositories)
+		.where(eq(repositories.full_name, data.full_name))
+		.get();
+
+	if (existing) return Promise.resolve(existing);
+
+	return db
+		.insert(repositories)
+		.values(data)
 		.returning()
 		.then((rows) => rows[0]);
 }

@@ -9,14 +9,28 @@ export {
 	decodeCursor,
 	deleteWorkspace,
 	encodeCursor,
+	getRepository,
 	getWorkspace,
 	getWorkspaceByName,
+	getWorkspaceRepository,
+	linkWorkspaceRepository,
 	listPorts,
 	listWorkspaces,
 	listWorkspacesByStatus,
 	removeAllPorts,
 	removePort,
 	updateWorkspaceStatus,
+	upsertRepository,
 } from "./queries.ts";
-export type { NewPort, NewWorkspace, Port, Workspace, WorkspaceStatus } from "./schema.ts";
-export { generateId, ports, workspaces } from "./schema.ts";
+export type {
+	NewPort,
+	NewRepository,
+	NewWorkspace,
+	NewWorkspaceRepository,
+	Port,
+	Repository,
+	Workspace,
+	WorkspaceRepository,
+	WorkspaceStatus,
+} from "./schema.ts";
+export { generateId, ports, repositories, workspaceRepositories, workspaces } from "./schema.ts";

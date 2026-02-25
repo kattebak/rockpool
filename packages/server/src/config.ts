@@ -1,4 +1,7 @@
 import { resolve } from "node:path";
+import type { AuthConfig } from "@rockpool/auth";
+
+const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 export interface ServerConfig {
 	port: number;
@@ -14,10 +17,29 @@ export interface ServerConfig {
 	queueUrl: string;
 	platform: "darwin" | "linux";
 	sshKeyPath: string;
+	auth: AuthConfig | null;
+	secureCookies: boolean;
 }
 
 export function loadConfig(): ServerConfig {
 	const projectRoot = new URL("../../..", import.meta.url).pathname;
+
+	const clientId = process.env.GITHUB_OAUTH_CLIENT_ID ?? "";
+	const clientSecret = process.env.GITHUB_OAUTH_CLIENT_SECRET ?? "";
+
+	const auth: AuthConfig | null =
+		clientId && clientSecret
+			? {
+					clientId,
+					clientSecret,
+					callbackUrl:
+						process.env.GITHUB_OAUTH_CALLBACK_URL ?? "http://localhost:8080/api/auth/callback",
+					sessionMaxAgeMs: Number.parseInt(
+						process.env.SESSION_MAX_AGE_MS ?? String(TWENTY_FOUR_HOURS_MS),
+						10,
+					),
+				}
+			: null;
 
 	return {
 		port: Number.parseInt(process.env.PORT ?? "7163", 10),
@@ -33,5 +55,7 @@ export function loadConfig(): ServerConfig {
 		queueUrl: process.env.QUEUE_URL ?? "http://localhost:9324/000000000000/workspace-jobs",
 		platform: (process.env.PLATFORM ?? process.platform) as "darwin" | "linux",
 		sshKeyPath: resolve(projectRoot, process.env.SSH_KEY_PATH ?? "images/ssh/rockpool_ed25519"),
+		auth,
+		secureCookies: process.env.SECURE_COOKIES === "true",
 	};
 }

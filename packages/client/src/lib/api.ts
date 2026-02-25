@@ -1,4 +1,6 @@
 import {
+	gitHubListRepos,
+	gitHubSearchRepos,
 	client as sdkClient,
 	workspacesAddPort,
 	workspacesCreate,
@@ -10,11 +12,20 @@ import {
 	workspacesStart,
 	workspacesStop,
 } from "@rockpool/sdk";
-import { PortSchema, WorkspaceListResponseSchema, WorkspaceSchema } from "@rockpool/validators";
+import {
+	GitHubRepoListResponseSchema,
+	GitHubRepoSearchResponseSchema,
+	PortSchema,
+	WorkspaceListResponseSchema,
+	WorkspaceSchema,
+} from "@rockpool/validators";
 import { z } from "zod";
 import type {
 	AddPortRequest,
 	CreateWorkspaceRequest,
+	GitHubRepo,
+	GitHubRepoListResponse,
+	GitHubRepoSearchResponse,
 	Port,
 	Workspace,
 	WorkspaceListResponse,
@@ -31,17 +42,17 @@ export async function listWorkspaces(
 	params?: ListWorkspacesParams,
 ): Promise<WorkspaceListResponse> {
 	const { data } = await workspacesList({ query: params, throwOnError: true });
-	return WorkspaceListResponseSchema.parse(data);
+	return WorkspaceListResponseSchema.parse(data) as WorkspaceListResponse;
 }
 
 export async function getWorkspace(id: string): Promise<Workspace> {
 	const { data } = await workspacesRead({ path: { id }, throwOnError: true });
-	return WorkspaceSchema.parse(data);
+	return WorkspaceSchema.parse(data) as Workspace;
 }
 
 export async function createWorkspace(body: CreateWorkspaceRequest): Promise<Workspace> {
 	const { data } = await workspacesCreate({ body, throwOnError: true });
-	return WorkspaceSchema.parse(data);
+	return WorkspaceSchema.parse(data) as Workspace;
 }
 
 export async function deleteWorkspace(id: string): Promise<void> {
@@ -50,12 +61,12 @@ export async function deleteWorkspace(id: string): Promise<void> {
 
 export async function startWorkspace(id: string): Promise<Workspace> {
 	const { data } = await workspacesStart({ path: { id }, throwOnError: true });
-	return WorkspaceSchema.parse(data);
+	return WorkspaceSchema.parse(data) as Workspace;
 }
 
 export async function stopWorkspace(id: string): Promise<Workspace> {
 	const { data } = await workspacesStop({ path: { id }, throwOnError: true });
-	return WorkspaceSchema.parse(data);
+	return WorkspaceSchema.parse(data) as Workspace;
 }
 
 export async function listPorts(workspaceId: string): Promise<Port[]> {
@@ -63,7 +74,7 @@ export async function listPorts(workspaceId: string): Promise<Port[]> {
 		path: { id: workspaceId },
 		throwOnError: true,
 	});
-	return z.array(PortSchema).parse(data);
+	return z.array(PortSchema).parse(data) as Port[];
 }
 
 export async function addPort(workspaceId: string, body: AddPortRequest): Promise<Port> {
@@ -72,7 +83,7 @@ export async function addPort(workspaceId: string, body: AddPortRequest): Promis
 		body,
 		throwOnError: true,
 	});
-	return PortSchema.parse(data);
+	return PortSchema.parse(data) as Port;
 }
 
 export async function removePort(workspaceId: string, port: number): Promise<void> {
@@ -82,4 +93,63 @@ export async function removePort(workspaceId: string, port: number): Promise<voi
 	});
 }
 
-export type { Workspace, Port, WorkspaceListResponse };
+export interface CurrentUser {
+	id: number;
+	username: string;
+}
+
+export async function getCurrentUser(): Promise<CurrentUser> {
+	const res = await fetch("/api/auth/me", { credentials: "same-origin" });
+
+	if (!res.ok) {
+		throw Object.assign(new Error("Not authenticated"), { status: res.status });
+	}
+
+	const body: unknown = await res.json();
+	const obj = body as Record<string, unknown>;
+	const user = obj.user as Record<string, unknown>;
+
+	if (typeof user?.id !== "number" || typeof user?.username !== "string") {
+		throw new Error("Unexpected /api/auth/me response");
+	}
+
+	return { id: user.id, username: user.username };
+}
+
+export async function logout(): Promise<void> {
+	const res = await fetch("/api/auth/logout", {
+		method: "POST",
+		credentials: "same-origin",
+	});
+
+	if (!res.ok) {
+		throw new Error("Logout failed");
+	}
+}
+
+export async function listGitHubRepos(params?: {
+	page?: number;
+	per_page?: number;
+	sort?: "created" | "updated" | "pushed" | "full_name";
+}): Promise<GitHubRepoListResponse> {
+	const { data } = await gitHubListRepos({ query: params, throwOnError: true });
+	return GitHubRepoListResponseSchema.parse(data) as GitHubRepoListResponse;
+}
+
+export async function searchGitHubRepos(params: {
+	q: string;
+	page?: number;
+	per_page?: number;
+}): Promise<GitHubRepoSearchResponse> {
+	const { data } = await gitHubSearchRepos({ query: params, throwOnError: true });
+	return GitHubRepoSearchResponseSchema.parse(data) as GitHubRepoSearchResponse;
+}
+
+export type {
+	GitHubRepo,
+	GitHubRepoListResponse,
+	GitHubRepoSearchResponse,
+	Port,
+	Workspace,
+	WorkspaceListResponse,
+};
