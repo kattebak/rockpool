@@ -45,6 +45,10 @@ export function createApp(deps: AppDeps) {
 
 	if (deps.authService) {
 		mountAuthRoutes(app, deps.authService, logger, deps.secureCookies ?? false);
+	} else {
+		app.get("/api/auth/me", (_req, res) => {
+			res.json({ user: { id: 0, username: "anonymous" } });
+		});
 	}
 
 	const workspaceRouter = createWorkspaceRouter(deps.workspaceService);
@@ -176,13 +180,11 @@ function mountAuthRoutes(
 		const githubUser = await authService.getGitHubUser(tokenResult.accessToken);
 		const session = await authService.createSession(tokenResult, githubUser);
 
-		const maxAgeSeconds = Math.floor(authService.config.sessionMaxAgeMs / 1000);
-
 		res.cookie("session", session.id, {
 			httpOnly: true,
 			secure: secureCookies,
 			sameSite: "lax",
-			maxAge: maxAgeSeconds,
+			maxAge: authService.config.sessionMaxAgeMs,
 		});
 
 		res.clearCookie("oauth_state");
