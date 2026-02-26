@@ -7,6 +7,9 @@
 # Tart VM storage
 .tart/
 
+# Firecracker VM storage
+.firecracker/
+
 # ElasticMQ JAR download
 .elasticmq/
 
