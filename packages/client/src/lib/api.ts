@@ -1,7 +1,10 @@
+import type { UserPrefsBlob, UserPrefsFileName } from "@rockpool/sdk";
 import {
 	gitHubListRepos,
 	gitHubSearchRepos,
 	client as sdkClient,
+	settingsList,
+	settingsSave,
 	workspacesAddPort,
 	workspacesCreate,
 	workspacesList,
@@ -16,6 +19,7 @@ import {
 	GitHubRepoListResponseSchema,
 	GitHubRepoSearchResponseSchema,
 	PortSchema,
+	UserPrefsBlobSchema,
 	WorkspaceListResponseSchema,
 	WorkspaceSchema,
 } from "@rockpool/validators";
@@ -145,11 +149,30 @@ export async function searchGitHubRepos(params: {
 	return GitHubRepoSearchResponseSchema.parse(data) as GitHubRepoSearchResponse;
 }
 
+export async function listSettings(): Promise<UserPrefsBlob[]> {
+	const { data } = await settingsList({ throwOnError: true });
+	return z.array(UserPrefsBlobSchema).parse(data) as UserPrefsBlob[];
+}
+
+export async function saveSettings(
+	name: UserPrefsFileName,
+	workspaceId: string,
+): Promise<UserPrefsBlob> {
+	const { data } = await settingsSave({
+		path: { name },
+		query: { workspaceId },
+		throwOnError: true,
+	});
+	return UserPrefsBlobSchema.parse(data) as UserPrefsBlob;
+}
+
 export type {
 	GitHubRepo,
 	GitHubRepoListResponse,
 	GitHubRepoSearchResponse,
 	Port,
+	UserPrefsBlob,
+	UserPrefsFileName,
 	Workspace,
 	WorkspaceListResponse,
 };
