@@ -453,13 +453,41 @@ The worker's SQS visibility timeout (currently 120s per [EDD-014](014_ElasticMQ_
 
 ## Data Model Changes
 
-No schema changes required. The workspace entity remains unchanged:
+New model: `WorkspaceTemplate`. One-to-one with `Workspace` via foreign key. If the row exists, the workspace was created from a template. If it doesn't, the workspace uses the default behavior (Custom / pre-existing).
 
-- `image` field continues to identify the base VM image (not the container image)
-- Devcontainer configuration lives in the repository, not in the Rockpool database
-- Whether a workspace uses devcontainers is determined at runtime from the repo contents
+**TypeSpec:**
 
-A future enhancement could add a `devcontainer` boolean or `containerStatus` field to the workspace entity for display in the UI, but this is not needed for Phase 1.
+```typespec
+@table("workspace_template", "rockpool")
+model WorkspaceTemplate {
+  @pk
+  @references(Workspace.id)
+  @uuid("base36", false)
+  workspaceId: string;
+
+  slug: string;
+
+  @createdAt
+  @visibility(Lifecycle.Read)
+  createdAt: utcDateTime;
+}
+```
+
+- **`workspaceId`** — PK and FK to `Workspace.id`. One template per workspace.
+- **`slug`** — template identifier (`node-22`, `python-3.12`, `go-1.23`, `rust-1`). Maps to an image URL via the static catalog in code.
+- **`createdAt`** — when the template was applied. Distinct from workspace creation time.
+
+The worker reads `slug` during provisioning to generate and inject the `devcontainer.json`. The client joins on `workspaceId` to show the language logo and name on the workspace card.
+
+The devcontainer.json itself lives on the VM filesystem and is tracked in git by the user — it is not stored in the database. The `WorkspaceTemplate` row records the initial template selection, not the current state of the devcontainer config (which the user may have modified).
+
+The template catalog (slug → image URL, name, description, logo) is a static data structure in server code — not a database table. Adding or updating templates is a code change, not a data migration.
+
+**What stays out of the database:**
+
+- No `templates` table — the catalog is static, not user-created content
+- No `containerStatus` field — whether the devcontainer is running is derived at runtime from the VM
+- No image URL — derived from the slug via the catalog; bumping `node-22` to a newer image benefits all workspaces
 
 ## Alternatives Considered
 
@@ -501,13 +529,17 @@ Use Docker (dockerd) inside the VM.
 
 - [ ] Should Rockpool auto-inject a code-server Feature into every devcontainer, or install it at runtime? Auto-injection via `--override-config` would be cleaner but requires building or hosting a custom Feature.
 - [ ] What is the UX for "devcontainer build failed"? The error message from `devcontainer up` needs to be surfaced to the user, either in the loading page or in the workspace error state.
-- [ ] Should the workspace creation API accept a git repository URL to clone before running devcontainer up? Currently, workspace creation only takes a name and image. Cloning a repo is a natural next step but orthogonal to devcontainer support.
+- [x] ~~Should the workspace creation API accept a git repository URL to clone before running devcontainer up?~~ **Resolved by EDD-018.** Repository cloning is implemented — `clone()` runs after `start()` and before `configure()`. Devcontainer detection happens in `configure()`, so the repo (and its `.devcontainer/devcontainer.json`) is already on disk.
 - [ ] How should container rebuilds work? If a user changes their `devcontainer.json`, they need a way to trigger a rebuild. This could be a new API endpoint or a code-server extension.
-- [ ] What is the disk space budget? Podman images, container layers, and the devcontainer CLI add to the base image size. Need to measure the actual impact on the 20 GB disk.
+- [ ] What is the disk space budget? Podman images, container layers, and the devcontainer CLI add to the base image size. Need to measure the actual impact on disk (Tart images use dynamic sizing; Firecracker rootfs is 40GB sparse per EDD-019).
 
 ## Implementation Plan
 
-### Phase 1: Base Image (Podman + devcontainer CLI)
+### Stage 1: Core Devcontainer Support
+
+Build the devcontainer machinery and validate it end-to-end using template injection for new workspaces.
+
+#### Phase 1: Base Image (Podman + devcontainer CLI)
 
 1. Add Podman, Buildah, slirp4netns, fuse-overlayfs to `images/scripts/setup.sh`
 2. Install `@devcontainers/cli` globally via npm in `setup.sh`
@@ -515,7 +547,7 @@ Use Docker (dockerd) inside the VM.
 4. Rebuild base image with `packer build`
 5. Verify: `ssh admin@VM podman info` works, `devcontainer --version` works
 
-### Phase 2: Two-Path `configure()`
+#### Phase 2: Two-Path `configure()`
 
 1. Add devcontainer detection to `configure()` in `packages/runtime/src/tart-runtime.ts`
 2. Implement `configureWithDevcontainer()` using SSH + devcontainer CLI
@@ -524,7 +556,38 @@ Use Docker (dockerd) inside the VM.
 5. Increase SQS visibility timeout in `elasticmq.conf`
 6. Verify: create workspace with a repo containing `.devcontainer/devcontainer.json`, code-server loads inside container
 
-### Phase 3: Persistence and Polish
+#### Phase 3: Template Selection UI
+
+Add a workspace environment selection step to the create flow. This is the primary way to validate the devcontainer pipeline — users pick an environment for a new workspace, and the system injects a `devcontainer.json` before `configure()` runs.
+
+**Template catalog:**
+
+| Template | Slug | Image | Description |
+|---|---|---|---|
+| Node.js | `node-22` | `mcr.microsoft.com/devcontainers/javascript-node:22` | Web apps, APIs, full stack dev. Node 22 · npm · yarn · pnpm |
+| Python | `python-3.12` | `mcr.microsoft.com/devcontainers/python:3.12` | Scripts, APIs, data science, ML/AI. Python 3.12 · pip · venv |
+| Go | `go-1.23` | `mcr.microsoft.com/devcontainers/go:1.23` | Cloud native, CLI tools, microservices. Go 1.23 · modules |
+| Rust | `rust-1` | `mcr.microsoft.com/devcontainers/rust:1` | Systems, WASM, performance. Rust stable · cargo |
+| Custom | `none` | — | Empty VM, bring your own setup. Debian · git · curl · make |
+
+Images are pulled dynamically by Podman inside the VM on first `devcontainer up`. Nothing is baked into the base image. First build is slower; subsequent starts use the cached image.
+
+**Custom** is today's behavior — no devcontainer, code-server on the VM host. It is the escape hatch and backward-compatible default.
+
+**UI:** Card-based selection with logos, names, and descriptions — not a dropdown. Each card shows the language logo, a short tagline (what it's for), and a detail line (what's included). This is a dedicated step in the workspace creation flow.
+
+**Implementation:**
+
+1. Add template catalog as a static data structure on the server (array of `{ slug, name, description, image, logo }`)
+2. Add `GET /api/templates` endpoint to serve the catalog to the client
+3. Add `template` field to the workspace creation API (`POST /api/workspaces`)
+4. Add template selection step to the client create-workspace flow (card grid)
+5. In the worker, resolve `template` slug to a `devcontainer.json` and write it to `/home/admin/workspace/.devcontainer/devcontainer.json` via SSH before calling `configure()`
+6. `configure()` detects the injected file and takes the devcontainer path
+
+**Why this is Deliverable 1:** Template injection exercises the full devcontainer pipeline (image pull, container build, code-server inside container, Caddy routing) without requiring repo cloning or detection logic. It is the simplest way to validate end-to-end.
+
+#### Phase 4: Persistence and Polish
 
 1. Add Podman named volume for code-server data (extensions, settings)
 2. Add `--override-config` for host networking
@@ -532,12 +595,53 @@ Use Docker (dockerd) inside the VM.
 4. Test devcontainer rebuild: change `devcontainer.json`, reprovision
 5. Surface devcontainer build errors in workspace error state
 
-### Phase 4: code-server Feature (Optional)
+#### Phase 5: code-server Feature (Optional)
 
 1. Create a Dev Container Feature that installs code-server
 2. Publish to a container registry (OCI artifact)
 3. Auto-inject the feature via `--override-config` in `configureWithDevcontainer()`
 4. Eliminate the runtime `curl | sh` install step
+
+### Stage 2: Repo-Aware Devcontainer Detection
+
+Once Stage 1 is validated, add detection of existing `devcontainer.json` files in repositories. This makes the template selection step conditional — it is only shown when the repo does not already provide its own configuration.
+
+#### Phase 6: Pre-Clone Devcontainer Detection
+
+Before cloning a repo, check whether it already contains a `.devcontainer/devcontainer.json`. If it does, skip the template selection step and use the repo's config directly. If it doesn't, show the template selection cards so the user can pick an environment.
+
+**Detection strategies (in preference order):**
+
+1. **GitHub API** — `GET /repos/{owner}/{repo}/contents/.devcontainer/devcontainer.json` returns 200 if the file exists. Fast, no clone needed. Works for public repos and private repos with a token.
+2. **GitLab / Gitea API** — equivalent repository file endpoints. Same approach, different API shape.
+3. **Fallback: detect after clone** — if the git host is unknown or the API call fails, clone first, then check the filesystem. The template selection step is deferred until after clone completes, or the system defaults to detecting in `configure()` as today.
+
+**Workspace creation flow with detection:**
+
+```
+User enters git URL
+  |
+  +-- API can detect host? (GitHub, GitLab, etc.)
+  |     |
+  |     +-- Has .devcontainer/devcontainer.json?
+  |     |     → Skip template selection, show "This repo has a devcontainer config"
+  |     |
+  |     +-- No devcontainer.json
+  |           → Show template selection step (Node, Python, Go, Rust, Custom)
+  |
+  +-- Unknown host / detection fails
+        → Show template selection step (user picks, or Custom to skip)
+```
+
+**Implementation:**
+
+1. Add a `detectDevcontainer(gitUrl: string)` function that parses the URL, identifies the host, and calls the appropriate API
+2. Wire detection into the create-workspace UI flow: after the user enters a git URL, call detection before showing the next step
+3. If detected, skip the template step and show confirmation ("This repo includes a Node.js devcontainer")
+4. If not detected, show the template cards — the user's selection is injected into the cloned repo
+5. Store the detection result with the workspace for display in the UI
+
+**Why this is Deliverable 2:** Detection adds conditional UI logic and external API calls. It builds on a working devcontainer pipeline (Stage 1) and refines the UX. Keeping it separate means Stage 1 can ship and be validated independently.
 
 ## Testing Strategy
 
@@ -549,75 +653,33 @@ Use Docker (dockerd) inside the VM.
 - Create workspace with Features (e.g. Python, Go): verify tools available in code-server terminal
 - Stop and start workspace: verify container restarts, extensions preserved
 - Register a port inside the container: verify Caddy routes traffic correctly
+- Create blank workspace with template selection: verify devcontainer.json injected and container built
+- Create workspace from repo with existing devcontainer.json: verify template step is skipped
+- Create workspace from repo without devcontainer.json: verify template step is shown
 
 ### Unit Tests
 
 - `configure()` detection logic: mock SSH to return yes/no for devcontainer check
 - `configureWithDevcontainer()`: mock SSH commands, verify correct devcontainer CLI invocations
 - `configureWithoutDevcontainer()`: verify identical to current behavior
+- `detectDevcontainer()`: mock GitHub API responses for repos with/without devcontainer.json
+- Template resolution: slug maps to correct devcontainer.json content
 
 ### Integration Tests (E2E)
 
 - Full provisioning flow with a test repo containing `.devcontainer/devcontainer.json`
+- Full provisioning flow with template injection (no repo)
 - Health check passes after devcontainer build
 - code-server accessible via Caddy route
 - Terminal session inside code-server shows container filesystem
 
-## Appendix: Global User Settings (Future)
+## Appendix: User Preferences and Devcontainers
 
-This appendix captures ideas for per-user IDE settings that persist across workspaces. This is out of scope for the devcontainer work but builds on the same infrastructure.
+User preferences sync is implemented in [EDD-020](020_User_Preferences_Sync.md) using DB-backed blobs pushed into VMs via SSH on workspace start.
 
-### Problem
+When a workspace uses a devcontainer, code-server runs inside the container — not on the VM host. EDD-020's `writeFile` currently writes to the VM host filesystem. For devcontainer workspaces, preferences need to land inside the container instead. Two options:
 
-Users want their IDE preferences (theme, keybindings, font size, default extensions) to follow them across workspaces. The devcontainer spec handles per-project customization (`customizations.vscode.settings`), but not per-user preferences.
+1. Use `devcontainer exec` to write files into the running container
+2. Bind-mount the code-server config directory from the VM host into the container, so `writeFile` to the host path is visible inside the container
 
-### VS Code Settings Sync Is Not Viable
-
-code-server does not support VS Code's native Settings Sync ([open since 2020, still backlog](https://github.com/coder/code-server/issues/2195)). The sync protocol is internal to Microsoft and has no public service provider API. Gitpod solved this by [forking OpenVSCode Server](https://github.com/gitpod-io/openvscode-server/pull/337) and patching the sync service URL -- significant maintenance burden.
-
-### Proposed Approach: Shared Host Directory via Tart `--dir`
-
-Tart supports `--dir` to mount a host directory into the VM via virtiofs. Mount a per-user settings directory from the host into every workspace VM:
-
-```
-Host:  ~/.rockpool/users/{userId}/vscode-settings/
-  ├── settings.json
-  ├── keybindings.json
-  └── snippets/
-
-VM:    /mnt/rockpool-settings/   (virtiofs mount via tart --dir)
-```
-
-During `configure()`, symlink the mounted files into code-server's config path:
-
-```bash
-ln -sf /mnt/rockpool-settings/settings.json ~/.local/share/code-server/User/settings.json
-ln -sf /mnt/rockpool-settings/keybindings.json ~/.local/share/code-server/User/keybindings.json
-```
-
-**Why this works:**
-
-- **No sync protocol.** All workspaces for the same user mount the same host directory. A settings change in one workspace is immediately visible in the next workspace that reads the file.
-- **No API endpoints.** No watcher, no push/pull, no concurrency. It's a shared filesystem.
-- **Boot-time injection is free.** `configure()` just creates symlinks; the files are already there via the mount.
-- **code-server watches its own settings file.** Changes made in one workspace may be picked up by already-running workspaces (VS Code reloads `settings.json` on external modification).
-
-**Scope of the mount:**
-
-The mounted directory contains only settings files -- not the user's home directory, not Rockpool internals. The VM can only see what Rockpool puts in that directory. A workspace cannot access other users' settings or escape the mount.
-
-**Security consideration:** a malicious workspace could write arbitrary content to the shared mount, which other workspaces would read. Threat model is low (same user's workspaces, not multi-tenant), but worth noting. Validation of JSON before symlinking is a possible mitigation.
-
-### Alternative Considered: Push-on-Change via inotify
-
-Watch settings files inside the VM with `inotifywait`, push changes back to a Rockpool API on every save. Rejected because the VM cannot reach the control plane (NAT network, no known API address). Reversing the direction (Rockpool polls the VM via SSH) adds latency and complexity. The shared mount approach avoids the network problem entirely.
-
-### Alternative Considered: Sync on Stop
-
-Capture settings when a workspace stops, store in Rockpool's DB, inject on next workspace boot. Rejected due to concurrency: if workspace A stops after workspace B, A's stale settings overwrite B's newer ones. Resolving this requires timestamps or conflict resolution -- unnecessary complexity when the shared mount gives real-time consistency for free.
-
-### Prerequisites
-
-- Tart `--dir` mount support (needs verification for Linux guest VMs)
-- User identity model in Rockpool (currently single-user; multi-user would need per-user mount paths)
-- Changes to `TartRuntime.start()` to pass `--dir` flag
+Option 2 is simpler and aligns with the existing Podman named volume approach in Phase 3. The `--mount` flag in `devcontainer up` already handles this pattern.
