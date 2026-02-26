@@ -83,7 +83,18 @@ export function createSettingsRouter(deps: SettingsRouterDeps): Router {
 				return;
 			}
 
-			const content = await runtime.readFile(workspace.name, workspace.vmIp, filePath);
+			let content: string;
+			try {
+				content = await runtime.readFile(workspace.name, workspace.vmIp, filePath);
+			} catch {
+				res.status(404).json({
+					error: {
+						code: "not_found",
+						message: `File "${filePath}" not found in workspace`,
+					},
+				});
+				return;
+			}
 			const blob = await upsertUserPrefsBlob(db, { name, blob: content });
 			res.json(blob);
 		} catch (err) {

@@ -3,7 +3,7 @@
 | Field   | Value                                                                                              |
 | ------- | -------------------------------------------------------------------------------------------------- |
 | Author  | mvhenten                                                                                           |
-| Status  | Draft                                                                                              |
+| Status  | Implemented                                                                                        |
 | Created | 2026-02-26                                                                                         |
 | Updated | 2026-02-26                                                                                         |
 | Related | [EDD-005](005_Workspace_Image_Pipeline.md), [EDD-018](018_Repository_Cloning.md), [ADR-017](../ADR/017-code-server-web-ide.md) |
@@ -278,67 +278,47 @@ Auto-sync failures (on stop and on start) are non-fatal. Preferences are a conve
 
 ## Implementation Steps
 
-### Step 1: TypeSpec model and enum
+### Step 1: TypeSpec model and enum ✅
 
-Add `UserPrefsFileName` enum, `UserPrefsBlob` model, and `autoSyncPrefs` to `Workspace` in `typespec/main.tsp`. Add the settings API interface. Run `make all` to regenerate build packages.
+Added `UserPrefsFileName` enum, `UserPrefsBlob` model, and `autoSyncPrefs` to `Workspace` in `typespec/main.tsp`. Added the settings API interface. Ran `make all` to regenerate build packages.
 
-```
-typespec/main.tsp
-```
+### Step 2: DB migration and queries ✅
 
-### Step 2: DB migration and queries
+Added the `user_prefs_blob` table with queries: `getAllUserPrefsBlobs`, `getUserPrefsBlob`, `upsertUserPrefsBlob`.
 
-Add the `user_prefs_blob` table. Add queries: `getAllUserPrefsBlobs`, `getUserPrefsBlob`, `upsertUserPrefsBlob`, `conditionalUpsertPrefsBlob`.
+Note: `conditionalUpsertPrefsBlob` (timestamp-guarded upsert for auto-sync) deferred until auto-sync on stop is implemented.
 
-```
-packages/db/src/schema.ts
-packages/db/src/queries.ts
-```
+### Step 3: Prefs file path mapping ✅
 
-### Step 3: Prefs file path mapping
+Added `PREFS_FILE_PATHS` constant, `readFile`/`writeFile` to `RuntimeRepository` interface, implemented in tart-runtime via `sshExec`. Stub-runtime omits them (optional methods).
 
-Add the `PREFS_FILE_PATHS` constant mapping enum values to filesystem paths. Add `readFile` and `writeFile` to the runtime interface and implement in tart-runtime.
+### Step 4: Push prefs on workspace start ✅
 
-```
-packages/runtime/src/prefs.ts          -- PREFS_FILE_PATHS constant
-packages/runtime/src/types.ts          -- add readFile/writeFile to interface
-packages/runtime/src/tart-runtime.ts   -- implement via sshExec
-packages/runtime/src/stub-runtime.ts   -- no-op stubs
-```
+`provisionAndStart` reads all stored blobs from DB and writes them into the VM after configure completes, before the workspace is marked running.
 
-### Step 4: Push prefs on workspace start
+### Step 5: Pull prefs on workspace stop — deferred
 
-Extend `provisionAndStart` to read all stored blobs from DB and write them into the VM after configure completes.
+Auto-sync on stop is designed but not yet implemented. Manual save via the API and frontend UI covers the primary use case.
 
-```
-packages/workspace-service/src/workspace-service.ts
-```
+### Step 6: Settings API routes ✅
 
-### Step 5: Pull prefs on workspace stop
+Server routes for listing, getting, and manually saving preference blobs. The PUT handler catches SSH failures when files don't exist on the VM (code-server doesn't create `settings.json` or `keybindings.json` until the user first modifies a setting) and returns 404.
 
-Extend `teardown("stop")` to read allowlisted files from the VM and conditionally upsert into DB when `autoSyncPrefs` is enabled.
+### Step 7: Frontend preferences UI ✅
 
-```
-packages/workspace-service/src/workspace-service.ts
-```
+Added a `PrefsPanel` component to the workspace detail page (visible when workspace is running):
+- Table of all 3 preference types with "Last saved" timestamps
+- "Save all" button saves in parallel via `Promise.allSettled`, silently skips 404s for files that don't exist yet on the VM, reports count of successful saves
+- Individual per-preference save buttons
 
-### Step 6: Settings API routes
+### Step 8: E2E tests ✅
 
-Add server routes for listing, getting, and manually saving preference blobs.
-
-```
-packages/server/src/routes/settings.ts
-packages/server/src/app.ts             -- register routes
-```
-
-### Step 7: Tests
-
-Unit tests for the runtime `readFile`/`writeFile` SSH commands. Workspace-service tests for push-on-start and pull-on-stop behavior (using mock runtime). API route tests for validation and the manual save flow.
-
-```
-packages/runtime/test/tart-runtime.test.ts
-packages/workspace-service/test/workspace-service.test.ts
-```
+Added `e2e/tests/06-preferences-save.spec.ts` (5 tests, skips on CI profile):
+- Settings list API returns empty array initially
+- Settings save returns 404 for files not yet created on VM
+- Preferences panel renders in workspace detail
+- Timestamps show "Never" before any save
+- Save all silently skips missing files
 
 ## File Changes
 
@@ -373,7 +353,7 @@ packages/workspace-service/test/workspace-service.test.ts -- sync behavior tests
 
 **Extension sync** is out of scope. Extensions are large (megabytes each) and don't fit the blob model. A future mechanism could sync an extension list and run `code-server --install-extension` on start, but that's a separate feature.
 
-**Preference management UI** is deferred. The API is sufficient for v1. The IDE itself is the UI — users change settings in code-server's settings editor. A Rockpool UI page for viewing sync status and manual save/restore can be added later.
+**Preference management UI** is implemented. A PrefsPanel component on the workspace detail page shows each syncable file with its last-saved timestamp and per-file or bulk "Save all" actions.
 
 **Workspace-specific settings** are not a concern. code-server already separates User settings (global, what we sync) from Workspace settings (`.vscode/settings.json` in the project directory, travels with the git clone). We only sync User-level files.
 
