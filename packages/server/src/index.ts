@@ -11,7 +11,7 @@ import { WorkspaceStatus as WS } from "@rockpool/enums";
 import type { QueueRepository } from "@rockpool/queue";
 import { createSqsQueue } from "@rockpool/queue";
 import type { RuntimeRepository } from "@rockpool/runtime";
-import { createStubRuntime, createTartRuntime } from "@rockpool/runtime";
+import { createStubRuntime, createTartRuntime, createFirecrackerRuntime } from "@rockpool/runtime";
 import pino from "pino";
 import { createApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
@@ -31,7 +31,29 @@ if (!useStubs && !hasBasicAuth && !hasOAuth) {
 		"Authentication required: set GITHUB_OAUTH_CLIENT_ID + GITHUB_OAUTH_CLIENT_SECRET, or CADDY_USERNAME + CADDY_PASSWORD",
 	);
 }
-const useStubVm = process.env.RUNTIME !== "tart";
+function createRuntimeFromConfig(): RuntimeRepository {
+	const runtimeEnv = process.env.RUNTIME;
+
+	if (runtimeEnv === "stub" || process.env.NODE_ENV === "test") {
+		return createStubRuntime();
+	}
+
+	if (runtimeEnv === "firecracker" || (!runtimeEnv && config.platform === "linux")) {
+		return createFirecrackerRuntime({
+			sshKeyPath: config.sshKeyPath,
+			basePath: config.firecrackerBasePath,
+		});
+	}
+
+	if (runtimeEnv === "tart" || (!runtimeEnv && config.platform === "darwin")) {
+		return createTartRuntime({ sshKeyPath: config.sshKeyPath });
+	}
+
+	return createStubRuntime();
+}
+
+const runtime = createRuntimeFromConfig();
+const useStubVm = process.env.RUNTIME === "stub" || process.env.NODE_ENV === "test";
 
 const db = createDb(config.dbPath);
 
@@ -53,9 +75,6 @@ const authMode = resolveAuthMode();
 const caddy = useStubs
 	? createStubCaddy()
 	: createCaddyClient({ adminUrl: config.caddyAdminUrl, authMode });
-const runtime = useStubVm
-	? createStubRuntime()
-	: createTartRuntime({ sshKeyPath: config.sshKeyPath });
 
 const healthCheck = useStubVm ? async () => {} : undefined;
 const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger, healthCheck });
