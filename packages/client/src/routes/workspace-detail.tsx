@@ -3,6 +3,7 @@ import { ChevronRight, ExternalLink, Play, Square, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ConfirmPanel } from "@/components/confirm-panel";
 import { PortsPanel } from "@/components/ports-panel";
+import { PrefsPanel } from "@/components/prefs-panel";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useNotify } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
@@ -200,6 +201,8 @@ export function WorkspaceDetailPage() {
 
 				<PortsPanel workspaceId={workspace.id} workspaceName={workspace.name} />
 			</div>
+
+			{isRunning && <PrefsPanel workspaceId={workspace.id} />}
 		</div>
 	);
 }
