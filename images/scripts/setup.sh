@@ -11,6 +11,16 @@ else
   SUDO=""
 fi
 
+run_as_user() {
+  local user="$1"
+  shift
+  if [ "$(id -u)" -ne 0 ]; then
+    sudo -u "$user" "$@"
+  else
+    su - "$user" -c "$*"
+  fi
+}
+
 CS_USER="admin"
 
 $SUDO apt-get update -qq
@@ -43,12 +53,9 @@ $SUDO apt-get install -y -qq \
   rsync \
   strace
 
-$SUDO systemctl enable ssh
-$SUDO systemctl start ssh || true
-
-$SUDO -u "${CS_USER}" bash -c 'curl -fsSL https://fnm.vercel.app/install | bash'
+run_as_user "${CS_USER}" 'curl -fsSL https://fnm.vercel.app/install | bash'
 # shellcheck disable=SC2016
-$SUDO -u "${CS_USER}" bash -c 'export PATH="/home/admin/.local/share/fnm:$PATH" && eval "$(fnm env)" && fnm install --lts'
+run_as_user "${CS_USER}" 'export PATH="/home/admin/.local/share/fnm:$PATH" && eval "$(fnm env)" && fnm install --lts'
 
 $SUDO mkdir -p "/home/${CS_USER}/workspace"
 $SUDO chown -R "${CS_USER}:${CS_USER}" "/home/${CS_USER}"
@@ -68,8 +75,12 @@ EOF
 
 $SUDO chown -R "${CS_USER}:${CS_USER}" "/home/${CS_USER}/.config"
 
-$SUDO systemctl enable "code-server@${CS_USER}"
-$SUDO systemctl start "code-server@${CS_USER}" || true
+if pidof systemd >/dev/null 2>&1; then
+  $SUDO systemctl enable "code-server@${CS_USER}"
+  $SUDO systemctl start "code-server@${CS_USER}" || true
+else
+  $SUDO ln -sf /lib/systemd/system/code-server@.service "/etc/systemd/system/multi-user.target.wants/code-server@${CS_USER}.service" 2>/dev/null || true
+fi
 
 SSH_DIR="/home/${CS_USER}/.ssh"
 $SUDO mkdir -p "${SSH_DIR}"

@@ -1,3 +1,5 @@
+const isCi = process.env.E2E_PROFILE === "ci";
+
 module.exports = {
 	apps: [
 		{
@@ -35,6 +37,7 @@ module.exports = {
 			script: "packages/worker/src/main.ts",
 			interpreter: "node",
 			interpreter_args: "--experimental-strip-types --env-file=test.env",
+			env: isCi ? { RUNTIME: "stub" } : {},
 			autorestart: true,
 			max_restarts: 10,
 			restart_delay: 2000,

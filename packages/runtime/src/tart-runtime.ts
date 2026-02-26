@@ -1,5 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
+import { createSshCommands } from "./ssh-commands.ts";
 import type { RuntimeRepository, VmStatus } from "./types.ts";
 
 const execFileAsync = promisify(execFile);
@@ -64,6 +65,17 @@ export function createTartRuntime(options: TartRuntimeOptions = {}): RuntimeRepo
 	const sshKeyPath = options.sshKeyPath;
 	const sshUser = options.sshUser ?? "admin";
 
+	const ssh = sshKeyPath
+		? createSshCommands({ sshKeyPath, sshUser, exec, pollIntervalMs, pollMaxAttempts })
+		: undefined;
+
+	function requireSsh() {
+		if (!ssh) {
+			throw new Error("Tart: sshKeyPath is required for configure");
+		}
+		return ssh;
+	}
+
 	function tart(args: string[]): Promise<string> {
 		return exec("tart", args);
 	}
@@ -88,24 +100,6 @@ export function createTartRuntime(options: TartRuntimeOptions = {}): RuntimeRepo
 			await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
 		}
 		throw new Error(`Tart: timed out waiting for IP of VM "${name}"`);
-	}
-
-	function sshExec(vmIp: string, cmd: string): Promise<string> {
-		if (!sshKeyPath) {
-			throw new Error("Tart: sshKeyPath is required for configure");
-		}
-		return exec("ssh", [
-			"-i",
-			sshKeyPath,
-			"-o",
-			"StrictHostKeyChecking=no",
-			"-o",
-			"UserKnownHostsFile=/dev/null",
-			"-o",
-			"ConnectTimeout=5",
-			`${sshUser}@${vmIp}`,
-			cmd,
-		]);
 	}
 
 	return {
@@ -133,87 +127,20 @@ export function createTartRuntime(options: TartRuntimeOptions = {}): RuntimeRepo
 
 		getIp: getIpForVm,
 
-		async clone(_name: string, vmIp: string, repository: string, token?: string): Promise<void> {
-			for (let attempt = 0; attempt < pollMaxAttempts; attempt++) {
-				const ready = await sshExec(vmIp, "true")
-					.then(() => true)
-					.catch(() => false);
-				if (ready) break;
-				if (attempt === pollMaxAttempts - 1) {
-					throw new Error(`Tart: timed out waiting for SSH on VM (${vmIp}) for clone`);
-				}
-				await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-			}
-
-			if (token) {
-				const helperScript = [
-					"#!/bin/sh",
-					'echo "protocol=https"',
-					'echo "host=github.com"',
-					'echo "username=x-access-token"',
-					`echo "password=${token}"`,
-				].join("\n");
-
-				await sshExec(
-					vmIp,
-					`mkdir -p /home/${sshUser}/.rockpool && printf '%s\\n' '${helperScript}' > /home/${sshUser}/.rockpool/git-credential-helper && chmod +x /home/${sshUser}/.rockpool/git-credential-helper`,
-				);
-				await sshExec(
-					vmIp,
-					`git config --global credential.helper '/home/${sshUser}/.rockpool/git-credential-helper'`,
-				);
-			}
-
-			const repoName = repository.split("/")[1];
-			await sshExec(
-				vmIp,
-				`git clone --depth 1 --single-branch https://github.com/${repository}.git /home/${sshUser}/${repoName}`,
-			);
+		async clone(name: string, vmIp: string, repository: string, token?: string): Promise<void> {
+			return requireSsh().clone(name, vmIp, repository, token);
 		},
 
-		async readFile(_name: string, vmIp: string, filePath: string): Promise<string> {
-			return sshExec(vmIp, `cat /home/${sshUser}/${filePath}`);
+		async readFile(name: string, vmIp: string, filePath: string): Promise<string> {
+			return requireSsh().readFile(name, vmIp, filePath);
 		},
 
-		async writeFile(_name: string, vmIp: string, filePath: string, content: string): Promise<void> {
-			const dir = filePath.substring(0, filePath.lastIndexOf("/"));
-			const escaped = content.replace(/'/g, "'\\''");
-			const mkdirCmd = dir ? `mkdir -p /home/${sshUser}/${dir} && ` : "";
-			await sshExec(vmIp, `${mkdirCmd}printf '%s' '${escaped}' > /home/${sshUser}/${filePath}`);
+		async writeFile(name: string, vmIp: string, filePath: string, content: string): Promise<void> {
+			return requireSsh().writeFile(name, vmIp, filePath, content);
 		},
 
 		async configure(name: string, env: Record<string, string>): Promise<void> {
-			const workspaceName = env.ROCKPOOL_WORKSPACE_NAME;
-			if (!workspaceName) {
-				return;
-			}
-
-			const vmIp = await getIpForVm(name);
-			const folder = env.ROCKPOOL_FOLDER;
-
-			const yamlContent = [
-				"bind-addr: 0.0.0.0:8080",
-				"auth: none",
-				"cert: false",
-				`abs-proxy-base-path: /workspace/${workspaceName}`,
-			].join("\n");
-
-			const folderOverride = folder
-				? ` && sudo mkdir -p /etc/systemd/system/code-server@admin.service.d && printf '[Service]\\nExecStart=\\nExecStart=/usr/bin/code-server --bind-addr 0.0.0.0:8080 ${folder}\\n' | sudo tee /etc/systemd/system/code-server@admin.service.d/folder.conf > /dev/null && sudo systemctl daemon-reload`
-				: "";
-
-			const cmd = `printf '%s\\n' '${yamlContent}' > /home/${sshUser}/.config/code-server/config.yaml${folderOverride} && sudo systemctl restart code-server@admin`;
-
-			for (let attempt = 0; attempt < pollMaxAttempts; attempt++) {
-				const ok = await sshExec(vmIp, cmd)
-					.then(() => true)
-					.catch(() => false);
-				if (ok) {
-					return;
-				}
-				await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-			}
-			throw new Error(`Tart: timed out waiting for SSH on VM "${name}" (${vmIp})`);
+			return requireSsh().configure(name, getIpForVm, env);
 		},
 	};
 }
