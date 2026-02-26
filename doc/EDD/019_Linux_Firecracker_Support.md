@@ -271,7 +271,7 @@ The build script lives at `images/scripts/build-firecracker-rootfs.sh`:
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOTFS_SIZE_MB=20480
+ROOTFS_SIZE_MB=40960
 ROOTFS_PATH=".firecracker/base/rockpool-workspace.ext4"
 SETUP_SCRIPT="images/scripts/setup.sh"
 
@@ -916,11 +916,88 @@ npm run dev
 
 ## Open Questions
 
-- [ ] **Kernel version pinning.** Should we pin to a specific Firecracker release's kernel, or build a custom kernel? The prebuilt kernel is convenient but may lack drivers needed for specific workloads. Start with prebuilt, build custom if needed.
-- [ ] **Rootfs size.** 20GB sparse file means the actual disk usage grows as the workspace fills. Should we set a smaller default and let users expand, or is 20GB the right default?
-- [ ] **Copy-on-write rootfs.** `cp --reflink=auto` would save disk space on btrfs/XFS. Should we detect filesystem support and use it automatically? Or defer to later?
-- [ ] **Memory balloon.** Firecracker supports memory ballooning for overcommit. Should we enable it so idle workspaces release memory back to the host?
-- [ ] **Snapshot/restore.** Firecracker supports pausing and snapshotting VMs. This could replace stop/start for much faster resume (~5ms vs ~3-5s). Worth pursuing as a future optimization.
-- [ ] **aarch64 support.** Firecracker supports both x86_64 and aarch64. The rootfs and kernel need to match the host architecture. The build scripts should detect `uname -m` and fetch the correct artifacts. For now, assume x86_64 as the primary Linux target.
-- [ ] **CI testing.** GitHub Actions runners don't have KVM. Integration tests on Linux need a self-hosted runner or a nested VM setup. How to handle this in CI?
-- [ ] **Multiple base images.** Currently there is one base image (`rockpool-workspace`). The `image` parameter in `create(name, image)` maps to an OCI image name for Tart. For Firecracker, it maps to an ext4 file in `.firecracker/base/{image}.ext4`. Do we need to support multiple base images from the start, or is one sufficient?
+- [x] **Kernel version pinning.** ~~Should we pin to a specific Firecracker release's kernel, or build a custom kernel? The prebuilt kernel is convenient but may lack drivers needed for specific workloads. Start with prebuilt, build custom if needed.~~ **Resolved: use prebuilt kernel.** The Firecracker release kernel is battle-tested (AWS Lambda), includes all necessary drivers (virtio, ext4, networking), and avoids maintaining a custom kernel config + cross-compilation for aarch64. Go custom only if we hit a missing driver (e.g., FUSE, OverlayFS, cgroup v2).
+- [x] **Rootfs size.** ~~20GB sparse file means the actual disk usage grows as the workspace fills. Should we set a smaller default and let users expand, or is 20GB the right default?~~ **Resolved: 40GB sparse.** 20GB is too tight for dev workflows — a single `node_modules` can be 1-2GB, plus the base OS (~2-3GB), language runtimes, and user data. 40GB sparse costs nothing upfront (only actual written data consumes disk).
+- [x] **Copy-on-write rootfs.** ~~`cp --reflink=auto` would save disk space on btrfs/XFS. Should we detect filesystem support and use it automatically? Or defer to later?~~ **Resolved: use `cp --reflink=auto` from day one.** Zero cost on unsupported filesystems (silently falls back to regular copy), instant on btrfs/XFS. No detection logic needed.
+- [x] **Memory balloon.** ~~Firecracker supports memory ballooning for overcommit. Should we enable it so idle workspaces release memory back to the host?~~ **Resolved: yes, enable ballooning.** Allows idle workspaces to release memory back to the host, improving density on multi-workspace hosts.
+- [x] **Snapshot/restore.** ~~Firecracker supports pausing and snapshotting VMs. This could replace stop/start for much faster resume (~5ms vs ~3-5s). Worth pursuing as a future optimization.~~ **Resolved: not now.** Cold boot (~3-5s) is fine. Snapshots add complexity (version-pinned, full memory dumps, guest clock skew on restore) for marginal gain. KISS — revisit only if boot time becomes a real problem.
+- [x] **aarch64 support.** ~~Firecracker supports both x86_64 and aarch64. The rootfs and kernel need to match the host architecture. The build scripts should detect `uname -m` and fetch the correct artifacts. For now, assume x86_64 as the primary Linux target.~~ **Resolved: aarch64 is the primary target.** See Addendum A below — development and testing happen on Apple Silicon via nested virtualization, so aarch64 Firecracker is the first-class path. Build scripts must detect `uname -m` from day one.
+- [x] **CI testing.** ~~GitHub Actions runners don't have KVM. Integration tests on Linux need a self-hosted runner or a nested VM setup. How to handle this in CI?~~ **Partially resolved.** See Addendum A — Firecracker integration tests can run locally inside a Tart Linux VM with `--nested` on M3+/Sequoia. CI remains an open question (GitHub Actions lacks KVM), but local testing is unblocked.
+- [x] **Multiple base images.** ~~Currently there is one base image (`rockpool-workspace`). The `image` parameter in `create(name, image)` maps to an OCI image name for Tart. For Firecracker, it maps to an ext4 file in `.firecracker/base/{image}.ext4`. Do we need to support multiple base images from the start, or is one sufficient?~~ **Resolved: start with one, design for more.** The `create(name, image)` interface already accepts an image name; Firecracker maps it to `.firecracker/base/{image}.ext4`. One base image for now, additional images added later without interface changes.
+
+---
+
+## Addendum A: Nested Virtualization on macOS (2026-02-26)
+
+### Discovery
+
+Apple's Virtualization.framework (used by Tart) supports nested virtualization on M3+ chips running macOS 15 (Sequoia). When Tart runs an ARM64 Linux VM with the `--nested` flag, the guest gets access to `/dev/kvm` via ARM VHE (Virtualization Host Extensions). This is real hardware-assisted virtualization, not emulation.
+
+This means Firecracker can run inside a Tart Linux VM on macOS, giving us a complete development and testing loop without a separate Linux host:
+
+```
+macOS (M4, Sequoia)
+  → Tart --nested (Virtualization.framework, hardware virt)
+    → ARM64 Linux VM with /dev/kvm
+      → Firecracker (aarch64)
+        → workspace microVMs
+```
+
+### Requirements
+
+| Requirement | Value |
+| --- | --- |
+| Chip | Apple M3 or M4 (not M1/M2) |
+| macOS | 15 (Sequoia) or later |
+| Guest OS | Linux only (macOS guests do not support nested virt) |
+| Tart flag | `tart run --nested <vm-name>` |
+
+### Reliability Caveat
+
+The feature is documented by both Tart and Apple but has been reported as inconsistent across different Linux kernel versions and configurations. Some users report `/dev/kvm` not appearing even with `--nested` enabled. Success depends on the guest kernel version (newer is better). A spike is needed to verify on our specific setup before building infrastructure around it.
+
+### Impact on EDD-019
+
+1. **aarch64 is the primary architecture.** The original EDD assumed x86_64 as the primary Linux target. Since development happens on Apple Silicon and the nested virt path is aarch64, Firecracker aarch64 becomes first-class. Build scripts (`firecracker-setup.sh`, `build-firecracker-rootfs.sh`) must detect `uname -m` and fetch the correct kernel/binary from day one.
+
+2. **Local integration testing is possible.** The original plan required a separate Linux host for Firecracker integration tests. With Tart `--nested`, developers can run the full Firecracker test suite locally. This changes the testing strategy:
+
+   | Test type | Where it runs | How |
+   | --- | --- | --- |
+   | Unit tests (mocked exec/spawn) | macOS, directly | `npm test` as today |
+   | Firecracker integration tests | Inside Tart `--nested` Linux VM | SSH in, run tests against real `/dev/kvm` |
+   | E2E tests (stub runtime) | macOS, directly | `npm run test:e2e:ci` as today |
+   | E2E tests (Firecracker) | Inside Tart `--nested` Linux VM | Full stack inside the VM |
+
+3. **Performance budget for testing.** Nested virtualization adds ~10-20% overhead vs bare-metal KVM. Firecracker boots in ~125ms on bare metal; expect ~150-200ms nested. Guest userspace boot (~3-5s) dominates, so the nested penalty is acceptable for testing.
+
+4. **No impact on production architecture.** The nested path is for development/testing only. Production Linux hosts run Firecracker directly on bare-metal KVM with no nesting overhead.
+
+### Spike: Verify `/dev/kvm` in Tart `--nested`
+
+Before implementing, run this spike to confirm the setup works:
+
+```bash
+# 1. Run an existing Tart Linux VM with --nested
+tart run --nested <linux-vm-name>
+
+# 2. Inside the VM, verify KVM
+ls -la /dev/kvm
+# Expected: crw-rw---- 1 root kvm 10, 232 ... /dev/kvm
+
+# 3. Optionally, download and test Firecracker aarch64
+ARCH=$(uname -m)  # should be aarch64
+curl -fsSL "https://github.com/firecracker-microvm/firecracker/releases/download/v1.10.1/firecracker-v1.10.1-${ARCH}.tgz" | tar xz
+./release-v1.10.1-${ARCH}/firecracker-v1.10.1-${ARCH} --help
+```
+
+If the spike succeeds, proceed with EDD-019 implementation phases 1-6 targeting aarch64. If `/dev/kvm` does not appear reliably, fall back to a dedicated Linux host for integration testing.
+
+### Implementation Adjustments
+
+If the spike succeeds, these changes apply to the original implementation plan:
+
+- **Phase 2 (Networking):** `firecracker-setup.sh` must use `uname -m` to download the correct Firecracker binary and kernel for aarch64
+- **Phase 3 (Rootfs):** `build-firecracker-rootfs.sh` runs inside the Linux VM; `debootstrap` must target the arm64 architecture
+- **Phase 5 (Ecosystem):** Add a test helper script or npm script that boots the Tart Linux VM with `--nested` and runs the Firecracker integration tests inside it
+- **Phase 6 (E2E):** Firecracker E2E tests can run locally on macOS developer machines via the nested Tart VM
