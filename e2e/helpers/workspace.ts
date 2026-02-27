@@ -35,6 +35,16 @@ export async function deleteWorkspaceViaApi(name: string): Promise<void> {
 			headers,
 		});
 	}
+
+	const deadline = Date.now() + 30_000;
+	while (Date.now() < deadline) {
+		const checkRes = await fetch(`${apiUrl}/workspaces?limit=100`, { headers });
+		const { items: remaining } = await checkRes.json();
+		if (!remaining.find((w: { name: string }) => w.name === name)) {
+			return;
+		}
+		await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+	}
 }
 
 export async function pollUntilStatus(
