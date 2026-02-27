@@ -1,15 +1,11 @@
 import { type Browser, type BrowserContext, chromium, type Page } from "@playwright/test";
 
-const profile = process.env.E2E_PROFILE ?? "development";
+const API_BASE = process.env.API_URL ?? "http://localhost:8080/api";
+const CADDY_USERNAME = process.env.CADDY_USERNAME ?? "admin";
+const CADDY_PASSWORD = process.env.CADDY_PASSWORD ?? "admin";
 
-const API_BASE =
-	process.env.API_URL ??
-	(profile === "ci" ? "http://localhost:9080/api" : "http://localhost:8080/api");
-const CADDY_USERNAME = process.env.CADDY_USERNAME ?? (profile === "ci" ? "test" : "admin");
-const CADDY_PASSWORD = process.env.CADDY_PASSWORD ?? (profile === "ci" ? "test" : "admin");
-
-export function isCiProfile(): boolean {
-	return profile === "ci";
+export function isStubRuntime(): boolean {
+	return process.env.RUNTIME === "stub";
 }
 
 export function getApiUrl(): string {
