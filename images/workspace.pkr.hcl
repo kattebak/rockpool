@@ -58,9 +58,14 @@ build {
   sources = ["source.tart-cli.workspace"]
 
   provisioner "shell" {
-    script = "${path.root}/scripts/setup.sh"
+    script           = "${path.root}/scripts/setup.sh"
+    execute_command  = "sudo sh -c '{{ .Path }}'"
     environment_vars = [
       "ROCKPOOL_WORKSPACE_NAME=test"
     ]
+  }
+
+  provisioner "shell" {
+    script = "${path.root}/scripts/setup-tart.sh"
   }
 }

@@ -83,6 +83,8 @@ export function createDb(dbPath: string) {
 
 	addColumnIfMissing(sqlite, "workspace", "description", "TEXT");
 	addColumnIfMissing(sqlite, "workspace", "auto_sync_prefs", "INTEGER");
+	addColumnIfMissing(sqlite, "workspace", "cpu", "INTEGER");
+	addColumnIfMissing(sqlite, "workspace", "memory", "INTEGER");
 	dropColumnIfPresent(sqlite, "workspace", "repository_id");
 
 	return drizzle({ client: sqlite, schema });
