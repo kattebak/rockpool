@@ -64,6 +64,7 @@ rm "$MOUNT_DIR/tmp/setup.sh"
 
 echo "Installing fnm and Node.js as admin..."
 chroot "$MOUNT_DIR" su - admin -c 'curl -fsSL https://fnm.vercel.app/install | bash'
+# shellcheck disable=SC2016
 chroot "$MOUNT_DIR" su - admin -c 'export PATH="$HOME/.local/share/fnm:$PATH" && eval "$(fnm env)" && fnm install --lts'
 
 echo "Installing Firecracker guest network service..."
