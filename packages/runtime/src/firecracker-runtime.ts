@@ -19,18 +19,19 @@ const DEFAULT_MEM_SIZE_MIB = 4096;
 const DEFAULT_BRIDGE_NAME = "rockpool0";
 
 type ExecFn = (bin: string, args: string[]) => Promise<string>;
-type SpawnFn = (bin: string, args: string[]) => void;
+type SpawnFn = (bin: string, args: string[]) => number | undefined;
 
 function defaultExec(bin: string, args: string[]): Promise<string> {
 	return execFileAsync(bin, args).then(({ stdout }) => stdout.trim());
 }
 
-function defaultSpawn(bin: string, args: string[]): void {
+function defaultSpawn(bin: string, args: string[]): number | undefined {
 	const child = spawn(bin, args, {
 		detached: true,
 		stdio: "ignore",
 	});
 	child.unref();
+	return child.pid;
 }
 
 function httpPutUnixSocket(socketPath: string, path: string, body: string): Promise<void> {
@@ -85,7 +86,10 @@ function processIsAlive(pid: number): boolean {
 	try {
 		process.kill(pid, 0);
 		return true;
-	} catch {
+	} catch (err: unknown) {
+		if (err instanceof Error && "code" in err && err.code === "EPERM") {
+			return true;
+		}
 		return false;
 	}
 }
@@ -138,6 +142,19 @@ export function createFirecrackerRuntime(options: FirecrackerRuntimeOptions): Ru
 	const slots: SlotAllocator = createSlotAllocator(slotsFile);
 	slots.load();
 
+	for (const name of slots.names()) {
+		const vmDirExists = existsSync(join(vmDir, name));
+		if (!vmDirExists) {
+			slots.release(name);
+			continue;
+		}
+		const pidPath = join(vmDir, name, "firecracker.pid");
+		const pid = readPidFile(pidPath);
+		if (pid && !processIsAlive(pid)) {
+			slots.release(name);
+		}
+	}
+
 	const sshKeyPath = options.sshKeyPath;
 	const ssh = sshKeyPath
 		? createSshCommands({ sshKeyPath, sshUser, exec, pollIntervalMs, pollMaxAttempts })
@@ -188,6 +205,7 @@ export function createFirecrackerRuntime(options: FirecrackerRuntimeOptions): Ru
 			await exec("cp", ["--reflink=auto", baseImagePath, rootfsPath(name)]);
 
 			await exec("sudo", [
+				"-n",
 				netScriptPath,
 				"create",
 				allocation.tapName,
@@ -241,13 +259,26 @@ export function createFirecrackerRuntime(options: FirecrackerRuntimeOptions): Ru
 
 			const dir = vmDirPath(name);
 			const logPath = join(dir, "firecracker.log");
+			writeFileSync(logPath, "");
 			const pidPath = pidFilePath(name);
+			const firecrackerBin = resolve(basePath, "bin", "firecracker");
 
-			spawnFn("sudo", [
-				"bash",
-				"-c",
-				`echo $$ > ${pidPath} && exec firecracker --api-sock ${sock} --config-file ${vmConfigPath(name)} --log-path ${logPath} --level Warning`,
+			const childPid = spawnFn("sudo", [
+				"-n",
+				firecrackerBin,
+				"--api-sock",
+				sock,
+				"--config-file",
+				vmConfigPath(name),
+				"--log-path",
+				logPath,
+				"--level",
+				"Warning",
 			]);
+
+			if (childPid !== undefined) {
+				writeFileSync(pidPath, String(childPid));
+			}
 
 			for (let attempt = 0; attempt < pollMaxAttempts; attempt++) {
 				await new Promise((r) => setTimeout(r, pollIntervalMs));
@@ -259,6 +290,15 @@ export function createFirecrackerRuntime(options: FirecrackerRuntimeOptions): Ru
 
 				if (existsSync(sock)) {
 					return;
+				}
+
+				if (pid && !processIsAlive(pid)) {
+					const logContent = existsSync(logPath)
+						? readFileSync(logPath, "utf-8").slice(-2000)
+						: "no log file";
+					throw new Error(
+						`Firecracker: VM "${name}" process exited (pid ${pid}). Log tail: ${logContent}`,
+					);
 				}
 			}
 			throw new Error(`Firecracker: timed out waiting for VM "${name}" to start`);
@@ -290,11 +330,7 @@ export function createFirecrackerRuntime(options: FirecrackerRuntimeOptions): Ru
 			}
 
 			if (processIsAlive(pid)) {
-				try {
-					await exec("sudo", ["kill", "-KILL", String(pid)]);
-				} catch {
-					// process may have already exited
-				}
+				await exec("sudo", ["-n", "kill", "-KILL", String(pid)]).catch(() => {});
 			}
 
 			if (existsSync(sock)) {
@@ -312,7 +348,7 @@ export function createFirecrackerRuntime(options: FirecrackerRuntimeOptions): Ru
 
 			const allocation = slots.get(name);
 			if (allocation) {
-				await exec("sudo", [netScriptPath, "destroy", allocation.tapName, "", bridgeName]);
+				await exec("sudo", ["-n", netScriptPath, "destroy", allocation.tapName, "", bridgeName]);
 				slots.release(name);
 			}
 

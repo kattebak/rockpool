@@ -104,6 +104,7 @@ describe("FirecrackerRuntime", () => {
 		);
 		assert.ok(tapCall, "should call sudo with net script to create TAP");
 		assert.deepEqual(tapCall.args, [
+			"-n",
 			"/usr/local/bin/firecracker-net.sh",
 			"create",
 			"rp-tap0",
@@ -133,14 +134,13 @@ describe("FirecrackerRuntime", () => {
 		assert.equal(configB["network-interfaces"][0].host_dev_name, "rp-tap1");
 	});
 
-	it("start spawns firecracker via bash wrapper that writes PID file", async () => {
+	it("start spawns firecracker directly and writes PID file from child.pid", async () => {
 		const { exec } = createMockExec();
 		const spawnCalls: Array<{ bin: string; args: string[] }> = [];
 
-		function mockSpawn(bin: string, args: string[]): void {
+		function mockSpawn(bin: string, args: string[]): number | undefined {
 			spawnCalls.push({ bin, args });
-			const pidPath = join(vmDir, "workspace-abc", "firecracker.pid");
-			writeFileSync(pidPath, String(process.pid));
+			return process.pid;
 		}
 
 		const runtime = createFirecrackerRuntime({
@@ -156,21 +156,25 @@ describe("FirecrackerRuntime", () => {
 
 		assert.equal(spawnCalls.length, 1);
 		assert.equal(spawnCalls[0].bin, "sudo");
-		assert.equal(spawnCalls[0].args[0], "bash");
-		assert.equal(spawnCalls[0].args[1], "-c");
-		const bashCmd = spawnCalls[0].args[2];
-		assert.ok(bashCmd.includes("echo $$"), "should write PID via echo $$");
-		assert.ok(bashCmd.includes("exec firecracker"), "should exec into firecracker");
-		assert.ok(bashCmd.includes("--api-sock"), "should pass --api-sock");
-		assert.ok(bashCmd.includes("--config-file"), "should pass --config-file");
+
+		const firecrackerBin = join(basePath, "bin", "firecracker");
+		assert.equal(spawnCalls[0].args[0], "-n");
+		assert.equal(spawnCalls[0].args[1], firecrackerBin);
+		assert.ok(spawnCalls[0].args.includes("--api-sock"), "should pass --api-sock");
+		assert.ok(spawnCalls[0].args.includes("--config-file"), "should pass --config-file");
+		assert.ok(spawnCalls[0].args.includes("--log-path"), "should pass --log-path");
+		assert.ok(spawnCalls[0].args.includes("--level"), "should pass --level");
+
+		const pidPath = join(vmDir, "workspace-abc", "firecracker.pid");
+		const pidContent = readFileSync(pidPath, "utf-8").trim();
+		assert.equal(pidContent, String(process.pid), "PID file should contain the child PID");
 	});
 
 	it("start cleans up stale socket before spawning", async () => {
 		const { exec } = createMockExec();
 
-		function mockSpawn(_bin: string, _args: string[]): void {
-			const pidPath = join(vmDir, "workspace-abc", "firecracker.pid");
-			writeFileSync(pidPath, String(process.pid));
+		function mockSpawn(_bin: string, _args: string[]): number | undefined {
+			return process.pid;
 		}
 
 		const runtime = createFirecrackerRuntime({
@@ -570,5 +574,53 @@ describe("FirecrackerRuntime", () => {
 
 		assert.equal(ipA, "172.16.0.2");
 		assert.equal(ipB, "172.16.0.6");
+	});
+
+	it("start throws with error details when process exits immediately", async () => {
+		const { exec } = createMockExec();
+
+		function mockSpawn(_bin: string, _args: string[]): number | undefined {
+			return 999999999;
+		}
+
+		const runtime = createFirecrackerRuntime({
+			basePath,
+			exec,
+			spawn: mockSpawn,
+			pollIntervalMs: 10,
+			pollMaxAttempts: 3,
+		});
+
+		await runtime.create("workspace-abc", "rockpool-workspace");
+		await assert.rejects(() => runtime.start("workspace-abc"), /process exited/);
+	});
+
+	it("cleans up stale slot allocations on construction", async () => {
+		const { exec: exec1 } = createMockExec();
+		const runtime1 = createFirecrackerRuntime({
+			basePath,
+			exec: exec1,
+			pollIntervalMs: 10,
+			pollMaxAttempts: 3,
+		});
+
+		await runtime1.create("workspace-stale", "rockpool-workspace");
+		writeFileSync(join(vmDir, "workspace-stale", "firecracker.pid"), "999999999");
+
+		await runtime1.create("workspace-alive", "rockpool-workspace");
+		writeFileSync(join(vmDir, "workspace-alive", "firecracker.pid"), String(process.pid));
+
+		const { exec: exec2 } = createMockExec();
+		const runtime2 = createFirecrackerRuntime({
+			basePath,
+			exec: exec2,
+			pollIntervalMs: 10,
+			pollMaxAttempts: 3,
+		});
+
+		await assert.rejects(() => runtime2.getIp("workspace-stale"), /no slot allocation/);
+
+		const ipAlive = await runtime2.getIp("workspace-alive");
+		assert.equal(ipAlive, "172.16.0.6");
 	});
 });
