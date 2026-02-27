@@ -1,0 +1,12 @@
+[Unit]
+Description=Rockpool guest network setup
+Before=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/rockpool-net-setup.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
