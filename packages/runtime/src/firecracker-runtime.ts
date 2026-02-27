@@ -17,6 +17,8 @@ const STOP_TIMEOUT_MS = 10000;
 const DEFAULT_VCPU_COUNT = 2;
 const DEFAULT_MEM_SIZE_MIB = 4096;
 const DEFAULT_BRIDGE_NAME = "rockpool0";
+const BRIDGE_GATEWAY = "172.16.0.1";
+const BRIDGE_MASK = 16;
 
 type ExecFn = (bin: string, args: string[]) => Promise<string>;
 type SpawnFn = (bin: string, args: string[]) => number | undefined;
@@ -204,16 +206,9 @@ export function createFirecrackerRuntime(options: FirecrackerRuntimeOptions): Ru
 			const baseImagePath = join(baseImageDir, `${image}.ext4`);
 			await exec("cp", ["--reflink=auto", baseImagePath, rootfsPath(name)]);
 
-			await exec("sudo", [
-				"-n",
-				netScriptPath,
-				"create",
-				allocation.tapName,
-				`${allocation.tapIp}/${allocation.mask}`,
-				bridgeName,
-			]);
+			await exec("sudo", ["-n", netScriptPath, "create", allocation.tapName, bridgeName]);
 
-			const bootArgs = `console=ttyS0 reboot=k panic=1 pci=off rockpool.ip=${allocation.guestIp} rockpool.gw=${allocation.tapIp} rockpool.mask=${allocation.mask}`;
+			const bootArgs = `console=ttyS0 reboot=k panic=1 pci=off rockpool.ip=${allocation.guestIp} rockpool.gw=${BRIDGE_GATEWAY} rockpool.mask=${BRIDGE_MASK}`;
 
 			const config: VmConfig = {
 				"boot-source": {
@@ -348,7 +343,7 @@ export function createFirecrackerRuntime(options: FirecrackerRuntimeOptions): Ru
 
 			const allocation = slots.get(name);
 			if (allocation) {
-				await exec("sudo", ["-n", netScriptPath, "destroy", allocation.tapName, "", bridgeName]);
+				await exec("sudo", ["-n", netScriptPath, "destroy", allocation.tapName, bridgeName]);
 				slots.release(name);
 			}
 
