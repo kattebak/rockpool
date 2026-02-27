@@ -325,16 +325,19 @@ Added `e2e/tests/06-preferences-save.spec.ts` (5 tests, skips on CI profile):
 ```
 typespec/main.tsp                                     -- enum, model, API, workspace field
 packages/db/src/schema.ts                             -- user_prefs_blob table
-packages/db/src/queries.ts                            -- blob CRUD + conditional upsert
+packages/db/src/queries.ts                            -- blob CRUD + upsert
 packages/runtime/src/prefs.ts                         -- PREFS_FILE_PATHS mapping
 packages/runtime/src/types.ts                         -- readFile/writeFile interface
 packages/runtime/src/tart-runtime.ts                  -- implement readFile/writeFile
 packages/runtime/src/stub-runtime.ts                  -- no-op stubs
-packages/workspace-service/src/workspace-service.ts   -- push on start, pull on stop
-packages/server/src/routes/settings.ts                -- settings API routes
+packages/server/src/routes/settings.ts                -- settings API routes (with 404 for missing files)
 packages/server/src/app.ts                            -- register settings routes
-packages/runtime/test/tart-runtime.test.ts            -- readFile/writeFile tests
-packages/workspace-service/test/workspace-service.test.ts -- sync behavior tests
+packages/server/src/services/workspace-service.ts     -- push prefs on start
+packages/client/src/lib/api.ts                        -- listSettings/saveSettings API wrappers
+packages/client/src/hooks/use-settings.ts             -- React Query hooks
+packages/client/src/components/prefs-panel.tsx         -- preferences panel component
+packages/client/src/routes/workspace-detail.tsx        -- mount PrefsPanel for running workspaces
+e2e/tests/06-preferences-save.spec.ts                 -- E2E tests for preferences save
 ```
 
 ## Decisions
@@ -348,6 +351,7 @@ packages/workspace-service/test/workspace-service.test.ts -- sync behavior tests
 | Push prefs timing? | After configure, before health check passes | code-server hot-reloads settings.json. No restart needed. Settings are ready when user opens IDE. |
 | Auto-sync failure behavior? | Non-fatal (log + continue) | Preferences should never block workspace start/stop. |
 | Multi-user? | Deferred | No user table yet. When added, extend PK to `(userId, name)`. |
+| Missing file handling? | 404 on manual save, silent skip in UI | code-server doesn't create settings/keybindings files until first user edit. The server returns 404, the frontend silently skips — no confusing error toasts for files that simply don't exist yet. |
 
 ## Scope Exclusions
 
