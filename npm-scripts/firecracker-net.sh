@@ -23,8 +23,8 @@ BRIDGE=${4:-rockpool0}
 case "$ACTION" in
   create)
     if ip link show "$TAP_NAME" &>/dev/null; then
-      echo "TAP $TAP_NAME already exists, skipping creation"
-      exit 0
+      ip link del "$TAP_NAME" 2>/dev/null || true
+      echo "TAP $TAP_NAME existed (stale), recreating"
     fi
     ip tuntap add dev "$TAP_NAME" mode tap
     ip addr add "$TAP_IP" dev "$TAP_NAME"

@@ -19,6 +19,7 @@ export interface SlotAllocator {
 	allocate(name: string): SlotAllocation;
 	release(name: string): void;
 	get(name: string): SlotAllocation | undefined;
+	names(): string[];
 	load(): void;
 	save(): void;
 }
@@ -106,5 +107,9 @@ export function createSlotAllocator(filePath: string): SlotAllocator {
 		return slotToAllocation(slot);
 	}
 
-	return { allocate, release, get, load, save };
+	function names(): string[] {
+		return Object.keys(state.allocated);
+	}
+
+	return { allocate, release, get, names, load, save };
 }

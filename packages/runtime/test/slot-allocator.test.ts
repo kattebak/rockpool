@@ -187,4 +187,29 @@ describe("SlotAllocator", () => {
 		const result = allocator.get("anything");
 		assert.equal(result, undefined);
 	});
+
+	it("names returns all allocated VM names", () => {
+		const allocator = createSlotAllocator(slotsFile);
+		allocator.allocate("workspace-a");
+		allocator.allocate("workspace-b");
+
+		const result = allocator.names();
+		assert.deepEqual(result.sort(), ["workspace-a", "workspace-b"]);
+	});
+
+	it("names returns empty array when nothing is allocated", () => {
+		const allocator = createSlotAllocator(slotsFile);
+		const result = allocator.names();
+		assert.deepEqual(result, []);
+	});
+
+	it("names excludes released VMs", () => {
+		const allocator = createSlotAllocator(slotsFile);
+		allocator.allocate("workspace-a");
+		allocator.allocate("workspace-b");
+		allocator.release("workspace-a");
+
+		const result = allocator.names();
+		assert.deepEqual(result, ["workspace-b"]);
+	});
 });
