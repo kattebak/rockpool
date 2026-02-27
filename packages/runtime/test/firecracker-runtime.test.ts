@@ -73,7 +73,7 @@ describe("FirecrackerRuntime", () => {
 		assert.equal(config["boot-source"].kernel_image_path, kernelPath);
 		assert.ok(config["boot-source"].boot_args.includes("rockpool.ip=172.16.0.2"));
 		assert.ok(config["boot-source"].boot_args.includes("rockpool.gw=172.16.0.1"));
-		assert.ok(config["boot-source"].boot_args.includes("rockpool.mask=30"));
+		assert.ok(config["boot-source"].boot_args.includes("rockpool.mask=16"));
 		assert.equal(config.drives[0].drive_id, "rootfs");
 		assert.equal(config.drives[0].is_root_device, true);
 		assert.equal(config.drives[0].is_read_only, false);
@@ -108,7 +108,6 @@ describe("FirecrackerRuntime", () => {
 			"/usr/local/bin/firecracker-net.sh",
 			"create",
 			"rp-tap0",
-			"172.16.0.1/30",
 			"rockpool0",
 		]);
 	});
@@ -129,7 +128,7 @@ describe("FirecrackerRuntime", () => {
 		const configB = JSON.parse(readFileSync(join(vmDir, "workspace-b", "vm.json"), "utf-8"));
 
 		assert.ok(configA["boot-source"].boot_args.includes("rockpool.ip=172.16.0.2"));
-		assert.ok(configB["boot-source"].boot_args.includes("rockpool.ip=172.16.0.6"));
+		assert.ok(configB["boot-source"].boot_args.includes("rockpool.ip=172.16.0.3"));
 		assert.equal(configA["network-interfaces"][0].host_dev_name, "rp-tap0");
 		assert.equal(configB["network-interfaces"][0].host_dev_name, "rp-tap1");
 	});
@@ -304,7 +303,7 @@ describe("FirecrackerRuntime", () => {
 		const ipB = await runtime.getIp("workspace-b");
 
 		assert.equal(ipA, "172.16.0.2");
-		assert.equal(ipB, "172.16.0.6");
+		assert.equal(ipB, "172.16.0.3");
 		assert.notEqual(ipA, ipB);
 	});
 
@@ -573,7 +572,7 @@ describe("FirecrackerRuntime", () => {
 		const ipB = await runtime2.getIp("workspace-b");
 
 		assert.equal(ipA, "172.16.0.2");
-		assert.equal(ipB, "172.16.0.6");
+		assert.equal(ipB, "172.16.0.3");
 	});
 
 	it("start throws with error details when process exits immediately", async () => {
@@ -621,6 +620,6 @@ describe("FirecrackerRuntime", () => {
 		await assert.rejects(() => runtime2.getIp("workspace-stale"), /no slot allocation/);
 
 		const ipAlive = await runtime2.getIp("workspace-alive");
-		assert.equal(ipAlive, "172.16.0.6");
+		assert.equal(ipAlive, "172.16.0.3");
 	});
 });

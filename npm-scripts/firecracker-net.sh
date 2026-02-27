@@ -2,23 +2,23 @@
 set -euo pipefail
 
 # Per-VM TAP device create/destroy.
+# TAPs are pure L2 bridge ports — no IP addresses assigned.
 # Usage:
-#   sudo firecracker-net.sh create <tap-name> <tap-ip/mask> <bridge>
-#   sudo firecracker-net.sh destroy <tap-name> "" <bridge>
+#   sudo firecracker-net.sh create <tap-name> <bridge>
+#   sudo firecracker-net.sh destroy <tap-name> <bridge>
 
-if [ $# -lt 3 ]; then
-  echo "Usage: $0 <create|destroy> <tap-name> <tap-ip/mask> <bridge>"
+if [ $# -lt 2 ]; then
+  echo "Usage: $0 <create|destroy> <tap-name> <bridge>"
   echo ""
   echo "Examples:"
-  echo "  $0 create rp-tap0 172.16.0.1/30 rockpool0"
-  echo "  $0 destroy rp-tap0 \"\" rockpool0"
+  echo "  $0 create rp-tap0 rockpool0"
+  echo "  $0 destroy rp-tap0 rockpool0"
   exit 1
 fi
 
 ACTION=$1
 TAP_NAME=$2
-TAP_IP=$3
-BRIDGE=${4:-rockpool0}
+BRIDGE=${3:-rockpool0}
 
 case "$ACTION" in
   create)
@@ -27,10 +27,9 @@ case "$ACTION" in
       echo "TAP $TAP_NAME existed (stale), recreating"
     fi
     ip tuntap add dev "$TAP_NAME" mode tap
-    ip addr add "$TAP_IP" dev "$TAP_NAME"
     ip link set dev "$TAP_NAME" up
     ip link set dev "$TAP_NAME" master "$BRIDGE"
-    echo "TAP $TAP_NAME created at $TAP_IP on bridge $BRIDGE"
+    echo "TAP $TAP_NAME created on bridge $BRIDGE"
     ;;
   destroy)
     if ! ip link show "$TAP_NAME" &>/dev/null; then

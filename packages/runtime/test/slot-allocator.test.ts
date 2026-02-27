@@ -40,32 +40,28 @@ describe("SlotAllocator", () => {
 		assert.equal(b.tapName, "rp-tap1");
 	});
 
-	it("computes correct IPs for slot 0", () => {
+	it("computes correct IP for slot 0", () => {
 		const allocator = createSlotAllocator(slotsFile);
 		const alloc = allocator.allocate("workspace-a");
 
-		assert.equal(alloc.tapIp, "172.16.0.1");
 		assert.equal(alloc.guestIp, "172.16.0.2");
-		assert.equal(alloc.mask, 30);
 	});
 
-	it("computes correct IPs for slot 1", () => {
+	it("computes correct IP for slot 1", () => {
 		const allocator = createSlotAllocator(slotsFile);
 		allocator.allocate("workspace-a");
 		const alloc = allocator.allocate("workspace-b");
 
-		assert.equal(alloc.tapIp, "172.16.0.5");
-		assert.equal(alloc.guestIp, "172.16.0.6");
+		assert.equal(alloc.guestIp, "172.16.0.3");
 	});
 
-	it("computes correct IPs for slot 2", () => {
+	it("computes correct IP for slot 2", () => {
 		const allocator = createSlotAllocator(slotsFile);
 		allocator.allocate("workspace-a");
 		allocator.allocate("workspace-b");
 		const alloc = allocator.allocate("workspace-c");
 
-		assert.equal(alloc.tapIp, "172.16.0.9");
-		assert.equal(alloc.guestIp, "172.16.0.10");
+		assert.equal(alloc.guestIp, "172.16.0.4");
 	});
 
 	it("computes correct MAC addresses", () => {
@@ -74,7 +70,7 @@ describe("SlotAllocator", () => {
 		const b = allocator.allocate("workspace-b");
 
 		assert.equal(a.guestMac, "06:00:AC:10:00:02");
-		assert.equal(b.guestMac, "06:00:AC:10:00:06");
+		assert.equal(b.guestMac, "06:00:AC:10:00:03");
 	});
 
 	it("returns same allocation for existing name", () => {
@@ -134,7 +130,7 @@ describe("SlotAllocator", () => {
 		assert.equal(a.slot, 0);
 		assert.equal(b.slot, 1);
 		assert.equal(a.guestIp, "172.16.0.2");
-		assert.equal(b.guestIp, "172.16.0.6");
+		assert.equal(b.guestIp, "172.16.0.3");
 	});
 
 	it("new allocations after load continue from nextSlot", () => {

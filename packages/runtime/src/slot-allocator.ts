@@ -4,10 +4,8 @@ import { dirname } from "node:path";
 export interface SlotAllocation {
 	slot: number;
 	tapName: string;
-	tapIp: string;
 	guestIp: string;
 	guestMac: string;
-	mask: number;
 }
 
 interface SlotState {
@@ -24,28 +22,24 @@ export interface SlotAllocator {
 	save(): void;
 }
 
-function slotToAddresses(slot: number): { tapIp: string; guestIp: string; guestMac: string } {
-	const base = slot * 4;
-	const tapOctet3 = (base >> 8) & 0xff;
-	const tapOctet4 = (base & 0xff) + 1;
-	const guestOctet4 = (base & 0xff) + 2;
+function slotToAddresses(slot: number): { guestIp: string; guestMac: string } {
+	const offset = slot + 2;
+	const octet3 = (offset >> 8) & 0xff;
+	const octet4 = offset & 0xff;
 
-	const tapIp = `172.16.${tapOctet3}.${tapOctet4}`;
-	const guestIp = `172.16.${tapOctet3}.${guestOctet4}`;
-	const guestMac = `06:00:AC:10:${tapOctet3.toString(16).padStart(2, "0").toUpperCase()}:${guestOctet4.toString(16).padStart(2, "0").toUpperCase()}`;
+	const guestIp = `172.16.${octet3}.${octet4}`;
+	const guestMac = `06:00:AC:10:${octet3.toString(16).padStart(2, "0").toUpperCase()}:${octet4.toString(16).padStart(2, "0").toUpperCase()}`;
 
-	return { tapIp, guestIp, guestMac };
+	return { guestIp, guestMac };
 }
 
 function slotToAllocation(slot: number): SlotAllocation {
-	const { tapIp, guestIp, guestMac } = slotToAddresses(slot);
+	const { guestIp, guestMac } = slotToAddresses(slot);
 	return {
 		slot,
 		tapName: `rp-tap${slot}`,
-		tapIp,
 		guestIp,
 		guestMac,
-		mask: 30,
 	};
 }
 
