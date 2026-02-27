@@ -8,8 +8,10 @@ import {
 } from "../helpers/platform";
 import { deleteWorkspaceViaApi, pollUntilStatus, uniqueWorkspaceName } from "../helpers/workspace";
 
-const profile = process.env.E2E_PROFILE ?? "development";
-test.skip(profile === "ci", "Preferences save requires real VMs — skipped in CI profile");
+test.skip(
+	process.env.RUNTIME === "stub",
+	"Preferences save requires real VMs — skipped with stub runtime",
+);
 
 test.describe("Preferences: save from running workspace", () => {
 	test.describe.configure({ mode: "serial" });

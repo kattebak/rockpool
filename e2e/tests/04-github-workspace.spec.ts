@@ -1,5 +1,10 @@
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
-import { createTestContext, createTestPage, isCiProfile, launchBrowser } from "../helpers/platform";
+import {
+	createTestContext,
+	createTestPage,
+	isStubRuntime,
+	launchBrowser,
+} from "../helpers/platform";
 import { deleteWorkspaceViaApi, provisionTimeout } from "../helpers/workspace";
 
 test.describe("GitHub workspace: repo picker -> configure -> provision", () => {
@@ -88,7 +93,7 @@ test.describe("GitHub workspace: repo picker -> configure -> provision", () => {
 		await expect(page.getByText("Stopping a workspace disconnects")).toBeVisible();
 		await page.getByRole("button", { name: "Stop workspace" }).click();
 		await expect(page.getByText("Stopped")).toBeVisible({
-			timeout: isCiProfile() ? 10_000 : 60_000,
+			timeout: isStubRuntime() ? 10_000 : 60_000,
 		});
 	});
 

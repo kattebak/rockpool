@@ -36,7 +36,8 @@
 		"worker:pm2:stop": "pm2 delete worker",
 		"worker:pm2:logs": "pm2 logs worker",
 		"test:e2e": "npx playwright test --config e2e/playwright.config.ts",
-		"test:e2e:ci": "E2E_PROFILE=ci npx playwright test --config e2e/playwright.config.ts",
+		"test:e2e:headless": "node --env-file=test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
+		"test:e2e:ci": "RUNTIME=stub node --env-file=test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
 		"test:e2e:smoke": "npx playwright test --config e2e/playwright.config.ts tests/01-smoke.spec.ts",
 		"test:e2e:lifecycle": "npx playwright test --config e2e/playwright.config.ts tests/02-workspace-lifecycle.spec.ts",
 		"test:e2e:ide": "npx playwright test --config e2e/playwright.config.ts tests/03-ide-loading.spec.ts"
