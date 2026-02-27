@@ -7,8 +7,7 @@ export function uniqueWorkspaceName(): string {
 }
 
 export function provisionTimeout(): number {
-	const profile = process.env.E2E_PROFILE ?? "development";
-	return profile === "ci" ? 15_000 : 3 * 60 * 1000;
+	return process.env.RUNTIME === "stub" ? 15_000 : 3 * 60 * 1000;
 }
 
 export async function deleteWorkspaceViaApi(name: string): Promise<void> {

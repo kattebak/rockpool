@@ -8,8 +8,10 @@ import {
 } from "../helpers/platform";
 import { deleteWorkspaceViaApi, pollUntilStatus, uniqueWorkspaceName } from "../helpers/workspace";
 
-const profile = process.env.E2E_PROFILE ?? "development";
-test.skip(profile === "ci", "Clone verification requires real VMs — skipped in CI profile");
+test.skip(
+	process.env.RUNTIME === "stub",
+	"Clone verification requires real VMs — skipped with stub runtime",
+);
 
 const IDE_PORT = Number.parseInt(process.env.SRV1_PORT ?? "8081", 10);
 

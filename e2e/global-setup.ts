@@ -1,11 +1,13 @@
 import { execSync } from "node:child_process";
 
-const CADDY_HEALTH_URL = "http://localhost:9080/api/health";
-const SERVER_PING_URL = "http://localhost:9080/api/ping";
-const SPA_URL = "http://localhost:9080/app/workspaces";
-const QUEUE_ENDPOINT = "http://localhost:9424";
+const DASHBOARD_URL = process.env.DASHBOARD_URL ?? "http://localhost:8080";
+const API_URL = process.env.API_URL ?? "http://localhost:8080/api";
+const QUEUE_ENDPOINT = process.env.QUEUE_ENDPOINT ?? "http://localhost:9324";
+const CADDY_USERNAME = process.env.CADDY_USERNAME ?? "admin";
+const CADDY_PASSWORD = process.env.CADDY_PASSWORD ?? "admin";
+
 const POLL_INTERVAL = 2_000;
-const AUTH_HEADER = `Basic ${Buffer.from("test:test").toString("base64")}`;
+const AUTH_HEADER = `Basic ${Buffer.from(`${CADDY_USERNAME}:${CADDY_PASSWORD}`).toString("base64")}`;
 
 function dumpPm2Logs(): void {
 	try {
@@ -55,8 +57,8 @@ export default async function globalSetup(): Promise<void> {
 	execSync("npx pm2 start ecosystem.test.config.cjs", { stdio: "inherit" });
 
 	await ensureQueue();
-	await pollUntilReady(CADDY_HEALTH_URL, 60_000);
+	await pollUntilReady(`${API_URL}/health`, 60_000);
 	const authHeaders = { Authorization: AUTH_HEADER };
-	await pollUntilReady(SERVER_PING_URL, 30_000, authHeaders);
-	await pollUntilReady(SPA_URL, 30_000, authHeaders);
+	await pollUntilReady(`${API_URL}/ping`, 30_000, authHeaders);
+	await pollUntilReady(`${DASHBOARD_URL}/app/workspaces`, 30_000, authHeaders);
 }
