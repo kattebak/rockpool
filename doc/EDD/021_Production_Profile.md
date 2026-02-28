@@ -11,7 +11,7 @@
 
 ## Summary
 
-Add a "production" environment profile for running Rockpool on a homelab or office server. It uses its own port range (10xxx), serves a pre-built (minified) client bundle, disables file watchers and hot reload, and binds Caddy to 0.0.0.0 so the instance is reachable from other machines on the LAN (e.g. `https://homelab:10080`).
+Add a "production" environment profile for running Rockpool on a homelab or office server. It uses its own port range (10xxx), serves a pre-built (minified) client bundle, disables file watchers and hot reload, and binds Caddy to 0.0.0.0 so the instance is reachable from other machines on the LAN (e.g. `https://homelab:59007`).
 
 This profile sits alongside the existing development (8080) and test (9080) profiles. All three can run simultaneously without port conflicts.
 
@@ -44,7 +44,7 @@ The production profile uses the 10xxx range, mirroring the three-port isolation 
 
 | Service       | Port   | Notes                                     |
 | ------------- | ------ | ----------------------------------------- |
-| Caddy srv0    | 10080  | Control plane + SPA (API + `/app/*`)      |
+| Caddy srv0    | 59007  | Control plane + SPA (API + `/app/*`)      |
 | Caddy srv1    | 10081  | IDE sessions (`/workspace/{name}/*`)      |
 | Caddy srv2    | 10082  | App previews (`/workspace/{name}/port/*`) |
 | API server    | 10163  | Express control plane (behind Caddy)      |
@@ -53,7 +53,7 @@ The production profile uses the 10xxx range, mirroring the three-port isolation 
 
 ### Network Binding
 
-Caddy listens on `0.0.0.0:10080`, `0.0.0.0:10081`, `0.0.0.0:10082` so it is reachable from the LAN. The API server and ElasticMQ remain on localhost -- they are only accessed by Caddy and the worker, both co-located.
+Caddy listens on `0.0.0.0:59007`, `0.0.0.0:10081`, `0.0.0.0:10082` so it is reachable from the LAN. The API server and ElasticMQ remain on localhost -- they are only accessed by Caddy and the worker, both co-located.
 
 ### Client Build
 
@@ -71,7 +71,7 @@ The database lives at `rockpool-production.db` in the project root (not `/tmp`).
 
 ```
 rockpool/
-  production.env                       # environment variables for production profile
+  production.env.sample                # template — copy to production.env and add credentials
   elasticmq.production.conf            # ElasticMQ config on port 10324
   ecosystem.production.config.cjs      # PM2 ecosystem config (no watch, no dev server)
   doc/EDD/021_Production_Profile.md    # this document
@@ -83,23 +83,25 @@ rockpool/
 # Production-like local profile
 NODE_ENV=development
 PORT=10163
-SRV0_PORT=10080
+SRV0_PORT=59007
 SRV1_PORT=10081
 DB_PATH=rockpool-production.db
 SPA_ROOT=packages/client/dist
 
 CADDY_ADMIN_URL=http://localhost:10019
-CADDY_USERNAME=admin
-CADDY_PASSWORD=admin
 
 QUEUE_ENDPOINT=http://localhost:10324
 QUEUE_URL=http://localhost:10324/000000000000/workspace-jobs
 
+GITHUB_OAUTH_CLIENT_ID=
+GITHUB_OAUTH_CLIENT_SECRET=
+GITHUB_OAUTH_CALLBACK_URL=http://localhost:59007/api/auth/callback
+
 FIRECRACKER_BASE_PATH=.firecracker
 SSH_KEY_PATH=images/ssh/rockpool_ed25519
 
-DASHBOARD_URL=http://localhost:10080
-API_URL=http://localhost:10080/api
+DASHBOARD_URL=http://localhost:59007
+API_URL=http://localhost:59007/api
 ```
 
 ## Ecosystem Config
@@ -203,8 +205,8 @@ queues {
 
 1. `npm run start:production` -- all four PM2 processes come online
 2. `pm2 status` shows `prod-elasticmq`, `prod-caddy`, `prod-server`, `prod-worker`
-3. Open `http://localhost:10080/app/workspaces` -- SPA loads (minified build)
-4. Open `http://homelab:10080/app/workspaces` from another machine on the LAN -- same SPA loads
+3. Open `http://localhost:59007/app/workspaces` -- SPA loads (minified build)
+4. Open `http://homelab:59007/app/workspaces` from another machine on the LAN -- same SPA loads
 5. File changes in `packages/server/src` do NOT trigger restarts
 6. `npm run stop:production` removes only production processes
 7. Running `npm run dev` simultaneously does not conflict (different ports)
@@ -216,7 +218,7 @@ Verify all three profiles can run simultaneously:
 ```bash
 npm run dev                  # development on 8080
 npm run test:e2e:headless    # test on 9080 (auto-starts/stops)
-npm run start:production     # production on 10080
+npm run start:production     # production on 59007
 ```
 
 ## Open Questions

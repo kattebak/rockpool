@@ -17,7 +17,7 @@ Three profiles controlled by `E2E_PROFILE`:
 | **development** | 8080 | tart | n/a | `npm start` / `npm stop`. User clicks around, devtools debugging. Not Playwright. |
 | **test** | 9080 | tart | yes | Headless Playwright with real VMs. Separate DB/ports — does not interfere with development. |
 | **ci** | 9080 | stub | skipped | Same as test but without VMs. For GitHub Actions. |
-| **production** | 10080 | auto | n/a | `npm run start:production` / `npm run stop:production`. Pre-built client, no watchers, LAN-accessible. |
+| **production** | 59007 | auto | n/a | `npm run start:production` / `npm run stop:production`. Pre-built client, no watchers, LAN-accessible. |
 
 Config for test/ci lives in `test.env`. Config for production lives in `production.env`. Both test profiles auto-start the server stack via Playwright `globalSetup` using `ecosystem.test.config.cjs`.
 
