@@ -91,16 +91,17 @@ See [doc/EDD/003_Caddy_Reverse_Proxy.md](doc/EDD/003_Caddy_Reverse_Proxy.md) app
 For running Rockpool as a persistent service on your local network (e.g., a homelab):
 
 ```sh
-npm run start:production   # builds client, starts all services on port 10080
-npm run stop:production    # stops only production processes
+cp production.env.sample production.env  # fill in GitHub OAuth credentials
+npm run start:production                 # builds client, starts all services on port 59007
+npm run stop:production                  # stops only production processes
 ```
 
-Access from any machine on your network at `http://<hostname>:10080/app/workspaces`.
+Access from any machine on your network at `http://<hostname>:59007/app/workspaces`.
 
 | Profile     | Port  | File watchers | Client        | Bind      |
 | ----------- | ----- | ------------- | ------------- | --------- |
 | development | 8080  | yes           | vite dev      | localhost |
 | test        | 9080  | no            | n/a           | localhost |
-| production  | 10080 | no            | minified      | 0.0.0.0   |
+| production  | 59007 | no            | minified      | 0.0.0.0   |
 
 All three profiles can run simultaneously without port conflicts. See [doc/EDD/021_Production_Profile.md](doc/EDD/021_Production_Profile.md) for details.
