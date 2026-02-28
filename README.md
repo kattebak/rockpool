@@ -85,3 +85,22 @@ npm run dev           # start API server + worker + client dev server
 ```
 
 See [doc/EDD/003_Caddy_Reverse_Proxy.md](doc/EDD/003_Caddy_Reverse_Proxy.md) appendix for local setup details (GitHub OAuth, `development.env`).
+
+## Production Profile (LAN Server)
+
+For running Rockpool as a persistent service on your local network (e.g., a homelab):
+
+```sh
+npm run start:production   # builds client, starts all services on port 10080
+npm run stop:production    # stops only production processes
+```
+
+Access from any machine on your network at `http://<hostname>:10080/app/workspaces`.
+
+| Profile     | Port  | File watchers | Client        | Bind      |
+| ----------- | ----- | ------------- | ------------- | --------- |
+| development | 8080  | yes           | vite dev      | localhost |
+| test        | 9080  | no            | n/a           | localhost |
+| production  | 10080 | no            | minified      | 0.0.0.0   |
+
+All three profiles can run simultaneously without port conflicts. See [doc/EDD/021_Production_Profile.md](doc/EDD/021_Production_Profile.md) for details.

@@ -19,6 +19,8 @@ fi
 CONFIG_FILE="elasticmq.conf"
 if [ "$1" = "test" ]; then
     CONFIG_FILE="elasticmq.test.conf"
+elif [ "$1" = "production" ]; then
+    CONFIG_FILE="elasticmq.production.conf"
 fi
 
 exec java -Dconfig.file="$CONFIG_FILE" -jar "$ELASTICMQ_JAR"
