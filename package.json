@@ -35,7 +35,7 @@
 		"worker:pm2:start": "pm2 start npm --name worker -- run start -w packages/worker",
 		"worker:pm2:stop": "pm2 delete worker",
 		"worker:pm2:logs": "pm2 logs worker",
-		"prestart:production": "npm run build -w packages/client",
+		"prestart:production": "set -a && . ./production.env && npm run build -w packages/client",
 		"start:production": "pm2 delete ecosystem.production.config.cjs --silent; pm2 start ecosystem.production.config.cjs && pm2 logs",
 		"stop:production": "pm2 delete ecosystem.production.config.cjs",
 		"test:e2e": "npx playwright test --config e2e/playwright.config.ts",
