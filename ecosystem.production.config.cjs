@@ -1,5 +1,5 @@
 // Production-like local profile: pre-built client, no file watchers, LAN-accessible.
-// Ports: Caddy 10080/10081/10082, API 10163, ElasticMQ 10324, Caddy admin 10019.
+// Ports: Caddy 59007/10081/10082, API 10163, ElasticMQ 10324, Caddy admin 10019.
 // See doc/EDD/021_Production_Profile.md for design details.
 const path = require("node:path");
 const os = require("node:os");
