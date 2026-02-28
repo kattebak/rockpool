@@ -98,6 +98,7 @@ async function bootstrapCaddy(): Promise<void> {
 		controlPlaneUrl,
 		srv0Port: config.srv0Port,
 		srv1Port: config.srv1Port,
+		srv2Port: config.srv2Port,
 	};
 
 	if (config.spaProxyUrl) {
