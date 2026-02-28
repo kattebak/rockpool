@@ -42,13 +42,13 @@ The one gap vs. a VM: containers share the Root VM's kernel. A kernel exploit in
 
 ### Upgrade path
 
-If Rockpool ever supports untrusted multi-user workspaces, Podman can be swapped for Firecracker on a bare-metal Linux host (no Root VM nesting needed) or for `podman --runtime=kata` which uses a per-container VM under the hood. The `RuntimeRepository` interface stays the same.
+If Rockpool supports untrusted multi-user workspaces later, Podman can be swapped for Firecracker on bare-metal Linux or for `podman --runtime=kata`. The `RuntimeRepository` interface stays the same.
 
 ## Prerequisites
 
 - [EDD-010: PM2 Process Management](010_PM2_Process_Management.md) — process lifecycle inside the VM
 - [EDD-021: Production Profile](021_Production_Profile.md) — production ecosystem config
-- Tart `--nested` on M3/M4 + macOS 15 Sequoia (for `/dev/kvm` passthrough if Firecracker is ever needed inside the Root VM)
+- Tart `--nested` on M3/M4 + macOS 15 Sequoia (for `/dev/kvm` passthrough if Firecracker is needed inside the Root VM later)
 
 ## System Topology
 
@@ -110,7 +110,7 @@ Internet ◄──► Cloudflare Tunnel ◄──► Host
                            NAT egress only
 ```
 
-Caddy inside the Root VM listens on ports that are forwarded from the host. Workspace containers each get their own network namespace via Podman's `pasta` networking. Caddy proxies to each container's IP, same as it currently proxies to VM IPs.
+Caddy inside the Root VM listens on ports forwarded from the host. Workspace containers each get their own network namespace via Podman's `pasta` networking.
 
 ## Workspace Runtime: Podman
 
@@ -138,7 +138,7 @@ Key differences from Firecracker/Tart:
 - **No SSH.** Use `podman exec` instead. The shared SSH commands abstraction (`ssh-commands.ts`) is replaced by exec-based equivalents.
 - **Instant IP.** `podman inspect` returns the container IP immediately — no polling needed.
 - **OCI images.** Workspace images are Dockerfiles, not ext4 rootfs or Tart OCI images. Build with `podman build`.
-- **Rootless.** The entire Podman stack runs without root. No `sudo` for TAP devices or bridge setup.
+- **Rootless.** The entire Podman stack runs without root.
 
 ### Workspace image
 
@@ -208,8 +208,6 @@ Debian Bookworm (aarch64 for macOS/Apple Silicon, x86_64 for Linux x86 hosts).
 - SSH server (for host → Root VM access)
 - Virtiofs guest support (kernel module, mount tooling)
 
-No Firecracker, no iptables bridge rules, no TAP device helpers. Podman handles networking internally.
-
 ### Build
 
 Extend the existing Packer pipeline or create a dedicated build script.
@@ -254,8 +252,6 @@ tart run \
   rockpool-root
 ```
 
-Note: `--nested` is not required. Podman doesn't need `/dev/kvm`.
-
 ### Linux (QEMU/KVM)
 
 ```bash
@@ -270,8 +266,6 @@ qemu-system-x86_64 \
   -netdev user,id=net0,hostfwd=tcp::8080-:8080,hostfwd=tcp::8081-:8081,hostfwd=tcp::8082-:8082 \
   -nographic
 ```
-
-No nested virtualization flags needed on the host.
 
 ## Development Workflow
 
@@ -302,15 +296,15 @@ These scripts detect the platform and use Tart or QEMU accordingly.
 
 ### New: Podman runtime
 
-A new `@rockpool/runtime` implementation: `createPodmanRuntime()`. Implements the same `RuntimeRepository` interface. Uses `podman` CLI commands instead of Firecracker API or Tart CLI. Replaces SSH-based `configure/clone/readFile/writeFile` with `podman exec` equivalents.
+A new `@rockpool/runtime` implementation: `createPodmanRuntime()`. Uses `podman` CLI commands and `podman exec` instead of SSH.
 
 ### Tart runtime
 
-No longer used for workspace VMs. Retained only for the Root VM boot scripts on macOS. Exits the `RuntimeRepository` abstraction entirely — it's a host-side operational concern, not a workspace runtime.
+No longer used for workspace VMs. Retained only for Root VM boot scripts on macOS.
 
 ### Firecracker runtime
 
-Retained for bare-metal Linux deployments where workspaces need full VM isolation (future multi-user scenario). Not used inside the Root VM.
+Retained for bare-metal Linux deployments where workspaces need full VM isolation (future multi-user scenario).
 
 ### Server config
 
@@ -322,27 +316,27 @@ if (runtimeEnv === "podman" || (!runtimeEnv && insideRootVm)) {
 }
 ```
 
-Default runtime inside the Root VM is Podman. Firecracker remains available for bare-metal Linux. Tart remains available for direct-on-macOS development (legacy path).
+Default runtime inside the Root VM is Podman.
 
 ### Caddy config
 
-No changes. Caddy proxies to workspace IPs. Whether those IPs belong to a Firecracker VM, a Tart VM, or a Podman container is irrelevant to Caddy.
+No changes. Caddy proxies to workspace IPs regardless of the underlying runtime.
 
 ### Image pipeline
 
-Workspace images become Dockerfiles instead of Packer builds (Tart) or ext4 rootfs scripts (Firecracker). The existing `images/scripts/setup.sh` content moves into a Dockerfile. Simpler to build, test, and iterate on.
+Workspace images become Dockerfiles. The existing `images/scripts/setup.sh` content moves into a Dockerfile.
 
 ### Database
 
-SQLite database at `/opt/rockpool/rockpool.db` (Root VM local disk). The `DB_PATH` environment variable already supports this.
+SQLite database at `/opt/rockpool/rockpool.db` (Root VM local disk).
 
 ### E2E tests
 
-Playwright runs on the host, pointing at `localhost:9080` (test profile port-forwarded from the Root VM). No changes to test code — the port forwarding is transparent.
+Playwright runs on the host, pointing at `localhost:9080` (port-forwarded from the Root VM).
 
 ## Scope
 
-This EDD focuses on getting a testable breadboard: the Root VM boots, mounts source, runs the stack, exposes the three ports (API, workspaces, app previews), and passes the existing E2E suite. Advanced features are explicitly deferred.
+Scope is a testable breadboard: the Root VM boots, mounts source, runs the stack, exposes three ports, and passes the existing E2E suite.
 
 ### In scope
 
@@ -369,14 +363,7 @@ This EDD focuses on getting a testable breadboard: the Root VM boots, mounts sou
 
 ## Rollout Plan
 
-The rollout separates two concerns: getting the Root VM infrastructure working (Phases 1-2, using the existing stub runtime) and adding the Podman workspace runtime (Phases 3-4). This means Phase 2 can validate the entire VM + port forwarding + E2E pipeline without any new workspace code.
-
-There are two E2E modes for the Root VM, controlled by `RUNTIME` in `rootvm-test.env`:
-
-- **`RUNTIME=stub`** — stub workspaces, validates VM infrastructure only (Phase 2)
-- **`RUNTIME=podman`** — real Podman workspaces, validates full stack (Phase 4)
-
-Same env file, same ecosystem config, same `test:e2e:rootvm` script. Just flip the `RUNTIME` value.
+Phases 1-2 use the existing stub runtime to validate VM infrastructure. Phases 3-4 add the Podman workspace runtime. The `RUNTIME` value in `rootvm-test.env` controls which mode runs (`stub` or `podman`).
 
 ### Phase 1: Root VM image — boot, mount, SSH
 
@@ -486,7 +473,6 @@ Same env file, same ecosystem config, same `test:e2e:rootvm` script. Just flip t
        return createPodmanRuntime();
    }
    ```
-   Existing `tart`, `firecracker`, and `stub` paths are unchanged.
 7. Unit tests in `packages/runtime/test/podman-runtime.test.ts`:
    - Full lifecycle: create → start → status → getIp → stop → remove
    - configure writes code-server config
