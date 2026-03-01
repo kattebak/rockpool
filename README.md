@@ -97,6 +97,8 @@ make setup   # detects OS and runs the appropriate setup
 
 ## Development
 
+Requires Node.js >= 22.
+
 ```sh
 npm install
 npm run lint
@@ -104,17 +106,44 @@ npm run check
 npm test
 ```
 
-Requires Node.js >= 22.
-
 ## Running
 
 ```sh
-make development.env   # create development.env from template (fill in secrets)
-make all              # build everything (TypeSpec, SDK, client, VM image)
-npm run dev           # start API server + worker + client dev server
+cp development.env.example development.env   # create development.env, fill in secrets
+make all                                      # build TypeSpec, SDK, client
+npm run dev                                   # start full stack via PM2
 ```
 
-See [doc/EDD/003_Caddy_Reverse_Proxy.md](doc/EDD/003_Caddy_Reverse_Proxy.md) appendix for local setup details (GitHub OAuth, `development.env`).
+`npm run dev` starts five processes via PM2: ElasticMQ, Caddy, API server, worker, and Vite dev server. The dashboard is at `http://localhost:8080/app/workspaces` (or `http://<hostname>:8080/` from your LAN).
+
+### `development.env`
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `RUNTIME` | yes | `podman` (Linux), `tart` (macOS), or `stub` (no real workspaces) |
+| `GITHUB_OAUTH_CLIENT_ID` | for OAuth | GitHub OAuth app client ID |
+| `GITHUB_OAUTH_CLIENT_SECRET` | for OAuth | GitHub OAuth app client secret |
+| `CADDY_USERNAME` / `CADDY_PASSWORD` | for basic auth | Fallback when OAuth is not configured |
+
+Either GitHub OAuth **or** basic auth credentials must be set. See [doc/EDD/003_Caddy_Reverse_Proxy.md](doc/EDD/003_Caddy_Reverse_Proxy.md) appendix for GitHub OAuth setup.
+
+### Useful commands
+
+```sh
+npm run dev            # start full stack (ElasticMQ, Caddy, server, worker, client)
+npm run stop           # stop all PM2 processes
+npx pm2 logs           # tail all process logs
+npx pm2 list           # show process status
+npm test               # run unit tests across all packages
+npm run fix -- --unsafe  # format and lint
+```
+
+### E2E tests
+
+```sh
+npm run test:e2e:ci        # stub runtime, no containers needed
+npm run test:e2e:podman    # real Podman containers (requires podman + workspace image)
+```
 
 ## Production Profile (LAN Server)
 
