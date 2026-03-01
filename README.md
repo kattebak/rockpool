@@ -27,7 +27,7 @@ See [doc/EDD/](doc/EDD/) for detailed design documents and [doc/ADR/](doc/ADR/) 
 
 Rockpool auto-detects the platform and uses the appropriate workspace runtime.
 
-### Linux (Podman — recommended)
+### Linux (Podman)
 
 Podman rootless containers provide isolated workspaces without requiring KVM or root privileges at runtime.
 
@@ -54,7 +54,7 @@ Set `RUNTIME=podman` in your `development.env` to use the Podman runtime.
 
 See [doc/EDD/022_Root_VM.md](doc/EDD/022_Root_VM.md) for the full architecture and optional Root VM setup (QEMU/KVM host with Podman inside the VM).
 
-### Linux (Root VM — advanced)
+### Root VM (advanced)
 
 For running the entire control plane inside a QEMU/KVM virtual machine with Podman workspaces:
 
@@ -81,31 +81,6 @@ podman build -t rockpool-workspace:latest images/workspace/
 ```
 
 See [doc/EDD/022_Root_VM.md](doc/EDD/022_Root_VM.md) for detailed setup, networking, and E2E testing instructions.
-
-### Linux (Firecracker — legacy)
-
-Requires an x86_64 host with KVM support (bare metal or nested virtualization enabled).
-
-```sh
-sudo npm-scripts/linux-setup.sh
-```
-
-This script installs all dependencies in one shot:
-- System packages: `build-essential`, `debootstrap`, `default-jre-headless`, `jq`, `curl`
-- Caddy web server (system service disabled — Rockpool manages it)
-- KVM group membership for your user
-- `rockpool0` network bridge with NAT
-- Firecracker binary and kernel
-- ext4 rootfs image (40GB sparse, built via debootstrap)
-- Sudoers entry for TAP device management
-- `development.env` with `RUNTIME=firecracker`
-
-After setup, log out and back in if you were added to the `kvm` group, then:
-
-```sh
-npm install
-npx playwright install chromium
-```
 
 ### macOS (Tart)
 
