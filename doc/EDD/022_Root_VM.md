@@ -766,7 +766,22 @@ QEMU user-mode networking provides a DNS proxy at 10.0.2.3, but `systemd-resolve
 
 The fnm PATH setup was inside `.bashrc` after the interactive guard (`case $- in *i*) ...`), making `node`, `npm`, and `pm2` unavailable for remote SSH commands. **Workaround:** moved fnm PATH block above the guard. **Image rebuild fix:** add fnm PATH to `/etc/profile.d/fnm.sh` or top of `.bashrc`.
 
-### 6. `.qemu/` directory ownership
+### 6. Dev ecosystem missing Caddy process and using wrong NODE_ENV
+
+The development `ecosystem.config.cjs` had two issues preventing the Podman runtime from working in dev mode:
+
+1. `NODE_ENV: "test"` was set on the server process, causing `useStubs = true` — Caddy was never bootstrapped
+2. Caddy was not included as a PM2 process — the server tried to bootstrap Caddy via the admin API on port 2019, but nothing was listening
+
+**Fix:** Removed `NODE_ENV: "test"` override (the env-file already sets `NODE_ENV=development`), and added Caddy as a PM2 process in the dev ecosystem config.
+
+### 7. Vite blocks LAN access by hostname
+
+When accessing the dashboard via LAN hostname (e.g., `http://homelab:8080/`), Vite's dev server rejects the request: `This host ("homelab") is not allowed`. This happens because Caddy proxies `/app/` requests to Vite on port 5173, and Vite's default `allowedHosts` only permits `localhost`.
+
+**Fix:** Added `allowedHosts: true` to `packages/client/vite.config.ts` server config.
+
+### 8. `.qemu/` directory ownership
 
 `build-root-vm.sh` runs as root and creates `.qemu/` with root ownership. The start script (running as unprivileged user) can't write PID files. **Workaround:** `sudo chown -R $USER .qemu/` after build. **Image rebuild fix:** ensure the build script's final step chowns the output directory.
 
