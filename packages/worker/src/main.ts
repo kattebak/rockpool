@@ -3,7 +3,12 @@ import { createCaddyClient } from "@rockpool/caddy";
 import { createDb } from "@rockpool/db";
 import { createSqsQueue } from "@rockpool/queue";
 import type { RuntimeRepository } from "@rockpool/runtime";
-import { createFirecrackerRuntime, createStubRuntime, createTartRuntime } from "@rockpool/runtime";
+import {
+	createFirecrackerRuntime,
+	createPodmanRuntime,
+	createStubRuntime,
+	createTartRuntime,
+} from "@rockpool/runtime";
 import { createWorkspaceService } from "@rockpool/workspace-service";
 import pino from "pino";
 import { createPollLoop } from "./poll-loop.ts";
@@ -37,6 +42,10 @@ function createRuntimeFromEnv(): RuntimeRepository {
 
 	if (runtimeEnv === "stub" || process.env.NODE_ENV === "test") {
 		return createStubRuntime();
+	}
+
+	if (runtimeEnv === "podman") {
+		return createPodmanRuntime();
 	}
 
 	if (runtimeEnv === "firecracker" || (!runtimeEnv && platform === "linux")) {

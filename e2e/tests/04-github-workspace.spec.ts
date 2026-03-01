@@ -7,6 +7,8 @@ import {
 } from "../helpers/platform";
 import { deleteWorkspaceViaApi, provisionTimeout } from "../helpers/workspace";
 
+test.skip(isStubRuntime(), "GitHub workspace tests require real VMs — skipped with stub runtime");
+
 test.describe("GitHub workspace: repo picker -> configure -> provision", () => {
 	test.describe.configure({ mode: "serial" });
 
