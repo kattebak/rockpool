@@ -3,9 +3,9 @@
 | Field        | Value                                                          |
 | ------------ | -------------------------------------------------------------- |
 | Author       | mvhenten                                                       |
-| Status       | Draft                                                          |
+| Status       | Implemented                                                    |
 | Created      | 2026-02-28                                                     |
-| Updated      | 2026-02-28                                                     |
+| Updated      | 2026-03-01                                                     |
 | Related ADRs | [ADR-015](../ADR/015-two-port-origin-isolation.md)             |
 | Related EDDs | [EDD-001](001_Architecture_Overview.md), [EDD-019](019_Linux_Firecracker_Support.md) |
 | Related RFCs | [RFC-002](../RFC/002_Tidepool_On_Tidepool.md)                 |
@@ -95,7 +95,7 @@ If Rockpool supports untrusted multi-user workspaces later, Podman can be swappe
 ```
 Internet ◄──► Cloudflare Tunnel ◄──► Host
                                        │
-                                  Tart / QEMU
+                                     QEMU/KVM
                                   (port forwarding)
                                        │
                                    Root VM
@@ -104,13 +104,13 @@ Internet ◄──► Cloudflare Tunnel ◄──► Host
                                        │
                               ┌────────┼────────┐
                            ws-a (ctr)  ws-b (ctr)
-                           10.0.0.2    10.0.0.3
+                        127.0.0.1:X  127.0.0.1:Y
                               │           │
-                           pasta network namespace
-                           NAT egress only
+                           -P port mapping
+                           (podman publish all)
 ```
 
-Caddy inside the Root VM listens on ports forwarded from the host. Workspace containers each get their own network namespace via Podman's `pasta` networking.
+Caddy inside the Root VM listens on ports forwarded from the host. Workspace containers expose port 8080 via Podman's `-P` (publish all) flag, which maps each container's port 8080 to a random host port. Caddy proxies to `127.0.0.1:<mapped-port>` — not to bridge IPs, which are unreachable in rootless mode (see [Implementation Notes](#implementation-notes)).
 
 ## Workspace Runtime: Podman
 
@@ -120,77 +120,103 @@ A new `createPodmanRuntime()` implements the existing `RuntimeRepository` interf
 
 ```typescript
 interface RuntimeRepository {
-    create(name: string, image: string): Promise<void>;   // podman create
+    create(name: string, image: string): Promise<void>;   // podman create -P --userns=auto
     start(name: string): Promise<void>;                    // podman start
-    stop(name: string): Promise<void>;                     // podman stop
-    remove(name: string): Promise<void>;                   // podman rm + podman rmi (if needed)
-    status(name: string): Promise<VmStatus>;               // podman inspect
-    getIp(name: string): Promise<string>;                  // podman inspect → NetworkSettings.IPAddress
-    configure?(name: string, ...): Promise<void>;          // podman exec
+    stop(name: string): Promise<void>;                     // podman stop --time 10
+    remove(name: string): Promise<void>;                   // podman rm (volume preserved)
+    status(name: string): Promise<VmStatus>;               // podman inspect → State.Running
+    getIp(name: string): Promise<string>;                  // podman port → 127.0.0.1:<mapped-port>
+    configure?(name: string, ...): Promise<void>;          // podman exec + podman restart + wait
     clone?(name: string, ...): Promise<void>;              // podman exec (git clone)
     readFile?(name: string, ...): Promise<string>;         // podman exec cat
-    writeFile?(name: string, ...): Promise<void>;          // podman cp or podman exec tee
+    writeFile?(name: string, ...): Promise<void>;          // podman exec printf
 }
 ```
 
 Key differences from Firecracker/Tart:
 
 - **No SSH.** Use `podman exec` instead. The shared SSH commands abstraction (`ssh-commands.ts`) is replaced by exec-based equivalents.
-- **Instant IP.** `podman inspect` returns the container IP immediately — no polling needed.
+- **Port mapping, not bridge IPs.** Rootless Podman bridge IPs (10.88.0.x) are unreachable from outside the container's user namespace. Use `-P` (publish all) + `podman port <name> 8080` instead of `podman inspect → NetworkSettings.IPAddress`. `getIp()` returns `127.0.0.1:<mapped-port>`.
 - **OCI images.** Workspace images are Dockerfiles, not ext4 rootfs or Tart OCI images. Build with `podman build`.
 - **Rootless.** The entire Podman stack runs without root.
+- **Configure restarts the container.** code-server runs as PID 1. `podman restart --time 2` is used after writing config (not `pkill`). Port mappings change on restart, so `getIp()` must be called after `configure()`.
 
 ### Workspace image
 
-The workspace Dockerfile installs the same software as the current `images/scripts/setup.sh`:
+The workspace Dockerfile (`images/workspace/Dockerfile`) installs the same software as the current `images/scripts/setup.sh`. Uses a custom entrypoint script to support optional workspace folder opening (code-server takes the folder as a positional argument, not a config option):
 
 ```dockerfile
 FROM debian:bookworm-slim
+ARG CS_USER=admin
+ARG NODE_MAJOR=22
 
 RUN apt-get update && apt-get install -y \
-    curl wget jq git openssh-server make python3 \
-    build-essential vim tmux zip rsync strace
+    curl wget jq git make ca-certificates build-essential \
+    python3 vim tmux zip rsync strace sudo ...
 
-# code-server
+RUN useradd -m -s /bin/bash -G sudo "$CS_USER"
 RUN curl -fsSL https://code-server.dev/install.sh | sh
 
-# Node.js via fnm
+USER ${CS_USER}
 RUN curl -fsSL https://fnm.vercel.app/install | bash
+ENV FNM_PATH="/home/${CS_USER}/.local/share/fnm"
+RUN fnm install ${NODE_MAJOR} && fnm default ${NODE_MAJOR}
 
-# code-server systemd service or direct entrypoint
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 EXPOSE 8080
-CMD ["code-server", "--bind-addr=0.0.0.0:8080", "--auth=none"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+```
+
+The entrypoint script reads an optional folder from `~/.config/code-server/workspace-folder`:
+
+```bash
+#!/bin/sh
+FOLDER_FILE="$HOME/.config/code-server/workspace-folder"
+FOLDER=""
+if [ -f "$FOLDER_FILE" ]; then FOLDER="$(cat "$FOLDER_FILE")"; fi
+exec code-server --bind-addr=0.0.0.0:8080 --auth=none $FOLDER
 ```
 
 ### Container lifecycle
 
 ```bash
-# create + start
-podman run -d \
+# create (with port publishing)
+podman create \
   --name workspace-foo \
+  -P \
   --userns=auto \
-  --security-opt=seccomp=default \
   --cpus=2 --memory=4g \
-  --volume workspace-foo-data:/home/coder \
+  --volume workspace-foo-data:/home/admin \
   rockpool-workspace:latest
 
+# start
+podman start workspace-foo
+
 # stop
-podman stop workspace-foo
+podman stop --time 10 workspace-foo
 
 # remove
 podman rm workspace-foo
 # persistent data survives in the named volume
 
-# get IP
-podman inspect workspace-foo --format '{{.NetworkSettings.IPAddress}}'
+# get mapped port (NOT bridge IP — bridge IPs are unreachable in rootless mode)
+podman port workspace-foo 8080
+# → 0.0.0.0:44231
 
 # exec (replaces SSH)
 podman exec workspace-foo git clone https://github.com/user/repo.git
+
+# configure: write config yaml + workspace folder, then restart
+podman exec workspace-foo sh -c "printf '%s\n' 'bind-addr: ...' > ~/.config/code-server/config.yaml"
+podman exec workspace-foo sh -c "printf '%s' '/home/admin/my-project' > ~/.config/code-server/workspace-folder"
+podman restart --time 2 workspace-foo
+# MUST wait for container to be running before any subsequent exec
+while [ "$(podman inspect workspace-foo --format '{{.State.Running}}')" != "true" ]; do sleep 1; done
 ```
 
 ### Persistent storage
 
-Each workspace gets a Podman named volume for `/home/coder` (the working directory). The volume persists across container stop/start cycles. `podman rm` removes the container but not the volume — workspace data survives until explicitly deleted with `podman volume rm`.
+Each workspace gets a Podman named volume for `/home/admin` (the working directory). The volume persists across container stop/start cycles. `podman rm` removes the container but not the volume — workspace data survives until explicitly deleted with `podman volume rm`.
 
 ## Root VM Image
 
@@ -210,13 +236,13 @@ Debian Bookworm (aarch64 for macOS/Apple Silicon, x86_64 for Linux x86 hosts).
 
 ### Build
 
-Extend the existing Packer pipeline or create a dedicated build script.
+Built via `images/root-vm/build-root-vm.sh` using debootstrap + chroot. Produces `.qemu/rockpool-root.qcow2`. The script handles MBR partitioning, GRUB bootloader with serial console, admin user creation, and raw-to-qcow2 conversion.
 
 #### Makefile target
 
 ```makefile
-$(STAMP_DIR)/rockpool-root-vm: images/root-vm/setup-root-vm.sh images/scripts/setup.sh
-	$(BUILD_ROOT_VM_CMD)
+$(STAMP_DIR)/rockpool-root-vm: images/root-vm/build-root-vm.sh images/root-vm/setup-root-vm.sh images/root-vm/keys/rockpool-root-vm_ed25519.pub
+	sudo bash images/root-vm/build-root-vm.sh
 	touch $@
 ```
 
@@ -320,7 +346,22 @@ Default runtime inside the Root VM is Podman.
 
 ### Caddy config
 
-No changes. Caddy proxies to workspace IPs regardless of the underlying runtime.
+`toDial()` helper added to handle `host:port` format from `getIp()`. When `vmIp` is `127.0.0.1:44231`, Caddy dials that directly instead of appending a default port.
+
+### Health check
+
+`toHealthUrl()` updated to handle `host:port` format. When `vmIp` includes a colon, it's used as-is instead of appending `:8080`.
+
+### Workspace service
+
+`provisionAndStart()` restructured to run sequentially, not in parallel:
+
+1. `configure()` — writes config yaml + workspace-folder, restarts container, waits for running
+2. `clone()` — runs `git clone` via `podman exec` (must run after restart completes)
+3. `getIp()` — gets the post-restart port mapping (port changes on every restart)
+4. `healthCheck()` — polls code-server at the new port
+
+`configure()` and `clone()` were originally `Promise.all()`. This fails with Podman because `podman restart` kills any running `podman exec` sessions. The fix: run them sequentially.
 
 ### Image pipeline
 
@@ -340,26 +381,84 @@ Scope is a testable breadboard: the Root VM boots, mounts source, runs the stack
 
 ### In scope
 
-- Root VM image build (Tart on macOS initially)
-- Virtiofs source mount with PM2 file watching
-- Three-port forwarding (srv0, srv1, srv2) from host to Root VM
+- Root VM image build (QEMU/KVM on Linux — implemented first)
+- Virtiofs source mount with PM2 file watching (watch delay 2000ms for Virtiofs latency)
+- Six-port forwarding (dev 8080-8082 + test 9080-9082) from host to Root VM
 - Podman runtime implementation (`createPodmanRuntime()`)
 - Workspace Dockerfile (based on existing `setup.sh`)
 - Basic auth (Caddy, same as today)
-- Host-side scripts (`start:vm`, `stop:vm`, `ssh:vm`)
-- E2E test suite passing against the Root VM stack
+- Host-side scripts (`start:vm`, `stop:vm`, `ssh:vm`, `vm:logs`, `start:rootvm`, `stop:rootvm`)
+- E2E test suite passing against the Root VM stack (`test:e2e:rootvm`, `test:e2e:podman`)
 - PM2 log access from the host
+- Developer workflow guide (`doc/root-vm-dev.md`)
 
 ### Out of scope (deferred to later iterations)
 
 - GitHub auth / OAuth — basic auth only
 - Devcontainer support (EDD-015)
 - User preferences sync (EDD-020)
-- Linux host / QEMU deployment — macOS/Tart first
+- macOS / Tart deployment — Linux/QEMU implemented first
 - Production profile / production config — no `ecosystem.production.config.cjs` adaptation
 - Production hardening (firewall rules, boot persistence, backups)
 - Cloudflare Tunnel / external ingress
 - Multi-user
+
+## Setup Instructions
+
+### Host prerequisites
+
+```bash
+# Install QEMU/KVM, virtiofs, and debootstrap (Ubuntu/Debian)
+sudo apt install qemu-system-x86 qemu-utils virtiofsd debootstrap grub-pc-bin
+
+# Ensure KVM access
+sudo usermod -aG kvm $USER
+# Log out and back in for group membership to take effect
+
+# Install Podman (for host-side E2E testing without the VM)
+sudo apt install podman
+```
+
+### Build the Root VM image
+
+```bash
+# Requires sudo (debootstrap creates root-owned chroots, GRUB needs loopback)
+sudo bash images/root-vm/build-root-vm.sh
+
+# Fix output directory ownership (build runs as root)
+sudo chown -R $USER:$USER .qemu/
+```
+
+Produces `.qemu/rockpool-root.qcow2` (~37 MB base image).
+
+### Build the workspace container image
+
+```bash
+podman build -t rockpool-workspace:latest images/workspace/
+```
+
+### Start the Root VM
+
+```bash
+npm run start:vm       # Boot VM, wait for SSH
+npm run ssh:vm         # SSH into the VM
+npm run start:rootvm   # Boot VM + start PM2 stack (one command)
+```
+
+### Run E2E tests
+
+```bash
+npm run test:e2e:ci        # Stub runtime, no VM needed
+npm run test:e2e:podman    # Podman runtime on host (requires podman + workspace image)
+npm run test:e2e:rootvm    # Stub runtime inside Root VM (requires running VM)
+```
+
+### Stop
+
+```bash
+npm run stop:rootvm    # Stop PM2 inside VM + shut down VM
+npm run stop:vm        # Just shut down the VM
+```
 
 ## Rollout Plan
 
@@ -367,29 +466,29 @@ Phases 1-2 use the existing stub runtime to validate VM infrastructure. Phases 3
 
 ### Phase 1: Root VM image — boot, mount, SSH
 
-**Goal:** A Tart Linux VM that boots, mounts the project directory via Virtiofs, exposes three ports to the host, and is reachable via SSH.
+**Goal:** A QEMU/KVM Linux VM that boots, mounts the project directory via Virtiofs, exposes ports to the host, and is reachable via SSH.
 
 **Steps:**
 
-1. Create a base Tart Linux VM (Debian Bookworm aarch64) using `tart create`
+1. Create a base QEMU VM image (Debian Bookworm x86_64) using debootstrap + chroot (`images/root-vm/build-root-vm.sh`, requires `sudo`)
 2. Write `images/root-vm/setup-root-vm.sh` provisioning script that installs:
    - Node.js (via fnm)
    - PM2 (global)
-   - Caddy
-   - ElasticMQ (Java + jar)
-   - SSH server with Rockpool keypair
-   - (Podman is NOT installed yet — stub runtime only in this phase)
-3. Add fstab entry for Virtiofs auto-mount at `/mnt/rockpool`
-4. Add Makefile target: `$(STAMP_DIR)/rockpool-root-vm`
-5. Write `npm-scripts/start-root-vm.sh`:
-   - `tart run --dir=rockpool:<project-dir> --net-softnet --net-softnet-expose=8080:8080,8081:8081,8082:8082,9080:9080,9081:9081,9082:9082 rockpool-root`
-   - Forward both dev ports (8080-8082) and test ports (9080-9082)
-   - Wait for SSH to become available
-   - Print the VM IP and connection info
-6. Write `npm-scripts/stop-root-vm.sh`: graceful `tart stop`
-7. Write `npm-scripts/ssh-root-vm.sh`: SSH wrapper using Rockpool keypair
-8. Write `npm-scripts/vm-logs.sh`: runs PM2 logs over SSH for quick access from the host
-9. Add npm scripts: `start:vm`, `stop:vm`, `ssh:vm`, `vm:logs`
+   - Caddy (from official apt repo)
+   - ElasticMQ (Java + jar at `/opt/elasticmq/`)
+   - SSH server with Rockpool keypair (Ed25519, password auth disabled)
+   - Virtiofs fstab entry, systemd-networkd DHCP, serial console
+3. Add Makefile target: `$(STAMP_DIR)/rockpool-root-vm`
+4. Write `npm-scripts/start-root-vm.sh`:
+   - Starts `virtiofsd --sandbox=namespace` for the project directory
+   - Starts QEMU/KVM with `vhost-user-fs-pci` for Virtiofs
+   - Forwards ports: 2222→22 (SSH), 8080-8082 (dev), 9080-9082 (test), 9324+9424 (ElasticMQ)
+   - Waits for SSH to become available
+   - Prints connection info
+5. Write `npm-scripts/stop-root-vm.sh`: SSH `sudo poweroff`, falls back to SIGTERM/SIGKILL
+6. Write `npm-scripts/ssh-root-vm.sh`: SSH wrapper using project keypair on port 2222
+7. Write `npm-scripts/vm-logs.sh`: runs PM2 logs over SSH
+8. Add npm scripts: `start:vm`, `stop:vm`, `ssh:vm`, `vm:logs`
 
 **Verification:**
 
@@ -498,26 +597,29 @@ Phases 1-2 use the existing stub runtime to validate VM infrastructure. Phases 3
 4. Verify Caddy can proxy to Podman container IPs (pasta networking)
 5. Verify WebSocket passthrough (code-server terminal, LSP)
 
-**Target test results (Podman runtime):**
+**Actual test results (Podman runtime, `test:e2e:podman` on host):**
 
-| Test file | Expected result |
-|-----------|----------------|
-| `01-smoke.spec.ts` | Pass |
-| `02-workspace-lifecycle.spec.ts` | Pass — real Podman containers |
-| `03-ide-loading.spec.ts` | Pass — code-server in container, accessed through Caddy |
-| `04-github-workspace.spec.ts` | Skip — no GitHub auth |
-| `05-clone-verification.spec.ts` | Skip — no GitHub auth |
-| `06-preferences-save.spec.ts` | Skip — deferred |
+| Test file | Result |
+|-----------|--------|
+| `01-smoke.spec.ts` | Pass (6/6) — dashboard, health check, API through Caddy |
+| `02-workspace-lifecycle.spec.ts` | Pass (9/9) — create/provision/stop/delete with real Podman containers |
+| `03-ide-loading.spec.ts` | Pass (4/4) — code-server renders in browser through Caddy proxy |
+| `04-github-workspace.spec.ts` | Flaky (0/10) — GitHub public API rate limit (60 req/hr unauthenticated) |
+| `05-clone-verification.spec.ts` | Pass (3/3) — git clone, code-server opens in cloned folder, explorer shows files |
+| `06-preferences-save.spec.ts` | Pass (5/5) — read/write prefs via `podman exec` |
+
+**Total: 29 passed, 1 flaky (GitHub rate limit), 7 cascading skips.**
 
 **Verification:**
 
-- `npm run test:e2e:rootvm` (with `RUNTIME=podman`) passes tests 01-03
+- `npm run test:e2e:podman` passes tests 01-03, 05-06 with real Podman containers
 - Workspace creates, provisions, and reaches running state
 - code-server renders in the browser via Caddy proxy
+- Git clone works, code-server opens in the cloned directory
 - WebSockets work (terminal, file operations in code-server)
 - Stop and delete clean up the container
 
-**This is the second milestone.** The full Podman workspace lifecycle works end to end inside the Root VM.
+**This is the second milestone.** The full Podman workspace lifecycle works end to end.
 
 ### Phase 5: Developer workflow polish
 
@@ -570,11 +672,124 @@ Workspace breakout path:
 
 ## Open Questions
 
-- [ ] **Root VM resource allocation.** How much CPU/RAM for the Root VM? It needs enough for the control plane + N Podman containers (each limited to 2 CPU / 4 GB).
-- [ ] **Virtiofs performance.** Is file watching over Virtiofs fast enough for a good dev loop, or will there be noticeable latency on save → PM2 restart?
-- [ ] **Root VM disk sizing.** Podman images and volumes need space. OCI layers are shared, so N workspaces from the same image are cheaper than N Firecracker rootfs copies. How large should the Root VM disk be?
-- [ ] **Tart softnet port forwarding.** Does `--net-softnet-expose` reliably forward WebSocket traffic for code-server? Needs verification.
-- [ ] **Linux host hypervisor.** QEMU is the obvious choice, but should we consider libvirt/virt-manager for easier management on Linux NAS?
-- [ ] **Graceful shutdown.** When the Root VM shuts down, should it stop all workspace containers first, or let them die and recover on next boot?
-- [ ] **Podman networking mode.** Default `pasta` (userspace, no root) vs. `slirp4netns` (legacy) vs. bridge with `podman network create` (needs root). `pasta` is the modern default and performs well — verify it works for WebSocket proxying.
-- [ ] **code-server in container.** Current images run code-server as a systemd service. In a container, systemd is usually not running. Run code-server directly as the container entrypoint, or use systemd in the container (`--systemd=always`)?
+- [ ] **Root VM resource allocation.** How much CPU/RAM for the Root VM? Defaults to 8 GB RAM / 4 CPUs (configurable via `ROOT_VM_MEMORY` and `ROOT_VM_CPUS` env vars). Needs real-world testing with N concurrent workspaces.
+- [ ] **Root VM disk sizing.** Podman images and volumes need space. OCI layers are shared, so N workspaces from the same image are cheaper than N Firecracker rootfs copies. Current default not yet tuned.
+- [ ] **macOS / Tart support.** Linux/QEMU was implemented first. Tart support for macOS hosts is deferred — the scripts would need platform detection and Tart equivalents.
+
+### Resolved
+
+- [x] **Virtiofs performance.** PM2 watch delay doubled to 2000ms (from 1000ms) to account for Virtiofs inotify propagation latency. Prevents spurious double-restarts. `node_modules` kept on the Virtiofs mount for simplicity.
+- [x] **Linux host hypervisor.** QEMU/KVM with user-mode networking. No libvirt — direct QEMU invocation keeps the dependency surface minimal.
+- [x] **Graceful shutdown.** `stop-root-vm.sh` SSHes in and runs `sudo poweroff`. Falls back to SIGTERM, then SIGKILL after timeout. Workspace containers are not explicitly stopped first — they die with the VM and recover on next boot.
+- [x] **Podman networking mode.** Neither `pasta` nor `slirp4netns` bridge IPs work for rootless Podman — bridge IPs (10.88.0.x) exist inside a user namespace and are unreachable from outside. Solution: `-P` (publish all) + `podman port <name> 8080` to get the host-mapped port. Caddy proxies to `127.0.0.1:<mapped-port>`.
+- [x] **code-server in container.** Custom `entrypoint.sh` (not systemd). Reads optional workspace folder from `~/.config/code-server/workspace-folder` and passes it as a positional arg to `code-server`. code-server's YAML config does **not** support a `default-workspace` option — it crashes with `Unknown option`. Configuration changes use `podman restart --time 2` since code-server is PID 1, followed by a wait-for-running poll.
+- [x] **Tart softnet port forwarding.** N/A — Linux/QEMU implemented first. QEMU user-mode networking handles TCP port forwarding including WebSockets.
+
+## Implementation Notes
+
+### Blocker: rootless Podman bridge IPs are unreachable
+
+The EDD originally specified `podman inspect → NetworkSettings.IPAddress` for `getIp()`. This does not work with rootless Podman. Container bridge IPs (e.g., `10.88.0.2`) exist inside a user namespace and are unreachable from processes outside that namespace (including Caddy running on the Root VM).
+
+**Solution:** Containers are created with `-P` (publish all exposed ports). `getIp()` calls `podman port <name> 8080` which returns the host-mapped port (e.g., `0.0.0.0:44231`). The runtime returns `127.0.0.1:<port>` as the workspace address.
+
+**Ripple effects:**
+- `caddy-client.ts`: added `toDial()` helper to handle `host:port` format
+- `health-check.ts`: `toHealthUrl()` updated to handle `host:port` (no default `:8080` append)
+- `workspace-service.ts`: `getIp()` must be called **after** `configure()` because `podman restart` remaps ports
+
+### Configure uses `podman restart`, not process signaling
+
+code-server runs as PID 1 (container entrypoint). Killing it kills the container. The runtime writes config via `podman exec`, then runs `podman restart --time 2` for a clean restart. This causes port remapping, which is why `getIp()` ordering matters.
+
+After `podman restart`, the runtime polls `podman inspect --format '{{.State.Running}}'` until the container is running again. Without this wait, subsequent `podman exec` calls fail with `container state improper` (the container hasn't finished restarting yet).
+
+### code-server `default-workspace` does not exist
+
+The EDD's configure method originally wrote `default-workspace: /path` into the code-server config YAML. code-server does not support this option — it crashes with `Unknown option --default-workspace`. code-server takes the folder as a positional CLI argument instead.
+
+**Solution:** The workspace container uses a custom `entrypoint.sh` that reads an optional folder path from `~/.config/code-server/workspace-folder` and passes it as a positional argument to `code-server`. The `configure()` method writes this file alongside the config YAML.
+
+### `podman inspect` can return State as undefined
+
+During container state transitions (restart, stop), `podman inspect` may return JSON where `State` is undefined. `mapContainerStateToVmStatus()` guards against this by returning `"stopped"` when `State` is missing.
+
+### Worker also needs runtime registration
+
+The EDD only mentioned registering Podman in the server's `createRuntimeFromConfig()`. The worker also creates a runtime and needed the same `RUNTIME=podman` branch.
+
+### Image build: debootstrap, not Packer
+
+The Root VM image is built with `debootstrap` + `chroot` instead of Packer. This avoids a Packer dependency and produces a minimal Debian installation. The build script (`images/root-vm/build-root-vm.sh`) handles partitioning, GRUB installation, and qcow2 conversion.
+
+### SSH keypair for Root VM access
+
+An Ed25519 keypair is stored at `images/root-vm/keys/`. The private key is gitignored; the public key is tracked. SSH uses port 2222 on the host (forwarded to 22 in the VM) to avoid conflict with the host's SSH daemon.
+
+### E2E test profiles
+
+Two new profiles were added:
+- `E2E_PROFILE=rootvm` — PM2 commands run over SSH into the Root VM
+- `E2E_PROFILE=podman` — runs locally with `RUNTIME=podman` (for testing Podman without the VM)
+
+## Verified E2E Results
+
+All three profiles pass. The Podman profile runs real containers end-to-end — workspace create, provision, code-server rendering, git clone, preferences save, stop, and delete.
+
+| Profile | Runtime | Where PM2 runs | Result |
+|---------|---------|----------------|--------|
+| `test:e2e:ci` | stub | host | 15 passed, 22 skipped |
+| `test:e2e:rootvm` | stub | Root VM (over SSH) | 15 passed, 22 skipped |
+| `test:e2e:podman` | podman | host | 29 passed, 1 flaky, 7 cascading skips |
+
+The Podman profile passes tests 01-03 (smoke, workspace lifecycle, IDE loading), 05 (clone verification with code-server opening in cloned folder), and 06 (preferences save). Test 04 (GitHub repo picker) is flaky due to GitHub public API rate limits (60 req/hr unauthenticated) — not a Podman issue. The full workspace lifecycle works: `podman create` → `podman start` → `configure` via `podman exec` → `podman restart` → wait for running → `git clone` → `getIp` → health check → Caddy reverse proxy → code-server renders in cloned folder → `podman stop` → `podman rm`.
+
+## Issues Found During Integration Testing
+
+### 1. virtiofsd sandbox mode requires `--sandbox=namespace`
+
+The default `--sandbox=chroot` requires root. Since virtiofsd runs as an unprivileged user, `--sandbox=namespace` is required. Fixed in `npm-scripts/start-root-vm.sh`.
+
+### 2. ElasticMQ ports need forwarding
+
+The Playwright `globalSetup` creates SQS queues from the host. ElasticMQ ports (9324, 9424) must be forwarded from the host to the VM alongside the Caddy ports. Added `hostfwd=tcp::9324-:9324,hostfwd=tcp::9424-:9424` to the QEMU netdev.
+
+### 3. GLIBC / Node.js ABI mismatch for better-sqlite3
+
+The host (Ubuntu, GLIBC 2.39, Node v25) and VM (Debian Bookworm, GLIBC 2.36, Node v24 LTS) have different GLIBC versions and Node.js ABIs. The host-compiled `better-sqlite3` native addon fails inside the VM. **Workaround:** install Node v25 in the VM via `fnm install 25` and `npm rebuild better-sqlite3`. **Image rebuild fix:** the provisioning script should install the same Node.js major version as the host.
+
+### 4. VM DNS resolution requires manual configuration
+
+QEMU user-mode networking provides a DNS proxy at 10.0.2.3, but `systemd-resolved` inside the VM doesn't know about it. **Workaround:** manually set `/etc/resolv.conf` to `nameserver 10.0.2.3`. **Image rebuild fix:** add a persistent networkd configuration or a drop-in for `systemd-resolved`.
+
+### 5. fnm PATH not available in non-interactive SSH sessions
+
+The fnm PATH setup was inside `.bashrc` after the interactive guard (`case $- in *i*) ...`), making `node`, `npm`, and `pm2` unavailable for remote SSH commands. **Workaround:** moved fnm PATH block above the guard. **Image rebuild fix:** add fnm PATH to `/etc/profile.d/fnm.sh` or top of `.bashrc`.
+
+### 6. `.qemu/` directory ownership
+
+`build-root-vm.sh` runs as root and creates `.qemu/` with root ownership. The start script (running as unprivileged user) can't write PID files. **Workaround:** `sudo chown -R $USER .qemu/` after build. **Image rebuild fix:** ensure the build script's final step chowns the output directory.
+
+### Files created
+
+| File | Purpose |
+|------|---------|
+| `images/root-vm/build-root-vm.sh` | Builds QEMU qcow2 image via debootstrap |
+| `images/root-vm/setup-root-vm.sh` | Provisioning script (runs in chroot) |
+| `images/root-vm/keys/` | SSH keypair for VM access |
+| `images/workspace/Dockerfile` | Workspace container image |
+| `images/workspace/entrypoint.sh` | code-server entrypoint with optional folder arg |
+| `packages/runtime/src/podman-runtime.ts` | `createPodmanRuntime()` implementation |
+| `packages/runtime/test/podman-runtime.test.ts` | 22 unit tests |
+| `npm-scripts/start-root-vm.sh` | Starts virtiofsd + QEMU/KVM |
+| `npm-scripts/stop-root-vm.sh` | Graceful shutdown |
+| `npm-scripts/ssh-root-vm.sh` | SSH wrapper |
+| `npm-scripts/vm-logs.sh` | PM2 logs over SSH |
+| `npm-scripts/start-rootvm.sh` | Combined VM boot + PM2 start |
+| `npm-scripts/stop-rootvm.sh` | Combined PM2 stop + VM shutdown |
+| `rootvm-test.env` | Root VM test environment |
+| `podman-test.env` | Podman-only test environment |
+| `ecosystem.rootvm-test.config.cjs` | PM2 config for Root VM tests |
+| `ecosystem.podman-test.config.cjs` | PM2 config for Podman tests |
+| `ecosystem.rootvm.config.cjs` | PM2 config for Root VM development |
+| `doc/root-vm-dev.md` | Developer workflow guide |

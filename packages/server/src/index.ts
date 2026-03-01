@@ -11,7 +11,12 @@ import { WorkspaceStatus as WS } from "@rockpool/enums";
 import type { QueueRepository } from "@rockpool/queue";
 import { createSqsQueue } from "@rockpool/queue";
 import type { RuntimeRepository } from "@rockpool/runtime";
-import { createFirecrackerRuntime, createStubRuntime, createTartRuntime } from "@rockpool/runtime";
+import {
+	createFirecrackerRuntime,
+	createPodmanRuntime,
+	createStubRuntime,
+	createTartRuntime,
+} from "@rockpool/runtime";
 import pino from "pino";
 import { createApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
@@ -36,6 +41,10 @@ function createRuntimeFromConfig(config: import("./config.ts").ServerConfig): Ru
 
 	if (runtimeEnv === "stub" || process.env.NODE_ENV === "test") {
 		return createStubRuntime();
+	}
+
+	if (runtimeEnv === "podman") {
+		return createPodmanRuntime();
 	}
 
 	if (runtimeEnv === "firecracker" || (!runtimeEnv && config.platform === "linux")) {
