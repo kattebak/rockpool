@@ -7,7 +7,7 @@
 | Created      | 2026-02-28                                                     |
 | Updated      | 2026-03-01                                                     |
 | Related ADRs | [ADR-015](../ADR/015-two-port-origin-isolation.md)             |
-| Related EDDs | [EDD-001](001_Architecture_Overview.md), [EDD-019](019_Linux_Firecracker_Support.md) |
+| Related EDDs | [EDD-001](001_Architecture_Overview.md) |
 | Related RFCs | [RFC-002](../RFC/002_Tidepool_On_Tidepool.md)                 |
 
 ## Summary
@@ -42,12 +42,12 @@ The one gap vs. a VM: containers share the Root VM's kernel. A kernel exploit in
 
 ### Upgrade path
 
-If Rockpool supports untrusted multi-user workspaces later, Podman can be swapped for Firecracker on bare-metal Linux or for `podman --runtime=kata`. The `RuntimeRepository` interface stays the same.
+If Rockpool supports untrusted multi-user workspaces later, Podman can be swapped for `podman --runtime=kata` or a VM-based runtime. The `RuntimeRepository` interface stays the same.
 
 ## Prerequisites
 
 - [EDD-010: PM2 Process Management](010_PM2_Process_Management.md) — process lifecycle inside the VM
-- Tart `--nested` on M3/M4 + macOS 15 Sequoia (for `/dev/kvm` passthrough if Firecracker is needed inside the Root VM later)
+- Tart `--nested` on M3/M4 + macOS 15 Sequoia (for `/dev/kvm` passthrough if VM-based isolation is needed inside the Root VM later)
 
 ## System Topology
 
@@ -60,7 +60,7 @@ If Rockpool supports untrusted multi-user workspaces later, Podman can be swappe
 │  Caddy, Server, Worker, ElasticMQ   │  ← control plane on host
 │  PM2                                 │
 │                                      │
-│  Tart/Firecracker workspace VMs      │  ← one layer of isolation
+│  Tart workspace VMs                  │  ← one layer of isolation
 └──────────────────────────────────────┘
 ```
 
@@ -132,7 +132,7 @@ interface RuntimeRepository {
 }
 ```
 
-Key differences from Firecracker/Tart:
+Key differences from Tart:
 
 - **No SSH.** Use `podman exec` instead. The shared SSH commands abstraction (`ssh-commands.ts`) is replaced by exec-based equivalents.
 - **Port mapping, not bridge IPs.** Rootless Podman bridge IPs (10.88.0.x) are unreachable from outside the container's user namespace. Use `-P` (publish all) + `podman port <name> 8080` instead of `podman inspect → NetworkSettings.IPAddress`. `getIp()` returns `127.0.0.1:<mapped-port>`.
@@ -332,10 +332,6 @@ A new `@rockpool/runtime` implementation: `createPodmanRuntime()`. Uses `podman`
 ### Tart runtime
 
 No longer used for workspace VMs. Retained only for Root VM boot scripts on macOS.
-
-### Firecracker runtime
-
-Retained for bare-metal Linux deployments where workspaces need full VM isolation (future multi-user scenario).
 
 ### Server config
 
@@ -668,7 +664,7 @@ Workspace breakout path:
 ## Open Questions
 
 - [ ] **Root VM resource allocation.** How much CPU/RAM for the Root VM? Defaults to 8 GB RAM / 4 CPUs (configurable via `ROOT_VM_MEMORY` and `ROOT_VM_CPUS` env vars). Needs real-world testing with N concurrent workspaces.
-- [ ] **Root VM disk sizing.** Podman images and volumes need space. OCI layers are shared, so N workspaces from the same image are cheaper than N Firecracker rootfs copies. Current default not yet tuned.
+- [ ] **Root VM disk sizing.** Podman images and volumes need space. OCI layers are shared, so N workspaces from the same image are cheap. Current default not yet tuned.
 - [ ] **macOS / Tart support.** Linux/QEMU was implemented first. Tart support for macOS hosts is deferred — the scripts would need platform detection and Tart equivalents.
 
 ### Resolved

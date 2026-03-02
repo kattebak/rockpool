@@ -29,8 +29,8 @@ Investigate and update:
 - System topology diagram: "Root VM" is no longer hypothetical, it's real. Diagram should show the actual layers (host → Tart/QEMU → Root VM → Podman containers)
 - Control plane section: currently describes server + worker running on "the root VM" but in practice they ran on the host. Now they actually run in a VM — verify the description matches reality
 - Workspace VMs section: workspaces are now Podman containers, not microVMs. Update terminology and isolation description
-- Network architecture: the isolated bridge (`rockpool0`, Firecracker TAP devices) is replaced by Podman's `pasta` networking inside the Root VM. Verify what the actual network topology looks like
-- Deployment targets table: add Podman as the workspace runtime, note Tart is Root VM only on macOS, update Firecracker status (retained for bare-metal Linux, not used inside Root VM)
+- Network architecture: updated to Podman's `pasta` networking inside the Root VM. Verify what the actual network topology looks like
+- Deployment targets table: add Podman as the workspace runtime, note Tart is Root VM only on macOS, remove Firecracker (EDD-019 superseded and removed)
 - Request flow diagrams: verify they still match — workspace creation now goes through `podman create` instead of VM boot
 - Port forwarding section: verify the flow (Caddy → container IP vs. Caddy → VM IP)
 
@@ -43,7 +43,7 @@ Investigate and update:
 - Runtime evaluation table: add Podman as an option, update the verdict
 - The "Tart for macOS, Firecracker for Linux" split is no longer the primary model — Podman is the default inside the Root VM on both platforms
 - Tart section: clarify Tart is now used for Root VM boot only, not workspace VMs
-- Firecracker section: clarify it's retained for bare-metal Linux multi-user scenarios
+- Firecracker section: remove entirely (EDD-019 superseded and removed)
 - `RuntimeRepository` interface: verify the interface description still matches — Podman uses `podman exec` instead of SSH
 - Check if the macOS/Linux compatibility table needs updating
 
@@ -53,7 +53,7 @@ Investigate and update:
 
 Investigate and update:
 
-- Image build process: Packer (Tart) and `build-firecracker-rootfs.sh` (Firecracker) are replaced by `podman build` with a Dockerfile for the default runtime
+- Image build process: Packer (Tart) replaced by `podman build` with a Dockerfile for the default runtime
 - `images/scripts/setup.sh`: verify whether it's still the source of truth or if its contents have moved into the Dockerfile
 - Image distribution: OCI container images via Podman registry vs. Tart OCI images vs. ext4 files
 - Verify which Makefile targets changed and which are obsolete
@@ -68,17 +68,6 @@ Investigate and update:
 - File watching: verify the description of watch patterns — paths changed to `/mnt/rockpool/` for Virtiofs mount
 - Boot persistence section: PM2 startup inside the Root VM vs. on the host
 - The section on RFC-002 (Rockpool-on-Rockpool): partially superseded by EDD-022
-
-### EDD-019: Linux Firecracker Support
-
-**Impact: Medium — Firecracker is no longer the default workspace runtime inside the Root VM.**
-
-Investigate and update:
-
-- Clarify that Firecracker is retained for bare-metal Linux deployments (future multi-user)
-- The nested virtualization addendum (Addendum A): verify whether this is still relevant or superseded by the Podman approach
-- Network setup scripts (`firecracker-bridge-setup.sh`, `firecracker-net.sh`): verify if these are still used or only for bare-metal
-- Slot allocator: verify if it's still active or only for bare-metal Firecracker
 
 ### ADR-015: Three-Port Origin Isolation
 
