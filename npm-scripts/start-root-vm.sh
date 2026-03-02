@@ -94,7 +94,7 @@ $VIRTIOFSD_BIN \
 VIRTIOFSD_PID=$!
 echo "$VIRTIOFSD_PID" > "$VIRTIOFSD_PID_FILE"
 
-for i in $(seq 1 20); do
+for _ in $(seq 1 20); do
   [ -S "$VIRTIOFSD_SOCK" ] && break
   sleep 0.25
 done
@@ -105,10 +105,6 @@ if [ ! -S "$VIRTIOFSD_SOCK" ]; then
   rm -f "$VIRTIOFSD_PID_FILE"
   exit 1
 fi
-
-MEMORY_NUM="${ROOT_VM_MEMORY//[^0-9]/}"
-MEMORY_UNIT="${ROOT_VM_MEMORY//[0-9]/}"
-MEMORY_UNIT="${MEMORY_UNIT:-G}"
 
 echo "Starting QEMU/KVM (${ROOT_VM_CPUS} CPUs, ${ROOT_VM_MEMORY} RAM)..."
 qemu-system-x86_64 \
@@ -122,7 +118,7 @@ qemu-system-x86_64 \
   -chardev socket,id=char-virtiofs,path="$VIRTIOFSD_SOCK" \
   -device vhost-user-fs-pci,chardev=char-virtiofs,tag=rockpool \
   -device virtio-net-pci,netdev=net0 \
-  -netdev user,id=net0,hostfwd=tcp::${ROOT_VM_SSH_PORT}-:22,hostfwd=tcp::8080-:8080,hostfwd=tcp::8081-:8081,hostfwd=tcp::8082-:8082,hostfwd=tcp::9080-:9080,hostfwd=tcp::9081-:9081,hostfwd=tcp::9082-:9082,hostfwd=tcp::9324-:9324,hostfwd=tcp::9424-:9424 \
+  -netdev "user,id=net0,hostfwd=tcp::${ROOT_VM_SSH_PORT}-:22,hostfwd=tcp::8080-:8080,hostfwd=tcp::8081-:8081,hostfwd=tcp::8082-:8082,hostfwd=tcp::9080-:9080,hostfwd=tcp::9081-:9081,hostfwd=tcp::9082-:9082,hostfwd=tcp::9324-:9324,hostfwd=tcp::9424-:9424" \
   -serial file:"$SERIAL_LOG" \
   -monitor unix:"${QEMU_DIR}/qemu-monitor.sock",server,nowait \
   -display none \

@@ -10,7 +10,6 @@ set -euo pipefail
 #   npm run vm:logs -- --nostream          # dump and exit
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 SSH_SCRIPT="${SCRIPT_DIR}/ssh-root-vm.sh"
 
 PM2_ARGS="${*:---lines 50}"

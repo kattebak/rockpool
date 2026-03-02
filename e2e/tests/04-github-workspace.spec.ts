@@ -80,7 +80,7 @@ test.describe("GitHub workspace: repo picker -> configure -> provision", () => {
 	});
 
 	test("navigates to workspace detail page", async () => {
-		await expect(page).toHaveURL(/\/app\/workspaces\//);
+		await expect(page).toHaveURL(/\/app\/workspaces\/(?!new)/);
 		await expect(page.getByRole("heading", { name: workspaceName })).toBeVisible();
 	});
 

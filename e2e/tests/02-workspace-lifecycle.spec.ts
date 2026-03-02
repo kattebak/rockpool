@@ -51,7 +51,7 @@ test.describe("Workspace lifecycle: create -> provision -> stop -> delete", () =
 	});
 
 	test("navigates to workspace detail page", async () => {
-		await expect(page).toHaveURL(/\/app\/workspaces\//);
+		await expect(page).toHaveURL(/\/app\/workspaces\/(?!new)/);
 		await expect(page.getByRole("heading", { name: workspaceName })).toBeVisible();
 	});
 

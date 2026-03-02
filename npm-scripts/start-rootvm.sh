@@ -8,7 +8,6 @@ set -euo pipefail
 #   npm run start:rootvm
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 START_VM_SCRIPT="${SCRIPT_DIR}/start-root-vm.sh"
 SSH_SCRIPT="${SCRIPT_DIR}/ssh-root-vm.sh"
 
