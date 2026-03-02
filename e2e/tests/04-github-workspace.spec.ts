@@ -1,13 +1,6 @@
 import { type Browser, type BrowserContext, expect, type Page, test } from "@playwright/test";
-import {
-	createTestContext,
-	createTestPage,
-	isStubRuntime,
-	launchBrowser,
-} from "../helpers/platform";
+import { createTestContext, createTestPage, launchBrowser } from "../helpers/platform";
 import { deleteWorkspaceViaApi, provisionTimeout } from "../helpers/workspace";
-
-test.skip(isStubRuntime(), "GitHub workspace tests require real VMs — skipped with stub runtime");
 
 test.describe("GitHub workspace: repo picker -> configure -> provision", () => {
 	test.describe.configure({ mode: "serial" });
@@ -95,7 +88,7 @@ test.describe("GitHub workspace: repo picker -> configure -> provision", () => {
 		await expect(page.getByText("Stopping a workspace disconnects")).toBeVisible();
 		await page.getByRole("button", { name: "Stop workspace" }).click();
 		await expect(page.getByText("Stopped")).toBeVisible({
-			timeout: isStubRuntime() ? 10_000 : 60_000,
+			timeout: 60_000,
 		});
 	});
 

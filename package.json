@@ -34,7 +34,7 @@
 		"stop:production": "podman compose down",
 		"test:e2e": "npx playwright test --config e2e/playwright.config.ts",
 		"test:e2e:headless": "ENV_FILE=test.env ELASTICMQ_CONF=elasticmq.test.conf node --env-file=test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
-		"test:e2e:ci": "ENV_FILE=ci.env ELASTICMQ_CONF=elasticmq.test.conf node --env-file=ci.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
+		"test:e2e:ci": "ENV_FILE=test.env ELASTICMQ_CONF=elasticmq.test.conf node --env-file=test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
 		"test:e2e:podman": "E2E_PROFILE=podman ENV_FILE=podman-test.env ELASTICMQ_CONF=elasticmq.test.conf node --env-file=podman-test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
 		"test:e2e:rootvm": "E2E_PROFILE=rootvm ENV_FILE=rootvm-test.env node --env-file=rootvm-test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
 		"test:e2e:smoke": "npx playwright test --config e2e/playwright.config.ts tests/01-smoke.spec.ts",

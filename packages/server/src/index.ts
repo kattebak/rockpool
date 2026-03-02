@@ -1,17 +1,12 @@
 import { createAuthService } from "@rockpool/auth";
 import type { AuthMode, BootstrapOptions } from "@rockpool/caddy";
-import {
-	buildBootstrapConfig,
-	createCaddyClient,
-	createStubCaddy,
-	hashPassword,
-} from "@rockpool/caddy";
+import { buildBootstrapConfig, createCaddyClient, hashPassword } from "@rockpool/caddy";
 import { createDb, listPorts, listWorkspacesByStatus, updateWorkspaceStatus } from "@rockpool/db";
 import { WorkspaceStatus as WS } from "@rockpool/enums";
 import type { QueueRepository } from "@rockpool/queue";
 import { createSqsQueue } from "@rockpool/queue";
 import type { RuntimeRepository } from "@rockpool/runtime";
-import { createPodmanRuntime, createStubRuntime, createTartRuntime } from "@rockpool/runtime";
+import { createPodmanRuntime, createTartRuntime } from "@rockpool/runtime";
 import pino from "pino";
 import { createApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
@@ -21,22 +16,16 @@ import { createWorkspaceService } from "./services/workspace-service.ts";
 const config = loadConfig();
 const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
 
-const useStubs = process.env.NODE_ENV === "test";
-
 const hasBasicAuth = Boolean(config.caddyUsername && config.caddyPassword);
 const hasOAuth = Boolean(config.auth);
 
-if (!useStubs && !hasBasicAuth && !hasOAuth) {
+if (!hasBasicAuth && !hasOAuth) {
 	throw new Error(
 		"Authentication required: set GITHUB_OAUTH_CLIENT_ID + GITHUB_OAUTH_CLIENT_SECRET, or CADDY_USERNAME + CADDY_PASSWORD",
 	);
 }
 function createRuntimeFromConfig(config: import("./config.ts").ServerConfig): RuntimeRepository {
 	const runtimeEnv = process.env.RUNTIME;
-
-	if (runtimeEnv === "stub" || process.env.NODE_ENV === "test") {
-		return createStubRuntime();
-	}
 
 	if (runtimeEnv === "podman") {
 		return createPodmanRuntime();
@@ -46,7 +35,7 @@ function createRuntimeFromConfig(config: import("./config.ts").ServerConfig): Ru
 		return createTartRuntime({ sshKeyPath: config.sshKeyPath });
 	}
 
-	return createStubRuntime();
+	return createPodmanRuntime();
 }
 
 const db = createDb(config.dbPath);
@@ -66,14 +55,9 @@ function resolveAuthMode(): AuthMode | undefined {
 
 const authMode = resolveAuthMode();
 
-const caddy = useStubs
-	? createStubCaddy()
-	: createCaddyClient({ adminUrl: config.caddyAdminUrl, authMode });
+const caddy = createCaddyClient({ adminUrl: config.caddyAdminUrl, authMode });
 const runtime = createRuntimeFromConfig(config);
-const isStubRuntime = process.env.RUNTIME === "stub" || process.env.NODE_ENV === "test";
-
-const healthCheck = isStubRuntime ? async () => {} : undefined;
-const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger, healthCheck });
+const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger });
 const portService = createPortService({ db, caddy });
 
 const authService = config.auth ? createAuthService(config.auth) : null;
@@ -178,14 +162,12 @@ async function recoverOrphanedWorkspaces(q: QueueRepository): Promise<void> {
 app.listen(config.port, () => {
 	logger.info({ port: config.port }, "Rockpool control plane started");
 
-	if (!useStubs) {
-		bootstrapCaddy()
-			.then(() => recoverRunningWorkspaces(runtime, queue))
-			.then(() => recoverOrphanedWorkspaces(queue))
-			.catch((err) => {
-				logger.error(err, "Failed to bootstrap Caddy or recover workspaces");
-			});
-	}
+	bootstrapCaddy()
+		.then(() => recoverRunningWorkspaces(runtime, queue))
+		.then(() => recoverOrphanedWorkspaces(queue))
+		.catch((err) => {
+			logger.error(err, "Failed to bootstrap Caddy or recover workspaces");
+		});
 });
 
 export { createApp } from "./app.ts";
