@@ -12,9 +12,9 @@ You write code. You receive a task description (often from the architect agent) 
 
 ## Before Coding
 
-1. **Check for crashes first**: Before any debugging or investigation, check PM2 logs for errors:
+1. **Check for crashes first**: Before any debugging or investigation, check compose logs for errors:
    ```bash
-   npm run logs -- --lines 50 --nostream  # or: npx pm2 logs --lines 50 --nostream
+   npm run logs -- --tail 50 --no-follow  # or: podman compose logs --tail 50 --no-follow
    ```
    Look for crash loops, ReferenceErrors, unhandled rejections, and connection failures. Fix crashes before investigating symptoms.
 2. Read the files you'll be modifying or that are relevant context

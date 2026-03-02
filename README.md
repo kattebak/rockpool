@@ -29,7 +29,7 @@ See [doc/EDD/](doc/EDD/) for detailed design documents and [doc/ADR/](doc/ADR/) 
 ### macOS
 
 ```sh
-brew install cirruslabs/cli/tart openjdk
+brew install cirruslabs/cli/tart
 cp development.env.example development.env   # fill in secrets
 npm install                                   # builds TypeSpec, SDK, Root VM image
 npm start                                     # boots VM, starts stack, tails logs
@@ -49,9 +49,9 @@ npm start
 
 ### Either platform
 
-`npm start` boots the Root VM, mounts the project directory via Virtiofs, and starts the full stack (ElasticMQ, Caddy, API server, worker, Vite dev server) inside it via PM2.
+`npm start` boots the Root VM, mounts the project directory via Virtiofs, and starts the full stack (ElasticMQ, Caddy, API server, worker, Vite dev server) inside it via Podman Compose.
 
-Edit files on the host — changes appear instantly in the VM. PM2 watches for changes and restarts the server automatically.
+Edit files on the host — changes appear instantly in the VM. Node.js `--watch` restarts the server automatically on file changes.
 
 The dashboard is at `http://<vm-ip>:8080/app/workspaces` (macOS) or `http://localhost:8080/app/workspaces` (Linux, port-forwarded).
 
@@ -81,10 +81,10 @@ Either GitHub OAuth **or** basic auth credentials must be set. See [doc/EDD/003_
 
 ```sh
 npm start              # boot VM + start stack + tail logs
-npm stop               # stop PM2 inside the VM
+npm stop               # stop compose stack inside the VM
 npm run stop:vm        # shut down the VM
 npm run ssh:vm         # SSH into the Root VM
-npm run vm:logs        # tail PM2 logs from the VM
+npm run vm:logs        # tail compose logs from the VM
 npm test               # run unit tests across all packages
 npm run fix -- --unsafe  # format and lint
 ```
@@ -106,22 +106,3 @@ npm run test:e2e:ci        # stub runtime, no containers needed
 npm run test:e2e:podman    # real Podman containers (requires workspace image)
 ```
 
-## Production Profile (LAN Server)
-
-For running Rockpool as a persistent service on your local network (e.g., a homelab):
-
-```sh
-cp production.env.sample production.env  # fill in GitHub OAuth credentials
-npm run start:production                 # builds client, starts all services on port 59007
-npm run stop:production                  # stops only production processes
-```
-
-Access from any machine on your network at `http://<hostname>:59007/app/workspaces`.
-
-| Profile     | Port  | File watchers | Client        | Bind      |
-| ----------- | ----- | ------------- | ------------- | --------- |
-| development | 8080  | yes           | vite dev      | localhost |
-| test        | 9080  | no            | n/a           | localhost |
-| production  | 59007 | no            | minified      | 0.0.0.0   |
-
-All three profiles can run simultaneously without port conflicts. See [doc/EDD/021_Production_Profile.md](doc/EDD/021_Production_Profile.md) for details.

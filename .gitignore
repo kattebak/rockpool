@@ -13,8 +13,8 @@
 # QEMU VM storage
 .qemu/
 
-# ElasticMQ JAR download
-.elasticmq/
+# Podman compose volumes (created by podman compose up)
+# Note: compose.yaml and compose.override.yaml are checked in
 
 # Logs
 logs
@@ -89,9 +89,10 @@ web_modules/
 !.env.example
 development.env
 !development.env.example
-!test.env
 production.env
 !production.env.sample
+!test.env
+!ci.env
 .envrc
 
 # parcel-bundler cache (https://parceljs.org/)

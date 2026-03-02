@@ -48,6 +48,10 @@ $(STAMP_DIR)/firecracker-rootfs: images/scripts/build-firecracker-rootfs.sh imag
 	sudo images/scripts/build-firecracker-rootfs.sh
 	touch $@
 
+$(STAMP_DIR)/rockpool-control-plane: images/control-plane/Dockerfile | $(STAMP_DIR)
+	podman build -t rockpool-control-plane:latest images/control-plane/
+	touch $@
+
 $(STAMP_DIR)/rockpool-workspace-container: images/workspace/Dockerfile images/scripts/setup.sh | $(STAMP_DIR)
 	podman build -t rockpool-workspace:latest images/workspace/
 	touch $@
@@ -66,7 +70,7 @@ ifeq ($(UNAME_S),Linux)
 	sudo npm-scripts/linux-setup.sh
 else ifeq ($(UNAME_S),Darwin)
 	@echo "Detected macOS — install prerequisites via Homebrew:"
-	@echo "  brew install cirruslabs/cli/tart openjdk"
+	@echo "  brew install cirruslabs/cli/tart"
 	@echo "  make all"
 else
 	@echo "Unsupported platform: $(UNAME_S)"

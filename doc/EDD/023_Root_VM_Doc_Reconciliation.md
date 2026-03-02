@@ -80,16 +80,6 @@ Investigate and update:
 - Network setup scripts (`firecracker-bridge-setup.sh`, `firecracker-net.sh`): verify if these are still used or only for bare-metal
 - Slot allocator: verify if it's still active or only for bare-metal Firecracker
 
-### EDD-021: Production Profile
-
-**Impact: Low — out of scope for EDD-022, but verify assumptions.**
-
-Investigate:
-
-- Does the production profile still make sense with the Root VM model?
-- Port ranges, DB paths, Caddy config — any that assume host-native execution?
-- Flag anything that will break when production moves inside the Root VM (deferred work, but document the gap)
-
 ### ADR-015: Three-Port Origin Isolation
 
 **Impact: Low — the three-port model is unchanged, but verify the transport.**

@@ -1,0 +1,3 @@
+services:
+  server:
+    command: node --watch --experimental-strip-types packages/server/src/index.ts

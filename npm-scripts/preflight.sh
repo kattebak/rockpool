@@ -3,8 +3,7 @@ set -euo pipefail
 
 # Preflight checks before starting the Rockpool control plane.
 # On macOS: checks for Tart and the Root VM, boots the VM.
-# On Linux (inside Root VM): no-op — everything is already here.
-# On Linux (bare metal): checks for Firecracker.
+# On Linux: checks for Podman with compose support.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -39,22 +38,17 @@ if [ "$PLATFORM" = "Darwin" ]; then
   "${SCRIPT_DIR}/start-root-vm.sh"
 
 elif [ "$PLATFORM" = "Linux" ]; then
-  if mountpoint -q /mnt/rockpool 2>/dev/null; then
-    echo "Inside Root VM — preflight OK."
-  else
-    FC_BASE_PATH="${FIRECRACKER_BASE_PATH:-${ROOT_DIR}/.firecracker}"
+  if ! command -v podman &>/dev/null; then
+    echo "ERROR: podman is not installed."
+    echo "  sudo apt install podman"
+    exit 1
+  fi
 
-    if ! command -v firecracker &>/dev/null && [ ! -f "${FC_BASE_PATH}/bin/firecracker" ]; then
-      echo "ERROR: firecracker is not installed."
-      echo "  npm-scripts/firecracker-setup.sh"
-      exit 1
-    fi
-
-    if [ ! -r /dev/kvm ] || [ ! -w /dev/kvm ]; then
-      echo "ERROR: /dev/kvm is not accessible."
-      echo "  sudo usermod -aG kvm \$USER"
-      exit 1
-    fi
+  if ! podman compose version &>/dev/null; then
+    echo "ERROR: podman compose is not available."
+    echo "  Install podman-compose or upgrade podman to 4.x+:"
+    echo "  sudo apt install podman-compose"
+    exit 1
   fi
 else
   echo "WARNING: Unsupported platform: $PLATFORM"
