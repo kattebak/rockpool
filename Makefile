@@ -10,7 +10,7 @@ TSP_SOURCES := typespec/main.tsp typespec/tspconfig.yaml
 ifeq ($(UNAME_S),Linux)
 all: development.env build/sdk
 else
-all: development.env build/sdk $(STAMP_DIR)/rockpool-workspace
+all: development.env build/sdk $(STAMP_DIR)/rockpool-workspace $(STAMP_DIR)/rockpool-root-vm-tart
 endif
 
 ci: development.env build/sdk
@@ -54,6 +54,10 @@ $(STAMP_DIR)/rockpool-workspace-container: images/workspace/Dockerfile images/sc
 
 $(STAMP_DIR)/rockpool-root-vm: images/root-vm/build-root-vm.sh images/root-vm/setup-root-vm.sh images/root-vm/keys/rockpool-root-vm_ed25519.pub | $(STAMP_DIR)
 	sudo images/root-vm/build-root-vm.sh
+	touch $@
+
+$(STAMP_DIR)/rockpool-root-vm-tart: images/root-vm/build-root-vm-tart.sh images/root-vm/setup-root-vm.sh images/root-vm/keys/rockpool-root-vm_ed25519.pub | $(STAMP_DIR)
+	images/root-vm/build-root-vm-tart.sh
 	touch $@
 
 setup:

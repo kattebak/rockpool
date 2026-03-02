@@ -2,14 +2,13 @@
 set -euo pipefail
 
 # Provision a Debian Bookworm system as a Rockpool Root VM.
-# Runs as root inside a chroot during image build.
-# Installs: Node.js (fnm), PM2, Caddy, ElasticMQ, SSH server, virtiofs mount.
+# Runs as root: either inside a chroot (Linux/QEMU build) or via tart exec (macOS/Tart build).
+# Supports both x86_64 and arm64 (aarch64) architectures.
+# Installs: Caddy, ElasticMQ, SSH server, Podman, virtiofs mount.
 
 VM_USER="admin"
 ELASTICMQ_VERSION="1.6.16"
 ELASTICMQ_URL="https://s3-eu-west-1.amazonaws.com/softwaremill-public/elasticmq-server-${ELASTICMQ_VERSION}.jar"
-NODE_MAJOR="22"
-
 apt-get update -qq
 apt-get install -y -qq \
   curl \
@@ -44,7 +43,8 @@ apt-get install -y -qq \
   default-jre-headless \
   podman \
   uidmap \
-  slirp4netns
+  slirp4netns \
+  cloud-guest-utils
 
 echo "Configuring admin user..."
 if ! id "$VM_USER" &>/dev/null; then
@@ -65,7 +65,7 @@ SSHCONF
 SSH_DIR="/home/${VM_USER}/.ssh"
 mkdir -p "${SSH_DIR}"
 cat > "${SSH_DIR}/authorized_keys" <<'AUTHKEYS'
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOCpmxFuT1c0KTSp4law/4HaqhCa0N9kTu6l/2JuPSdQ rockpool-root-vm
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA4wik7wMmauHViyfubSKIs3NfgQc5Y4IFZJoSBYlck+ rockpool-root-vm
 AUTHKEYS
 chmod 700 "${SSH_DIR}"
 chmod 600 "${SSH_DIR}/authorized_keys"
@@ -75,7 +75,7 @@ systemctl enable ssh 2>/dev/null || ln -sf /lib/systemd/system/ssh.service /etc/
 
 echo "Installing Caddy..."
 apt-get install -y -qq debian-keyring debian-archive-keyring apt-transport-https
-curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
 apt-get update -qq
 apt-get install -y -qq caddy
@@ -99,8 +99,14 @@ echo "Configuring hostname..."
 echo "rockpool-root" > /etc/hostname
 
 echo "Enabling serial console..."
+ARCH=$(uname -m 2>/dev/null || echo "x86_64")
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+  SERIAL_TTY="ttyAMA0"
+else
+  SERIAL_TTY="ttyS0"
+fi
 ln -sf /lib/systemd/system/serial-getty@.service \
-  /etc/systemd/system/getty.target.wants/serial-getty@ttyS0.service 2>/dev/null || true
+  "/etc/systemd/system/getty.target.wants/serial-getty@${SERIAL_TTY}.service" 2>/dev/null || true
 
 echo "Configuring networking (DHCP on all ethernet interfaces)..."
 mkdir -p /etc/systemd/network

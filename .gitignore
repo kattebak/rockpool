@@ -175,3 +175,6 @@ tsp-output/
 # VM SSH keys (private key only, public key is checked in)
 images/ssh/rockpool_ed25519
 images/root-vm/keys/rockpool-root-vm_ed25519
+
+# Playwright test results
+test-results/
