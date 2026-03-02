@@ -295,28 +295,34 @@ qemu-system-x86_64 \
 
 ## Development Workflow
 
-The developer experience stays almost identical to today:
+The developer experience is identical to a local setup:
 
-1. **Start the Root VM** — `npm run start:vm`
-2. Project directory appears at `/mnt/rockpool/` inside the VM via Virtiofs
-3. **SSH into the Root VM** (or the start script does this automatically)
-4. **`npm start`** inside the VM — PM2 starts Caddy, server, worker, ElasticMQ
-5. Edit files on the host in your editor — changes appear instantly via Virtiofs
-6. PM2 watches for file changes, restarts the server automatically
-7. Browser points at `localhost:8080` — port-forwarded to Caddy inside the Root VM
-8. **`npm stop`** and exit — or shut down the VM
+```bash
+npm install   # builds TypeSpec, SDK, and Root VM image (on first run)
+npm start     # boots VM, mounts project via Virtiofs, starts PM2 inside VM, tails logs
+npm stop      # stops PM2 inside the VM
+npm run stop:vm  # shuts down the VM itself
+```
+
+1. `npm install` → `make all` builds the Root VM image (Tart on macOS, QEMU on Linux)
+2. `npm start` → `prestart` boots the VM and mounts the project directory via Virtiofs, then `start` SSHes in and runs PM2 with the rootvm ecosystem config
+3. Edit files on the host in your editor — changes appear instantly via Virtiofs
+4. PM2 watches for file changes, restarts the server automatically
+5. Browser points at `http://<vm-ip>:8080/app/workspaces` (macOS) or `http://localhost:8080/app/workspaces` (Linux, port-forwarded)
+6. `npm stop` stops PM2 inside the VM; `npm run stop:vm` shuts down the VM
 
 ### npm scripts (host-side)
 
-```json
-{
-  "start:vm": "npm-scripts/start-root-vm.sh",
-  "stop:vm": "npm-scripts/stop-root-vm.sh",
-  "ssh:vm": "npm-scripts/ssh-root-vm.sh"
-}
-```
+| Script | What it does |
+|--------|-------------|
+| `npm start` | Boot VM + start PM2 inside it + tail logs |
+| `npm stop` | Stop PM2 inside the VM |
+| `npm run start:vm` | Just boot the VM (no PM2) |
+| `npm run stop:vm` | Shut down the VM |
+| `npm run ssh:vm` | SSH into the VM |
+| `npm run vm:logs` | Tail PM2 logs from the VM |
 
-These scripts detect the platform and use Tart or QEMU accordingly.
+All scripts detect the platform and use Tart (macOS) or QEMU (Linux) accordingly.
 
 ## Impact on Existing Code
 
@@ -387,7 +393,7 @@ Scope is a testable breadboard: the Root VM boots, mounts source, runs the stack
 - Podman runtime implementation (`createPodmanRuntime()`)
 - Workspace Dockerfile (based on existing `setup.sh`)
 - Basic auth (Caddy, same as today)
-- Host-side scripts (`start:vm`, `stop:vm`, `ssh:vm`, `vm:logs`, `start:rootvm`, `stop:rootvm`)
+- Host-side scripts (`start:vm`, `stop:vm`, `ssh:vm`, `vm:logs`)
 - E2E test suite passing against the Root VM stack (`test:e2e:rootvm`, `test:e2e:podman`)
 - PM2 log access from the host
 - Developer workflow guide (`doc/root-vm-dev.md`)
@@ -397,7 +403,7 @@ Scope is a testable breadboard: the Root VM boots, mounts source, runs the stack
 - GitHub auth / OAuth — basic auth only
 - Devcontainer support (EDD-015)
 - User preferences sync (EDD-020)
-- macOS / Tart deployment — Linux/QEMU implemented first
+- ~~macOS / Tart deployment~~ — implemented (Tart on macOS, QEMU on Linux)
 - Production profile / production config — no `ecosystem.production.config.cjs` adaptation
 - Production hardening (firewall rules, boot persistence, backups)
 - Cloudflare Tunnel / external ingress
@@ -405,44 +411,34 @@ Scope is a testable breadboard: the Root VM boots, mounts source, runs the stack
 
 ## Setup Instructions
 
-### Host prerequisites
+### macOS (Tart)
 
 ```bash
-# Install QEMU/KVM, virtiofs, and debootstrap (Ubuntu/Debian)
+brew install cirruslabs/cli/tart openjdk
+npm install    # builds TypeSpec, SDK, and Root VM image
+npm start      # boots VM, starts stack, tails logs
+```
+
+### Linux (QEMU/KVM)
+
+```bash
 sudo apt install qemu-system-x86 qemu-utils virtiofsd debootstrap grub-pc-bin
+sudo usermod -aG kvm $USER   # log out and back in
 
-# Ensure KVM access
-sudo usermod -aG kvm $USER
-# Log out and back in for group membership to take effect
-
-# Install Podman (for host-side E2E testing without the VM)
-sudo apt install podman
-```
-
-### Build the Root VM image
-
-```bash
-# Requires sudo (debootstrap creates root-owned chroots, GRUB needs loopback)
+# Build the Root VM image (requires sudo for debootstrap/chroot)
 sudo bash images/root-vm/build-root-vm.sh
-
-# Fix output directory ownership (build runs as root)
 sudo chown -R $USER:$USER .qemu/
+
+npm install
+npm start
 ```
 
-Produces `.qemu/rockpool-root.qcow2` (~37 MB base image).
-
-### Build the workspace container image
+### Build the workspace container image (inside the VM)
 
 ```bash
-podman build -t rockpool-workspace:latest images/workspace/
-```
-
-### Start the Root VM
-
-```bash
-npm run start:vm       # Boot VM, wait for SSH
-npm run ssh:vm         # SSH into the VM
-npm run start:rootvm   # Boot VM + start PM2 stack (one command)
+npm run ssh:vm
+# inside the VM:
+podman build -t rockpool-workspace:latest /mnt/rockpool/images/workspace/
 ```
 
 ### Run E2E tests
@@ -456,8 +452,8 @@ npm run test:e2e:rootvm    # Stub runtime inside Root VM (requires running VM)
 ### Stop
 
 ```bash
-npm run stop:rootvm    # Stop PM2 inside VM + shut down VM
-npm run stop:vm        # Just shut down the VM
+npm stop             # Stop PM2 inside the VM
+npm run stop:vm      # Shut down the VM
 ```
 
 ## Rollout Plan
@@ -796,12 +792,14 @@ When accessing the dashboard via LAN hostname (e.g., `http://homelab:8080/`), Vi
 | `images/workspace/entrypoint.sh` | code-server entrypoint with optional folder arg |
 | `packages/runtime/src/podman-runtime.ts` | `createPodmanRuntime()` implementation |
 | `packages/runtime/test/podman-runtime.test.ts` | 22 unit tests |
-| `npm-scripts/start-root-vm.sh` | Starts virtiofsd + QEMU/KVM |
+| `images/root-vm/build-root-vm-tart.sh` | Builds Tart VM image (macOS) |
+| `npm-scripts/start-root-vm.sh` | Boots VM (Tart on macOS, QEMU on Linux) |
 | `npm-scripts/stop-root-vm.sh` | Graceful shutdown |
-| `npm-scripts/ssh-root-vm.sh` | SSH wrapper |
+| `npm-scripts/ssh-root-vm.sh` | SSH wrapper (auto-detects platform) |
 | `npm-scripts/vm-logs.sh` | PM2 logs over SSH |
-| `npm-scripts/start-rootvm.sh` | Combined VM boot + PM2 start |
-| `npm-scripts/stop-rootvm.sh` | Combined PM2 stop + VM shutdown |
+| `npm-scripts/start.sh` | `npm start` dispatcher (SSH into VM on macOS, local on Linux) |
+| `npm-scripts/stop.sh` | `npm stop` dispatcher |
+| `npm-scripts/preflight.sh` | Preflight checks + VM boot on macOS |
 | `rootvm-test.env` | Root VM test environment |
 | `podman-test.env` | Podman-only test environment |
 | `ecosystem.rootvm-test.config.cjs` | PM2 config for Root VM tests |
