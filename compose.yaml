@@ -27,6 +27,8 @@ services:
     env_file: ${ENV_FILE:-development.env}
     environment:
       CONTAINER_HOST: unix:///run/podman.sock
+    security_opt:
+      - label=disable
     restart: unless-stopped
     volumes:
       - .:/app
@@ -45,6 +47,8 @@ services:
     env_file: ${ENV_FILE:-development.env}
     environment:
       CONTAINER_HOST: unix:///run/podman.sock
+    security_opt:
+      - label=disable
     restart: unless-stopped
     volumes:
       - .:/app
