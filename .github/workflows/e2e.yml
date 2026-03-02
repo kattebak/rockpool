@@ -19,8 +19,10 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install podman-compose
-        run: pip install podman-compose
+      - name: Start Podman socket
+        run: |
+          systemctl --user start podman.socket
+          echo "DOCKER_HOST=unix://${XDG_RUNTIME_DIR}/podman/podman.sock" >> $GITHUB_ENV
 
       - name: Cache build artifacts
         uses: actions/cache@v4
