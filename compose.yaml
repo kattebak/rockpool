@@ -2,11 +2,13 @@ services:
   caddy:
     image: caddy:2
     network_mode: host
-    command: caddy run --resume
+    command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    env_file: ${ENV_FILE:-development.env}
     restart: unless-stopped
     volumes:
       - caddy-data:/data
       - caddy-config:/config
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
 
   elasticmq:
     image: softwaremill/elasticmq-native
