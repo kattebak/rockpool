@@ -3,12 +3,7 @@ import { createCaddyClient } from "@rockpool/caddy";
 import { createDb } from "@rockpool/db";
 import { createSqsQueue } from "@rockpool/queue";
 import type { RuntimeRepository } from "@rockpool/runtime";
-import {
-	createFirecrackerRuntime,
-	createPodmanRuntime,
-	createStubRuntime,
-	createTartRuntime,
-} from "@rockpool/runtime";
+import { createPodmanRuntime, createStubRuntime, createTartRuntime } from "@rockpool/runtime";
 import { createWorkspaceService } from "@rockpool/workspace-service";
 import pino from "pino";
 import { createPollLoop } from "./poll-loop.ts";
@@ -31,10 +26,6 @@ const caddy = createCaddyClient({
 });
 
 const sshKeyPath = resolve(projectRoot, process.env.SSH_KEY_PATH ?? "images/ssh/rockpool_ed25519");
-const firecrackerBasePath = resolve(
-	projectRoot,
-	process.env.FIRECRACKER_BASE_PATH ?? ".firecracker",
-);
 const platform = (process.env.PLATFORM ?? process.platform) as "darwin" | "linux";
 
 function createRuntimeFromEnv(): RuntimeRepository {
@@ -46,13 +37,6 @@ function createRuntimeFromEnv(): RuntimeRepository {
 
 	if (runtimeEnv === "podman") {
 		return createPodmanRuntime();
-	}
-
-	if (runtimeEnv === "firecracker" || (!runtimeEnv && platform === "linux")) {
-		return createFirecrackerRuntime({
-			sshKeyPath,
-			basePath: firecrackerBasePath,
-		});
 	}
 
 	if (runtimeEnv === "tart" || (!runtimeEnv && platform === "darwin")) {
