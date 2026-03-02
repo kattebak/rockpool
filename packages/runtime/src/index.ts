@@ -1,4 +1,3 @@
-export { createFirecrackerRuntime } from "./firecracker-runtime.ts";
 export { createPodmanRuntime } from "./podman-runtime.ts";
 export { PREFS_FILE_PATHS } from "./prefs.ts";
 export { createStubRuntime } from "./stub-runtime.ts";

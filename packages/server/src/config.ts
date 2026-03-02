@@ -18,7 +18,6 @@ export interface ServerConfig {
 	queueUrl: string;
 	platform: "darwin" | "linux";
 	sshKeyPath: string;
-	firecrackerBasePath: string;
 	auth: AuthConfig | null;
 	secureCookies: boolean;
 }
@@ -58,7 +57,6 @@ export function loadConfig(): ServerConfig {
 		queueUrl: process.env.QUEUE_URL ?? "http://localhost:9324/000000000000/workspace-jobs",
 		platform: (process.env.PLATFORM ?? process.platform) as "darwin" | "linux",
 		sshKeyPath: resolve(projectRoot, process.env.SSH_KEY_PATH ?? "images/ssh/rockpool_ed25519"),
-		firecrackerBasePath: resolve(projectRoot, process.env.FIRECRACKER_BASE_PATH ?? ".firecracker"),
 		auth,
 		secureCookies: process.env.SECURE_COOKIES === "true",
 	};

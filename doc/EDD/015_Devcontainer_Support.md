@@ -531,7 +531,7 @@ Use Docker (dockerd) inside the VM.
 - [ ] What is the UX for "devcontainer build failed"? The error message from `devcontainer up` needs to be surfaced to the user, either in the loading page or in the workspace error state.
 - [x] ~~Should the workspace creation API accept a git repository URL to clone before running devcontainer up?~~ **Resolved by EDD-018.** Repository cloning is implemented — `clone()` runs after `start()` and before `configure()`. Devcontainer detection happens in `configure()`, so the repo (and its `.devcontainer/devcontainer.json`) is already on disk.
 - [ ] How should container rebuilds work? If a user changes their `devcontainer.json`, they need a way to trigger a rebuild. This could be a new API endpoint or a code-server extension.
-- [ ] What is the disk space budget? Podman images, container layers, and the devcontainer CLI add to the base image size. Need to measure the actual impact on disk (Tart images use dynamic sizing; Firecracker rootfs is 40GB sparse per EDD-019).
+- [ ] What is the disk space budget? Podman images, container layers, and the devcontainer CLI add to the base image size. Need to measure the actual impact on disk (Tart images use dynamic sizing).
 
 ## Implementation Plan
 

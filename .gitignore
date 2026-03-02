@@ -7,9 +7,6 @@
 # Tart VM storage
 .tart/
 
-# Firecracker VM storage
-.firecracker/
-
 # QEMU VM storage
 .qemu/
 
