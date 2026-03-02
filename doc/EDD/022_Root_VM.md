@@ -47,7 +47,6 @@ If Rockpool supports untrusted multi-user workspaces later, Podman can be swappe
 ## Prerequisites
 
 - [EDD-010: PM2 Process Management](010_PM2_Process_Management.md) — process lifecycle inside the VM
-- [EDD-021: Production Profile](021_Production_Profile.md) — production ecosystem config
 - Tart `--nested` on M3/M4 + macOS 15 Sequoia (for `/dev/kvm` passthrough if Firecracker is needed inside the Root VM later)
 
 ## System Topology
