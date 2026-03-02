@@ -9,13 +9,19 @@ module.exports = {
 			restart_delay: 2000,
 		},
 		{
+			name: "caddy",
+			script: "caddy",
+			args: "run",
+			interpreter: "none",
+			autorestart: true,
+			max_restarts: 3,
+			restart_delay: 2000,
+		},
+		{
 			name: "server",
 			script: "npm",
 			args: "run start -w packages/server",
 			cwd: __dirname,
-			env: {
-				NODE_ENV: "test",
-			},
 			watch: ["packages/server/src"],
 			watch_delay: 1000,
 			ignore_watch: ["node_modules", "*.test.ts"],

@@ -41,11 +41,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 	const { db, queue, runtime, caddy, logger } = deps;
 	const healthCheck = deps.healthCheck ?? defaultHealthCheck(logger);
 
-	async function configureAndWait(
-		workspaceName: string,
-		vmIp: string,
-		folder?: string,
-	): Promise<void> {
+	async function configureWorkspace(workspaceName: string, folder?: string): Promise<void> {
 		if (runtime.configure) {
 			const env: Record<string, string> = {
 				ROCKPOOL_WORKSPACE_NAME: workspaceName,
@@ -55,7 +51,6 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 			}
 			await runtime.configure(workspaceName, env);
 		}
-		await healthCheck(vmIp);
 	}
 
 	return {
@@ -174,18 +169,18 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				);
 			}
 
-			const vmIp = await runtime.getIp(workspace.name);
-
 			const repository = opts?.repository;
 			const repoName = repository?.split("/")[1];
 			const folder = repoName ? `/home/admin/${repoName}` : undefined;
 
-			const clonePromise =
-				repository && runtime.clone
-					? runtime.clone(workspace.name, vmIp, repository, opts?.githubAccessToken)
-					: Promise.resolve();
+			await configureWorkspace(workspace.name, folder);
 
-			await Promise.all([configureAndWait(workspace.name, vmIp, folder), clonePromise]);
+			if (repository && runtime.clone) {
+				await runtime.clone(workspace.name, "", repository, opts?.githubAccessToken);
+			}
+
+			const vmIp = await runtime.getIp(workspace.name);
+			await healthCheck(vmIp);
 
 			if (runtime.writeFile) {
 				const blobs = await getAllUserPrefsBlobs(db);

@@ -15,9 +15,14 @@ function curlHealthCheck(url: string, timeoutSec: number): Promise<boolean> {
 		.catch(() => false);
 }
 
+function toHealthUrl(vmIp: string): string {
+	const host = vmIp.includes(":") ? vmIp : `${vmIp}:8080`;
+	return `http://${host}/healthz`;
+}
+
 export function defaultHealthCheck(logger: Logger): HealthCheckFn {
 	return async (vmIp: string): Promise<void> => {
-		const url = `http://${vmIp}:8080/healthz`;
+		const url = toHealthUrl(vmIp);
 		for (let attempt = 0; attempt < HEALTH_POLL_MAX_ATTEMPTS; attempt++) {
 			const ok = await curlHealthCheck(url, 5);
 			if (ok) {

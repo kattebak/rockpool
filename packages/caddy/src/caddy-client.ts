@@ -21,6 +21,11 @@ function portRedirectId(workspaceName: string, port: number): string {
 	return `workspace-${workspaceName}-port-${port}-redirect`;
 }
 
+function toDial(vmIp: string, defaultPort: number): string {
+	if (vmIp.includes(":")) return vmIp;
+	return `${vmIp}:${defaultPort}`;
+}
+
 function buildWorkspaceRedirectRoute(name: string): Record<string, unknown> {
 	const pathPrefix = `/workspace/${name}`;
 	return {
@@ -55,7 +60,7 @@ function buildWorkspaceRoute(
 		{ handler: "rewrite", strip_path_prefix: pathPrefix },
 		{
 			handler: "reverse_proxy",
-			upstreams: [{ dial: `${vmIp}:8080` }],
+			upstreams: [{ dial: toDial(vmIp, 8080) }],
 			flush_interval: -1,
 			stream_timeout: "24h",
 			stream_close_delay: "5s",
@@ -112,7 +117,7 @@ function buildPortRoute(
 		{ handler: "rewrite", strip_path_prefix: pathPrefix },
 		{
 			handler: "reverse_proxy",
-			upstreams: [{ dial: `${vmIp}:${port}` }],
+			upstreams: [{ dial: toDial(vmIp, port) }],
 			flush_interval: -1,
 			headers: {
 				request: {

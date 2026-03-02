@@ -48,6 +48,14 @@ $(STAMP_DIR)/firecracker-rootfs: images/scripts/build-firecracker-rootfs.sh imag
 	sudo images/scripts/build-firecracker-rootfs.sh
 	touch $@
 
+$(STAMP_DIR)/rockpool-workspace-container: images/workspace/Dockerfile images/scripts/setup.sh | $(STAMP_DIR)
+	podman build -t rockpool-workspace:latest images/workspace/
+	touch $@
+
+$(STAMP_DIR)/rockpool-root-vm: images/root-vm/build-root-vm.sh images/root-vm/setup-root-vm.sh images/root-vm/keys/rockpool-root-vm_ed25519.pub | $(STAMP_DIR)
+	sudo images/root-vm/build-root-vm.sh
+	touch $@
+
 setup:
 ifeq ($(UNAME_S),Linux)
 	@echo "Detected Linux — running Firecracker setup..."

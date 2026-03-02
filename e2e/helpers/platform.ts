@@ -8,6 +8,10 @@ export function isStubRuntime(): boolean {
 	return process.env.RUNTIME === "stub";
 }
 
+export function hasGitHubAuth(): boolean {
+	return Boolean(process.env.GITHUB_OAUTH_CLIENT_ID);
+}
+
 export function getApiUrl(): string {
 	return API_BASE;
 }
