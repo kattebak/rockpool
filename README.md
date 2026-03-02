@@ -38,10 +38,9 @@ npm start                                     # boots VM, starts stack, tails lo
 ### Linux
 
 ```sh
-sudo apt install qemu-system-x86 qemu-utils virtiofsd debootstrap grub-pc-bin
+sudo apt install qemu-system-x86 qemu-utils virtiofsd mmdebstrap e2fsprogs
 sudo usermod -aG kvm $USER                   # log out and back in
-sudo bash images/root-vm/build-root-vm.sh    # build Root VM image
-sudo chown -R $USER:$USER .qemu/
+images/root-vm/build-root-vm.sh              # build Root VM image (no sudo needed)
 cp development.env.example development.env   # fill in secrets
 npm install
 npm start
