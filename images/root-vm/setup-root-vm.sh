@@ -2,11 +2,15 @@
 set -euo pipefail
 
 # Provision a Debian Bookworm system as a Rockpool Root VM.
-# Runs as root: either inside a chroot (Linux/QEMU build) or via tart exec (macOS/Tart build).
+# Runs as root: inside an mmdebstrap customize-hook (Linux/QEMU) or via tart exec (macOS/Tart).
 # Supports both x86_64 and arm64 (aarch64) architectures.
 # Installs: Podman, SSH server, virtiofs mount support.
 # The control plane (Caddy, ElasticMQ, server, worker, client) runs as Podman Compose
 # containers inside the VM -- no need to install Node.js, Java, or Caddy here.
+#
+# Note: fstab is NOT configured here. Each builder writes its own fstab:
+#   - Linux/QEMU: build-root-vm.sh writes /dev/vda root + virtiofs via mmdebstrap hooks
+#   - macOS/Tart: build-root-vm-tart.sh appends virtiofs entry via tart exec
 
 VM_USER="admin"
 
@@ -51,7 +55,7 @@ SSHCONF
 SSH_DIR="/home/${VM_USER}/.ssh"
 mkdir -p "${SSH_DIR}"
 cat > "${SSH_DIR}/authorized_keys" <<'AUTHKEYS'
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA4wik7wMmauHViyfubSKIs3NfgQc5Y4IFZJoSBYlck+ rockpool-root-vm
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOCpmxFuT1c0KTSp4law/4HaqhCa0N9kTu6l/2JuPSdQ rockpool-root-vm
 AUTHKEYS
 chmod 700 "${SSH_DIR}"
 chmod 600 "${SSH_DIR}/authorized_keys"
@@ -61,10 +65,6 @@ systemctl enable ssh 2>/dev/null || ln -sf /lib/systemd/system/ssh.service /etc/
 
 echo "Setting up virtiofs mount point..."
 mkdir -p /mnt/rockpool
-
-if ! grep -q '/mnt/rockpool' /etc/fstab; then
-  echo "rockpool /mnt/rockpool virtiofs defaults,nofail 0 0" >> /etc/fstab
-fi
 
 echo "Setting up persistent state directory..."
 mkdir -p /opt/rockpool
