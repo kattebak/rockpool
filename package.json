@@ -41,9 +41,18 @@
 		"test:e2e": "npx playwright test --config e2e/playwright.config.ts",
 		"test:e2e:headless": "node --env-file=test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
 		"test:e2e:ci": "RUNTIME=stub node --env-file=test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
+		"test:e2e:podman": "E2E_PROFILE=podman node --env-file=podman-test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
+		"test:e2e:rootvm": "E2E_PROFILE=rootvm node --env-file=rootvm-test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
 		"test:e2e:smoke": "npx playwright test --config e2e/playwright.config.ts tests/01-smoke.spec.ts",
 		"test:e2e:lifecycle": "npx playwright test --config e2e/playwright.config.ts tests/02-workspace-lifecycle.spec.ts",
-		"test:e2e:ide": "npx playwright test --config e2e/playwright.config.ts tests/03-ide-loading.spec.ts"
+		"test:e2e:ide": "npx playwright test --config e2e/playwright.config.ts tests/03-ide-loading.spec.ts",
+		"start:rootvm": "npm-scripts/start-rootvm.sh",
+		"stop:rootvm": "npm-scripts/stop-rootvm.sh",
+		"start:vm": "npm-scripts/start-root-vm.sh",
+		"stop:vm": "npm-scripts/stop-root-vm.sh",
+		"ssh:vm": "npm-scripts/ssh-root-vm.sh",
+		"vm:logs": "npm-scripts/vm-logs.sh",
+		"logs": "pm2 logs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",

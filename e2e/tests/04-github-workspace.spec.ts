@@ -7,6 +7,8 @@ import {
 } from "../helpers/platform";
 import { deleteWorkspaceViaApi, provisionTimeout } from "../helpers/workspace";
 
+test.skip(isStubRuntime(), "GitHub workspace tests require real VMs — skipped with stub runtime");
+
 test.describe("GitHub workspace: repo picker -> configure -> provision", () => {
 	test.describe.configure({ mode: "serial" });
 
@@ -78,7 +80,7 @@ test.describe("GitHub workspace: repo picker -> configure -> provision", () => {
 	});
 
 	test("navigates to workspace detail page", async () => {
-		await expect(page).toHaveURL(/\/app\/workspaces\//);
+		await expect(page).toHaveURL(/\/app\/workspaces\/(?!new)/);
 		await expect(page.getByRole("heading", { name: workspaceName })).toBeVisible();
 	});
 
