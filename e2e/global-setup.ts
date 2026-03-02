@@ -18,10 +18,10 @@ function sshCmd(remoteCommand: string): string {
 function composeCmd(args: string): string {
 	const envFile = process.env.ENV_FILE ?? "test.env";
 	const elasticmqConf = process.env.ELASTICMQ_CONF ?? "elasticmq.test.conf";
-	const base = `ENV_FILE=${envFile} ELASTICMQ_CONF=${elasticmqConf} podman compose`;
+	const base = `ENV_FILE=${envFile} ELASTICMQ_CONF=${elasticmqConf} podman compose -f compose.yaml -f compose.test.yaml`;
 
 	if (IS_ROOTVM) {
-		return sshCmd(`cd /mnt/rockpool && ${base} -f compose.yaml ${args}`);
+		return sshCmd(`cd /mnt/rockpool && ${base} ${args}`);
 	}
 
 	return `${base} ${args}`;

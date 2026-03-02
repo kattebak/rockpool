@@ -1,25 +1,27 @@
 services:
   caddy:
     image: caddy:2
-    network_mode: host
+    network_mode: bridge
     command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     env_file: ${ENV_FILE:-development.env}
     restart: unless-stopped
+    working_dir: /app
     volumes:
+      - .:/app:ro
       - caddy-data:/data
       - caddy-config:/config
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
 
   elasticmq:
     image: softwaremill/elasticmq-native
-    network_mode: host
+    network_mode: "service:caddy"
     restart: unless-stopped
     volumes:
       - ./${ELASTICMQ_CONF:-elasticmq.conf}:/opt/elasticmq.conf:ro
 
   server:
     build: images/control-plane
-    network_mode: host
+    network_mode: "service:caddy"
     working_dir: /app
     command: node --experimental-strip-types packages/server/src/index.ts
     env_file: ${ENV_FILE:-development.env}
@@ -28,15 +30,16 @@ services:
     restart: unless-stopped
     volumes:
       - .:/app
+      - node-modules:/app/node_modules
       - rockpool-data:/opt/rockpool
-      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/podman.sock
+      - /var/run/docker.sock:/run/podman.sock
     depends_on:
       - caddy
       - elasticmq
 
   worker:
     build: images/control-plane
-    network_mode: host
+    network_mode: "service:caddy"
     working_dir: /app
     command: node --experimental-strip-types packages/worker/src/main.ts
     env_file: ${ENV_FILE:-development.env}
@@ -45,23 +48,26 @@ services:
     restart: unless-stopped
     volumes:
       - .:/app
+      - node-modules:/app/node_modules
       - rockpool-data:/opt/rockpool
-      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/podman.sock
+      - /var/run/docker.sock:/run/podman.sock
     depends_on:
       - caddy
       - elasticmq
 
   client:
     build: images/control-plane
-    network_mode: host
+    network_mode: "service:caddy"
     working_dir: /app
     command: npx vite --config packages/client/vite.config.ts
     env_file: ${ENV_FILE:-development.env}
     restart: unless-stopped
     volumes:
       - .:/app
+      - node-modules:/app/node_modules
 
 volumes:
   caddy-data:
   caddy-config:
   rockpool-data:
+  node-modules:

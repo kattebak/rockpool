@@ -31,6 +31,9 @@ build/sdk: build/openapi/openapi.yaml
 	echo 'export { client } from "./client.gen.js";' >> $@/index.ts
 	touch $@
 
+node-modules-linux:
+	podman compose run --rm --no-deps -T server npm ci
+
 clean:
 	rm -rf build $(STAMP_DIR)
 
