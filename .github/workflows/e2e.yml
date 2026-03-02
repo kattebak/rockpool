@@ -19,6 +19,9 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Install podman-compose
+        run: pip install podman-compose
+
       - name: Cache build artifacts
         uses: actions/cache@v4
         with:

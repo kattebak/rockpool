@@ -20,7 +20,9 @@ function composeCmd(args: string): string {
 }
 
 export default async function globalTeardown(): Promise<void> {
-	execSync(composeCmd("down"), { stdio: "ignore" });
+	try {
+		execSync(composeCmd("down"), { stdio: "ignore" });
+	} catch {}
 
 	if (IS_ROOTVM) {
 		try {

@@ -69,7 +69,9 @@ async function ensureQueue(): Promise<void> {
 }
 
 export default async function globalSetup(): Promise<void> {
-	execSync(composeCmd("down"), { stdio: "ignore" });
+	try {
+		execSync(composeCmd("down"), { stdio: "ignore" });
+	} catch {}
 	execSync(composeCmd("up -d"), { stdio: "inherit" });
 
 	await ensureQueue();
