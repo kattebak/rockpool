@@ -44,13 +44,10 @@ $(STAMP_DIR)/rockpool-workspace: images/workspace.pkr.hcl images/scripts/setup.s
 	packer build images/workspace.pkr.hcl
 	touch $@
 
-$(STAMP_DIR)/firecracker-rootfs: images/scripts/build-firecracker-rootfs.sh images/scripts/setup.sh images/firecracker/rockpool-net-setup.sh images/firecracker/rockpool-net.service | $(STAMP_DIR)
-	sudo images/scripts/build-firecracker-rootfs.sh
-	touch $@
-
 $(STAMP_DIR)/rockpool-control-plane: images/control-plane/Dockerfile | $(STAMP_DIR)
 	podman build -t rockpool-control-plane:latest images/control-plane/
 	touch $@
+
 
 $(STAMP_DIR)/rockpool-workspace-container: images/workspace/Dockerfile images/scripts/setup.sh | $(STAMP_DIR)
 	podman build -t rockpool-workspace:latest images/workspace/
@@ -65,15 +62,16 @@ $(STAMP_DIR)/rockpool-root-vm-tart: images/root-vm/build-root-vm-tart.sh images/
 	touch $@
 
 setup:
-ifeq ($(UNAME_S),Linux)
-	@echo "Detected Linux — running Firecracker setup..."
-	sudo npm-scripts/linux-setup.sh
-else ifeq ($(UNAME_S),Darwin)
+ifeq ($(UNAME_S),Darwin)
 	@echo "Detected macOS — install prerequisites via Homebrew:"
 	@echo "  brew install cirruslabs/cli/tart"
 	@echo "  make all"
+else ifeq ($(UNAME_S),Linux)
+	@echo "Detected Linux — install prerequisites:"
+	@echo "  sudo apt install qemu-system-x86 qemu-utils virtiofsd debootstrap grub-pc-bin podman"
+	@echo "  make all"
 else
 	@echo "Unsupported platform: $(UNAME_S)"
-	@echo "Rockpool supports macOS (Tart) and Linux (Firecracker)."
+	@echo "Rockpool supports macOS (Tart) and Linux (QEMU/KVM + Podman)."
 	@exit 1
 endif
