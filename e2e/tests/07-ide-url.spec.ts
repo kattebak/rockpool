@@ -10,17 +10,14 @@ import { deleteWorkspaceViaApi, pollUntilStatus, uniqueWorkspaceName } from "../
 
 const IDE_URL = process.env.VITE_IDE_URL ?? "http://localhost:8081";
 
-function buildIdeUrl(workspaceName: string): string {
-	return `${IDE_URL}/workspace/${workspaceName}/`;
-}
-
-test.describe("Clone verification: code-server opens in cloned repository", () => {
+test.describe("Open IDE button points to correct URL", () => {
 	test.describe.configure({ mode: "serial" });
 
 	let browser: Browser;
 	let context: BrowserContext;
 	let page: Page;
 	const workspaceName = uniqueWorkspaceName();
+	let workspaceId: string;
 
 	test.beforeAll(async () => {
 		browser = await launchBrowser();
@@ -39,11 +36,11 @@ test.describe("Clone verification: code-server opens in cloned repository", () =
 			body: JSON.stringify({
 				name: workspaceName,
 				image: "rockpool-workspace",
-				repositoryId: "octocat/Hello-World",
 			}),
 		});
 		const workspace = (await createRes.json()) as { id: string };
-		await pollUntilStatus(workspace.id, "running");
+		workspaceId = workspace.id;
+		await pollUntilStatus(workspaceId, "running");
 	});
 
 	test.afterAll(async () => {
@@ -57,20 +54,22 @@ test.describe("Clone verification: code-server opens in cloned repository", () =
 		await browser?.close();
 	});
 
-	test("IDE URL responds (no 502)", async () => {
-		const response = await page.goto(buildIdeUrl(workspaceName), {
-			waitUntil: "domcontentloaded",
-		});
-		expect(response?.status()).toBeLessThan(500);
+	test("workspace detail page: Open IDE link has correct href", async () => {
+		await page.goto(`/app/workspaces/${workspaceId}`);
+		await expect(page.getByRole("heading", { name: workspaceName })).toBeVisible();
+
+		const ideLink = page.getByRole("link", { name: "Open IDE" });
+		await expect(ideLink).toBeVisible();
+		await expect(ideLink).toHaveAttribute("href", `${IDE_URL}/workspace/${workspaceName}/`);
 	});
 
-	test("code-server root element renders", async () => {
-		await expect(page.locator(".monaco-workbench").first()).toBeVisible({ timeout: 60_000 });
-	});
+	test("workspace list page: Open IDE link has correct href", async () => {
+		await page.goto("/app/workspaces");
+		await expect(page.getByRole("heading", { name: "Workspaces" })).toBeVisible();
 
-	test("file explorer shows cloned repository files", async () => {
-		await expect(page.getByRole("button", { name: "Explorer Section: Hello-World" })).toBeVisible({
-			timeout: 30_000,
-		});
+		const workspaceCard = page.locator(`a:has-text("${workspaceName}")`).locator("..");
+		const ideLink = workspaceCard.locator("..").getByRole("link", { name: "Open IDE" });
+		await expect(ideLink).toBeVisible();
+		await expect(ideLink).toHaveAttribute("href", `${IDE_URL}/workspace/${workspaceName}/`);
 	});
 });

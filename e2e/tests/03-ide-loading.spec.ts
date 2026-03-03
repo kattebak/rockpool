@@ -8,10 +8,10 @@ import {
 } from "../helpers/platform";
 import { deleteWorkspaceViaApi, pollUntilStatus, uniqueWorkspaceName } from "../helpers/workspace";
 
-const IDE_PORT = Number.parseInt(process.env.SRV1_PORT ?? "8081", 10);
+const IDE_URL = process.env.VITE_IDE_URL ?? "http://localhost:8081";
 
 function buildIdeUrl(workspaceName: string): string {
-	return `http://localhost:${IDE_PORT}/workspace/${workspaceName}/`;
+	return `${IDE_URL}/workspace/${workspaceName}/`;
 }
 
 test.describe("IDE loading: code-server renders in browser", () => {
