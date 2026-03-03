@@ -20,7 +20,7 @@ Start the VM and the full stack in one command:
 npm run start:rootvm
 ```
 
-This boots the VM (if not already running), waits for SSH, then starts all services inside the VM via PM2. Once complete, open your browser to:
+This boots the VM (if not already running), waits for SSH, then starts all services inside the VM via compose. Once complete, open your browser to:
 
 ```
 http://localhost:8080/app/workspaces
@@ -36,11 +36,11 @@ npm run stop:rootvm
 
 1. `npm run start:rootvm` -- cold start to working stack
 2. Edit files on the host in your editor
-3. PM2 watches `packages/server/src` and auto-restarts on changes
+3. Compose `watch` configuration detects changes and restarts services automatically
 4. Browser at `localhost:8080` shows the dashboard (ports forwarded from the VM)
 5. `npm run stop:rootvm` when done
 
-The edit-save-reload cycle should feel responsive. PM2 detects file changes over the Virtiofs mount and restarts the server automatically.
+The edit-save-reload cycle should feel responsive. Compose watches for file changes over the Virtiofs mount and restarts the affected service automatically.
 
 ## Commands
 
@@ -52,8 +52,8 @@ The edit-save-reload cycle should feel responsive. PM2 detects file changes over
 | `npm run stop:vm` | Shut down the VM only |
 | `npm run ssh:vm` | SSH into the VM |
 | `npm run ssh:vm -- 'command'` | Run a command inside the VM |
-| `npm run vm:logs` | View PM2 logs from the VM |
-| `npm run vm:logs -- --nostream` | Dump recent logs and exit |
+| `npm run vm:logs` | View compose logs from the VM |
+| `npm run vm:logs -- --no-follow` | Dump recent logs and exit |
 | `npm run test:e2e:rootvm` | Run E2E tests against the Root VM |
 
 ## node_modules
@@ -62,20 +62,20 @@ The `node_modules` directory lives on the Virtiofs mount (shared with the host).
 
 If Virtiofs performance for `node_modules` becomes a bottleneck (slow `require()` resolution), this can be optimized later by syncing `node_modules` to the VM's local disk. For now, the shared mount works well enough.
 
-## PM2 Watch Patterns
+## File Watching
 
-The Root VM ecosystem config (`ecosystem.rootvm.config.cjs`) watches `packages/server/src` with a 2-second delay. This is slightly longer than the host-native 1-second delay to account for Virtiofs filesystem event propagation.
+The compose `watch` configuration in `compose.yaml` monitors source directories and restarts services on changes. Virtiofs filesystem events may have slight propagation delay compared to native local disk.
 
 To manually restart a service without waiting for file watch:
 
 ```bash
-npm run ssh:vm -- 'cd /mnt/rockpool && npx pm2 restart rootvm-server'
+npm run ssh:vm -- 'cd /mnt/rockpool && podman compose restart server'
 ```
 
 To restart all services:
 
 ```bash
-npm run ssh:vm -- 'cd /mnt/rockpool && npx pm2 restart all'
+npm run ssh:vm -- 'cd /mnt/rockpool && podman compose restart'
 ```
 
 ## Port Forwarding
@@ -128,20 +128,20 @@ npm run ssh:vm
 
 If the VM booted but SSH is not working, check the serial log for errors.
 
-### PM2 not restarting on file changes
+### Services not restarting on file changes
 
-Virtiofs inotify events may be delayed. Try increasing the watch delay in `ecosystem.rootvm.config.cjs`, or restart manually:
+Virtiofs inotify events may be delayed. Restart manually:
 
 ```bash
-npm run ssh:vm -- 'cd /mnt/rockpool && npx pm2 restart rootvm-server'
+npm run ssh:vm -- 'cd /mnt/rockpool && podman compose restart server'
 ```
 
 ### Services crash-looping
 
-Check PM2 logs for errors:
+Check compose logs for errors:
 
 ```bash
-npm run vm:logs -- --lines 100 --nostream
+npm run vm:logs -- --tail 100 --no-follow
 ```
 
 ### Port already in use
@@ -149,6 +149,6 @@ npm run vm:logs -- --lines 100 --nostream
 If ports 8080-8082 are already bound on the host (by a non-VM Rockpool instance), stop those first:
 
 ```bash
-npm run stop        # stop host-native PM2 processes
-npm run start:rootvm  # then start the VM stack
+npm stop               # stop host-native compose services
+npm run start:rootvm   # then start the VM stack
 ```

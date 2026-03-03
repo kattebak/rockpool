@@ -32,8 +32,7 @@ build/sdk: build/openapi/openapi.yaml
 	touch $@
 
 node-modules-linux: $(STAMP_DIR)/rockpool-control-plane | $(STAMP_DIR)
-	podman run --rm -v $(CURDIR):/app -v rockpool_node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm ci --ignore-scripts
-	podman run --rm -v $(CURDIR):/app -v rockpool_node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm rebuild better-sqlite3
+	podman run --rm -e CI=1 -v $(CURDIR):/app -v rockpool_node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm ci
 
 
 clean:

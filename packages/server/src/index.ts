@@ -6,7 +6,7 @@ import { WorkspaceStatus as WS } from "@rockpool/enums";
 import type { QueueRepository } from "@rockpool/queue";
 import { createSqsQueue } from "@rockpool/queue";
 import type { RuntimeRepository } from "@rockpool/runtime";
-import { createPodmanRuntime, createTartRuntime } from "@rockpool/runtime";
+import { createPodmanRuntime } from "@rockpool/runtime";
 import pino from "pino";
 import { createApp } from "./app.ts";
 import { loadConfig } from "./config.ts";
@@ -24,19 +24,15 @@ if (!hasBasicAuth && !hasOAuth) {
 		"Authentication required: set GITHUB_OAUTH_CLIENT_ID + GITHUB_OAUTH_CLIENT_SECRET, or CADDY_USERNAME + CADDY_PASSWORD",
 	);
 }
-function createRuntimeFromConfig(config: import("./config.ts").ServerConfig): RuntimeRepository {
+function createRuntimeFromConfig(): RuntimeRepository {
 	const runtimeEnv = process.env.RUNTIME;
 	const hostAddress = process.env.CONTAINER_HOST_ADDRESS;
 
-	if (runtimeEnv === "podman") {
+	if (!runtimeEnv || runtimeEnv === "podman") {
 		return createPodmanRuntime({ hostAddress });
 	}
 
-	if (runtimeEnv === "tart" || (!runtimeEnv && config.platform === "darwin")) {
-		return createTartRuntime({ sshKeyPath: config.sshKeyPath });
-	}
-
-	return createPodmanRuntime({ hostAddress });
+	throw new Error(`Unsupported RUNTIME: ${runtimeEnv}`);
 }
 
 const db = createDb(config.dbPath);
@@ -57,7 +53,7 @@ function resolveAuthMode(): AuthMode | undefined {
 const authMode = resolveAuthMode();
 
 const caddy = createCaddyClient({ adminUrl: config.caddyAdminUrl, authMode });
-const runtime = createRuntimeFromConfig(config);
+const runtime = createRuntimeFromConfig();
 const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger });
 const portService = createPortService({ db, caddy });
 
