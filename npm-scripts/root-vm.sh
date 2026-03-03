@@ -355,7 +355,7 @@ build_linux() {
   local ROOTFS_DIR=""
   cleanup() {
     rm -f "$TARBALL" "$RAW_IMAGE" "$SETUP_FILE"
-    [ -n "$ROOTFS_DIR" ] && rm -rf "$ROOTFS_DIR" || true
+    if [ -n "$ROOTFS_DIR" ]; then rm -rf "$ROOTFS_DIR"; fi
   }
   trap cleanup EXIT
 
@@ -363,6 +363,8 @@ build_linux() {
   echo ""
 
   echo "Installing Debian Bookworm via mmdebstrap (user namespace)..."
+  # Single quotes are intentional: $1 is expanded by mmdebstrap, not bash.
+  # shellcheck disable=SC2016
   mmdebstrap \
     --mode=unshare \
     --variant=important \
@@ -391,7 +393,7 @@ build_linux() {
   tar xf "$TARBALL" -C "$VM_DIR" "$KERNEL_PATH" "$INITRD_PATH"
   mv "${VM_DIR}/${KERNEL_PATH}" "$VMLINUZ"
   mv "${VM_DIR}/${INITRD_PATH}" "$INITRD"
-  rm -rf "${VM_DIR}/boot" "${VM_DIR}/./boot" 2>/dev/null || true
+  rm -rf "${VM_DIR:?}/boot" 2>/dev/null || true
 
   echo "  Kernel: ${VMLINUZ}"
   echo "  Initrd: ${INITRD}"
@@ -400,10 +402,8 @@ build_linux() {
   echo "Creating ext4 disk image (${IMAGE_SIZE}, no mount needed)..."
   ROOTFS_DIR=$(mktemp -d)
   export TARBALL ROOTFS_DIR RAW_IMAGE IMAGE_SIZE
-  fakeroot bash -c '
-    tar xpf "$TARBALL" -C "$ROOTFS_DIR"
-    mke2fs -t ext4 -d "$ROOTFS_DIR" "$RAW_IMAGE" "$IMAGE_SIZE"
-  '
+  # shellcheck disable=SC2016
+  fakeroot bash -c 'tar xpf "$TARBALL" -C "$ROOTFS_DIR" && mke2fs -t ext4 -d "$ROOTFS_DIR" "$RAW_IMAGE" "$IMAGE_SIZE"'
   rm -rf "$ROOTFS_DIR"
   ROOTFS_DIR=""
 
