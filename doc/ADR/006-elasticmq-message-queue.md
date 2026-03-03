@@ -2,6 +2,7 @@
 
 **Date**: 2026-02-21
 **Status**: Accepted
+**Updated**: 2026-03-03
 
 ## Context
 
@@ -21,12 +22,13 @@ Alternatives considered:
 
 ## Decision
 
-Use **ElasticMQ** as the message queue. It is an in-memory, SQS-compatible queue server that runs as a single binary (or container).
+Use **ElasticMQ** as the message queue. It runs as a container (`softwaremill/elasticmq-native`) in the `podman compose` stack alongside the other control plane services.
 
 The Workspace Service enqueues jobs; the Workspace Worker polls and processes them. Standard SQS SDK (`@aws-sdk/client-sqs`) is used as the client.
 
 ## Consequences
 
-- Local-first: runs in the control plane VM alongside the services.
+- Local-first: runs as a container in the compose stack alongside the other control plane services.
 - SQS-compatible: if we ever move to AWS, swapping to real SQS is a config change.
 - In-memory by default — messages are lost on restart. Acceptable for workspace lifecycle jobs which can be retried or reconciled.
+- No Java dependency on the host — the `elasticmq-native` container image is a GraalVM native binary.
