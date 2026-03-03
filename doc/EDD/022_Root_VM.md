@@ -8,7 +8,7 @@
 | Updated      | 2026-03-01                                                     |
 | Related ADRs | [ADR-015](../ADR/015-two-port-origin-isolation.md)             |
 | Related EDDs | [EDD-001](001_Architecture_Overview.md) |
-| Related RFCs | [RFC-002](../RFC/002_Tidepool_On_Tidepool.md)                 |
+| Related RFCs | —                                                              |
 
 ## Summary
 

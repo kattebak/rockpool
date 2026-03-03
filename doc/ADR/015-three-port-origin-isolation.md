@@ -2,7 +2,7 @@
 
 **Date**: 2026-02-22
 **Status**: Accepted
-**Updated**: 2026-02-22
+**Updated**: 2026-03-03
 
 ## Context
 
@@ -26,7 +26,7 @@ Split Caddy into three listeners on separate ports:
 
 No CORS headers are set across any origin pair. The session cookie is domain-scoped (not port-scoped per RFC 6265 §8.5), so it flows from `:8080` to `:8081` and `:8082` automatically for forward_auth. In production with subdomains (`app.rockpool.dev`, `ide.rockpool.dev`, `preview.rockpool.dev`), the cookie is set with `Domain=.rockpool.dev`. The cookie is `HttpOnly` (workspace JS cannot read it), `SameSite=Lax`, and `Secure` in production.
 
-All workspaces share `:8081` (IDE) and `:8082` (previews). Same-user workspaces can technically interfere with each other at the browser layer, but they are already isolated at the VM layer — and same-user cross-workspace interference is acceptable risk.
+All workspaces share `:8081` (IDE) and `:8082` (previews). Same-user workspaces can technically interfere with each other at the browser layer, but they are already isolated at the container layer (separate Podman containers with user namespace isolation) — and same-user cross-workspace interference is acceptable risk.
 
 For Cloudflare Tunnel (or any external ingress), three tunnel routes map to the three Caddy ports. This is straightforward — `cloudflared` supports multiple ingress rules.
 
