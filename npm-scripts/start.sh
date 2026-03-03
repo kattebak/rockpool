@@ -9,9 +9,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLATFORM="$(uname -s)"
 
 if [ "$PLATFORM" = "Darwin" ]; then
-  SSH_SCRIPT="${SCRIPT_DIR}/ssh-root-vm.sh"
-  "$SSH_SCRIPT" "cd /mnt/rockpool && podman compose -f compose.yaml up -d"
-  exec "$SSH_SCRIPT" "cd /mnt/rockpool && podman compose logs -f"
+  VM_SCRIPT="${SCRIPT_DIR}/root-vm.sh"
+  "$VM_SCRIPT" up
+  exec "$VM_SCRIPT" logs
 else
   "${SCRIPT_DIR}/podman.sh" development.env up
 fi

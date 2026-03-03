@@ -10,6 +10,9 @@
 # QEMU VM storage
 .qemu/
 
+# VM artifacts (root disk, data disk, kernel, initrd, PID files)
+.vm/
+
 # Podman compose volumes (created by podman compose up)
 # Note: compose.yaml and compose.override.yaml are checked in
 
