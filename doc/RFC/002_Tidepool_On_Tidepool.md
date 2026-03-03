@@ -5,13 +5,26 @@
 | Author       | mvhenten                                                                                                                                                                                                                                                                                                                                                  |
 | Status       | Draft                                                                                                                                                                                                                                                                                                                                                     |
 | Created      | 2026-02-22                                                                                                                                                                                                                                                                                                                                                |
-| Updated      | 2026-02-22                                                                                                                                                                                                                                                                                                                                                |
-| Related ADRs | [ADR-003](../ADR/003-typespec-api-first.md), [ADR-010](../ADR/010-react-shadcn-tanstack-spa.md), [ADR-014](../ADR/014-build-tooling-conventions.md), [ADR-015](../ADR/015-two-port-origin-isolation.md)                                                                                                                                                   |
-| Related EDDs | [EDD-001](../EDD/001_Architecture_Overview.md), [EDD-002](../EDD/002_MicroVM_Runtime.md), [EDD-003](../EDD/003_Caddy_Reverse_Proxy.md), [EDD-004](../EDD/004_Web_IDE.md), [EDD-005](../EDD/005_Workspace_Image_Pipeline.md), [EDD-007](../EDD/007_Data_Model.md), [EDD-008](../EDD/008_Package_Structure.md) |
+| Updated      | 2026-03-03                                                                                                                                                                                                                                                                                                                                                |
+| Related ADRs | [ADR-003](../ADR/003-typespec-api-first.md), [ADR-010](../ADR/010-react-shadcn-tanstack-spa.md), [ADR-014](../ADR/014-build-tooling-conventions.md), [ADR-015](../ADR/015-three-port-origin-isolation.md)                                                                                                                                                 |
+| Related EDDs | [EDD-001](../EDD/001_Architecture_Overview.md), [EDD-002](../EDD/002_MicroVM_Runtime.md), [EDD-003](../EDD/003_Caddy_Reverse_Proxy.md), [EDD-005](../EDD/005_Workspace_Image_Pipeline.md), [EDD-007](../EDD/007_Data_Model.md), [EDD-022](../EDD/022_Root_VM.md), [EDD-025](../EDD/025_Compose_Control_Plane.md) |
+
+## Reconciliation Note (2026-03-03)
+
+Since this RFC was written, the architecture has changed significantly:
+
+- **Workspaces are Podman containers**, not Incus VMs. The `RuntimeRepository` uses `podman exec` instead of SSH. See [EDD-022](../EDD/022_Root_VM.md).
+- **The control plane runs via `podman compose`**, not PM2. See [EDD-025](../EDD/025_Compose_Control_Plane.md).
+- **Firecracker was removed** (EDD-019 deleted). Nested virtualization is no longer part of the workspace isolation model.
+- **Three-port origin isolation** (not two-port) is the current model. See [ADR-015](../ADR/015-three-port-origin-isolation.md).
+
+The core idea of this RFC -- running Rockpool inside a Rockpool workspace -- is still valid as a future demo. However, the inner runtime would now be Podman (not Incus), and the inner control plane would use `podman compose`. The nested virtualization requirement (KVM passthrough for Incus VMs) only applies if the inner Rockpool needs VM-level workspace isolation. With Podman containers, the inner Rockpool could potentially run without nested KVM, simplifying the requirements significantly.
+
+This RFC is kept as a future extension. The implementation details below reflect the original design and will need revision when this work is picked up.
 
 ## Summary
 
-Define the "Rockpool-on-Rockpool" ultimate demo with full purity: a Rockpool workspace runs a Linux host that itself runs a full Rockpool control plane and launches real workspace VMs using a real runtime (Incus). This is true VM-in-VM on Linux, with real routing, real lifecycle, and real isolation, producing a realistic developer environment without stubbing.
+Define the "Rockpool-on-Rockpool" ultimate demo with full purity: a Rockpool workspace runs a Linux host that itself runs a full Rockpool control plane and launches real workspace containers. This is container-in-container (or VM-in-VM if Incus is used) on Linux, with real routing, real lifecycle, and real isolation, producing a realistic developer environment without stubbing.
 
 ## Motivation
 
