@@ -123,18 +123,34 @@ function buildSrv0AuthRoutes(credentials: BasicAuthCredentials): unknown[] {
 	];
 }
 
-function buildApiProxyRoute(controlPlaneUrl: string): Record<string, unknown> {
+function controlPlaneDial(controlPlaneUrl: string): string {
 	const upstream = new URL(controlPlaneUrl);
 	const host = upstream.hostname === "localhost" ? "127.0.0.1" : upstream.hostname;
-	const dial = `${host}:${upstream.port || "7163"}`;
+	return `${host}:${upstream.port || "7163"}`;
+}
 
+function buildApiProxyRoute(controlPlaneUrl: string): Record<string, unknown> {
 	return {
 		"@id": "api-proxy",
 		match: [{ path: ["/api/*"] }],
 		handle: [
 			{
 				handler: "reverse_proxy",
-				upstreams: [{ dial }],
+				upstreams: [{ dial: controlPlaneDial(controlPlaneUrl) }],
+			},
+		],
+		terminal: true,
+	};
+}
+
+function buildAppProxyRoute(controlPlaneUrl: string): Record<string, unknown> {
+	return {
+		"@id": "app-proxy",
+		match: [{ path: ["/app", "/app/*"] }],
+		handle: [
+			{
+				handler: "reverse_proxy",
+				upstreams: [{ dial: controlPlaneDial(controlPlaneUrl) }],
 			},
 		],
 		terminal: true,
@@ -257,6 +273,8 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 
 	if (options.spaProxyUrl) {
 		srv0Routes.push(buildSpaProxyRoute(options.spaProxyUrl));
+	} else if (options.controlPlaneUrl && options.spaRoot) {
+		srv0Routes.push(buildAppProxyRoute(options.controlPlaneUrl));
 	} else if (options.spaRoot) {
 		srv0Routes.push(...buildSpaRoutes(options.spaRoot));
 	}
@@ -298,8 +316,16 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 		},
 	};
 
-	if (options.adminPort) {
-		config.admin = { listen: `localhost:${options.adminPort}` };
+	if (options.adminUrl) {
+		const url = new URL(options.adminUrl);
+		const port = url.port || "2019";
+		const isRemote = url.hostname !== "localhost" && url.hostname !== "127.0.0.1";
+		const listen = isRemote ? `0.0.0.0:${port}` : `localhost:${port}`;
+		const admin: Record<string, unknown> = { listen };
+		if (isRemote) {
+			admin.origins = [`${url.hostname}:${port}`, `localhost:${port}`];
+		}
+		config.admin = admin;
 	}
 
 	return config;

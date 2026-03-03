@@ -72,19 +72,18 @@ const app = createApp({
 	authService,
 	secureCookies: config.secureCookies,
 	db,
+	spaRoot: config.spaRoot || undefined,
 });
 
 async function bootstrapCaddy(): Promise<void> {
 	const controlPlaneUrl = `http://${controlPlaneHost}:${config.port}`;
-
-	const adminPort = new URL(config.caddyAdminUrl).port;
 
 	const bootstrapOptions: BootstrapOptions = {
 		controlPlaneUrl,
 		srv0Port: config.srv0Port,
 		srv1Port: config.srv1Port,
 		srv2Port: config.srv2Port,
-		adminPort: adminPort ? Number(adminPort) : undefined,
+		adminUrl: config.caddyAdminUrl,
 	};
 
 	if (config.spaProxyUrl) {
