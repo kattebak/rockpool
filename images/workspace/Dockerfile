@@ -39,12 +39,12 @@ RUN useradd -m -s /bin/bash -G sudo "$CS_USER" \
   && echo "${CS_USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${CS_USER} \
   && chmod 440 /etc/sudoers.d/${CS_USER}
 
-RUN curl -fsSL https://code-server.dev/install.sh | sh
+RUN curl -fsSL https://code-server.dev/install.sh | sh -s -- --version 4.109.5
 
 USER ${CS_USER}
 WORKDIR /home/${CS_USER}
 
-RUN curl -fsSL https://fnm.vercel.app/install | bash
+RUN curl -fsSL https://fnm.vercel.app/install | bash -s -- --release v1.38.1
 
 ENV FNM_PATH="/home/${CS_USER}/.local/share/fnm"
 ENV PATH="${FNM_PATH}:${PATH}"
