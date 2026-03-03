@@ -7,7 +7,7 @@
 		"packages/*"
 	],
 	"scripts": {
-		"preinstall": "make ${CI:+ci} && echo 'Build complete'",
+		"preinstall": "make ci && echo 'Build complete'",
 		"test": "npm run test --workspaces --if-present",
 		"lint": "biome check .",
 		"format": "biome format --write .",
@@ -23,6 +23,7 @@
 		"dev:status": "podman compose ps",
 		"dev:logs": "podman compose logs -f",
 		"test:e2e": "npx playwright test --config e2e/playwright.config.ts",
+		"pretest:e2e:headless": "[ \"$SKIP_PRETEST\" = 1 ] || make .stamps/node-modules-linux .stamps/rockpool-workspace-container",
 		"test:e2e:headless": "ENV_FILE=test.env ELASTICMQ_CONF=elasticmq.test.conf node --env-file=test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
 		"test:e2e:podman": "E2E_PROFILE=podman ENV_FILE=podman-test.env ELASTICMQ_CONF=elasticmq.test.conf node --env-file=podman-test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
 		"test:e2e:rootvm": "E2E_PROFILE=rootvm ENV_FILE=rootvm-test.env node --env-file=rootvm-test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
