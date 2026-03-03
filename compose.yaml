@@ -1,6 +1,6 @@
 services:
   caddy:
-    image: caddy:2
+    image: docker.io/library/caddy:2
     network_mode: bridge
     command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
     env_file: ${ENV_FILE:-development.env}
@@ -13,7 +13,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
 
   elasticmq:
-    image: softwaremill/elasticmq-native
+    image: docker.io/softwaremill/elasticmq-native
     network_mode: "service:caddy"
     restart: unless-stopped
     volumes:
@@ -27,6 +27,7 @@ services:
     env_file: ${ENV_FILE:-development.env}
     environment:
       CONTAINER_HOST: unix:///run/podman.sock
+      CONTAINER_HOST_ADDRESS: host.containers.internal
     security_opt:
       - label=disable
     restart: unless-stopped
@@ -47,6 +48,7 @@ services:
     env_file: ${ENV_FILE:-development.env}
     environment:
       CONTAINER_HOST: unix:///run/podman.sock
+      CONTAINER_HOST_ADDRESS: host.containers.internal
     security_opt:
       - label=disable
     restart: unless-stopped

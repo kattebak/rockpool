@@ -26,16 +26,17 @@ if (!hasBasicAuth && !hasOAuth) {
 }
 function createRuntimeFromConfig(config: import("./config.ts").ServerConfig): RuntimeRepository {
 	const runtimeEnv = process.env.RUNTIME;
+	const hostAddress = process.env.CONTAINER_HOST_ADDRESS;
 
 	if (runtimeEnv === "podman") {
-		return createPodmanRuntime();
+		return createPodmanRuntime({ hostAddress });
 	}
 
 	if (runtimeEnv === "tart" || (!runtimeEnv && config.platform === "darwin")) {
 		return createTartRuntime({ sshKeyPath: config.sshKeyPath });
 	}
 
-	return createPodmanRuntime();
+	return createPodmanRuntime({ hostAddress });
 }
 
 const db = createDb(config.dbPath);
@@ -75,11 +76,14 @@ const app = createApp({
 async function bootstrapCaddy(): Promise<void> {
 	const controlPlaneUrl = `http://localhost:${config.port}`;
 
+	const adminPort = new URL(config.caddyAdminUrl).port;
+
 	const bootstrapOptions: BootstrapOptions = {
 		controlPlaneUrl,
 		srv0Port: config.srv0Port,
 		srv1Port: config.srv1Port,
 		srv2Port: config.srv2Port,
+		adminPort: adminPort ? Number(adminPort) : undefined,
 	};
 
 	if (config.spaProxyUrl) {

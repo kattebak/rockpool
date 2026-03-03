@@ -8,7 +8,7 @@ export TART_HOME
 TSP_SOURCES := typespec/main.tsp typespec/tspconfig.yaml
 
 ifeq ($(UNAME_S),Linux)
-all: development.env build/sdk
+all: development.env build/sdk node-modules-linux
 else
 all: development.env build/sdk $(STAMP_DIR)/rockpool-workspace $(STAMP_DIR)/rockpool-root-vm-tart
 endif
@@ -31,8 +31,10 @@ build/sdk: build/openapi/openapi.yaml
 	echo 'export { client } from "./client.gen.js";' >> $@/index.ts
 	touch $@
 
-node-modules-linux:
-	podman compose run --rm --no-deps -T server npm ci
+node-modules-linux: $(STAMP_DIR)/rockpool-control-plane | $(STAMP_DIR)
+	podman run --rm -v $(CURDIR):/app -v rockpool_node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm ci --ignore-scripts
+	podman run --rm -v $(CURDIR):/app -v rockpool_node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm rebuild better-sqlite3
+
 
 clean:
 	rm -rf build $(STAMP_DIR)

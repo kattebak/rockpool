@@ -30,16 +30,17 @@ const platform = (process.env.PLATFORM ?? process.platform) as "darwin" | "linux
 
 function createRuntimeFromEnv(): RuntimeRepository {
 	const runtimeEnv = process.env.RUNTIME;
+	const hostAddress = process.env.CONTAINER_HOST_ADDRESS;
 
 	if (runtimeEnv === "podman") {
-		return createPodmanRuntime();
+		return createPodmanRuntime({ hostAddress });
 	}
 
 	if (runtimeEnv === "tart" || (!runtimeEnv && platform === "darwin")) {
 		return createTartRuntime({ sshKeyPath });
 	}
 
-	return createPodmanRuntime();
+	return createPodmanRuntime({ hostAddress });
 }
 
 const runtime = createRuntimeFromEnv();
