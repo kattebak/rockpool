@@ -19,7 +19,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/control-plane-image.tar
-          key: control-plane-${{ hashFiles('images/control-plane/Dockerfile') }}
+          key: control-plane-${{ hashFiles('images/control-plane/Dockerfile', 'package-lock.json') }}
 
       - name: Build control-plane image
         if: steps.cache.outputs.cache-hit != 'true'
@@ -83,7 +83,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build
-          key: build-${{ hashFiles('typespec/main.tsp', 'typespec/tspconfig.yaml', 'Makefile') }}
+          key: build-${{ hashFiles('typespec/**/*.tsp', 'typespec/tspconfig.yaml') }}
 
       - name: Install dependencies
         run: npm ci
@@ -93,11 +93,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Install Playwright Chromium
         if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install chromium
+
+      - name: Build client
+        run: npm run build -w packages/client
 
       - name: Download control-plane image
         uses: actions/download-artifact@v4
@@ -126,9 +129,6 @@ jobs:
             -v rockpool_node-modules:/app/node_modules \
             -w /app rockpool-control-plane:latest npm ci
           touch .stamps/node-modules-linux
-
-      - name: Build client
-        run: npm run build -w packages/client
 
       - name: Run E2E tests
         run: npm run test:e2e:headless
