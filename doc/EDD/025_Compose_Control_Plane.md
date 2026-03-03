@@ -11,7 +11,7 @@
 
 ## Summary
 
-Replace PM2 with Podman Compose for control plane orchestration. The compose stack has two services: **Caddy** (workspace reverse proxy) and **control-plane** (API server, worker, ElasticMQ, and Vite client in a single container). Caddy only handles workspace routing (three-port origin isolation). All control-plane ports are internal to the container. The same compose file works on the host, in CI, and inside the Root VM. PM2 and all its ecosystem configs are removed.
+Replace PM2 with Podman Compose for control plane orchestration. The compose stack has three services: **Caddy** (workspace reverse proxy), **ElasticMQ** (job queue), and **control-plane** (API server, worker, and Vite client in a single container). Caddy only handles workspace routing (three-port origin isolation). Services communicate via compose DNS. The same compose file works on the host, in CI, and inside the Root VM. PM2 and all its ecosystem configs are removed.
 
 ## Motivation
 
@@ -47,9 +47,11 @@ Podman Compose solves this:
 │  │  │  caddy     │   │  control-plane   │   │    │
 │  │  │  :8080     │   │  server  :7163   │   │    │
 │  │  │  :8081     │◄──│  worker          │   │    │
-│  │  │  :8082     │   │  elasticmq :9324 │   │    │
-│  │  │  :2019     │   │  vite    :5173   │   │    │
-│  │  └───────────┘   └──────────────────┘   │    │
+│  │  │  :8082     │   │  vite    :5173   │   │    │
+│  │  │  :2019     │   └──────────────────┘   │    │
+│  │  └───────────┘   ┌──────────────────┐   │    │
+│  │                   │  elasticmq :9324 │   │    │
+│  │                   └──────────────────┘   │    │
 │  └──────────────────────────────────────────┘    │
 │                                                  │
 │  Podman socket ───────────────────────┐          │
@@ -61,16 +63,17 @@ Podman Compose solves this:
 └──────────────────────────────────────────────────┘
 ```
 
-### Two-container model
+### Three-container model
 
-The compose stack has two services on the default bridge network:
+The compose stack has three services on the default bridge network:
 
 - **caddy** — Workspace reverse proxy. Exposes ports 8080/8081/8082 (three-port origin isolation per ADR-015) and admin API 2019. Only handles workspace routing and authentication.
-- **control-plane** — Single container running all control-plane processes: API server, worker, ElasticMQ, and Vite client (dev mode). Ports 7163, 9324, 5173 are internal to the container — not exposed to the host.
+- **elasticmq** — Job queue. Runs the official `elasticmq-native` image. Port 9324 is only exposed in the test profile for the Playwright runner.
+- **control-plane** — Single container running API server, worker, and Vite client (dev mode). Uses compose DNS names (`caddy`, `elasticmq`) to reach sibling services.
 
 Caddy reaches the control-plane via compose DNS name `control-plane`. The server bootstraps Caddy with dial addresses like `control-plane:7163` so Caddy can proxy API and SPA requests back.
 
-Both containers reach workspace containers via `host.containers.internal:<mapped-port>`, which resolves to the host's gateway IP in Podman's bridge network.
+All containers reach workspace containers via `host.containers.internal:<mapped-port>`, which resolves to the host's gateway IP in Podman's bridge network.
 
 ### Workspace containers as siblings
 
@@ -103,6 +106,12 @@ services:
       - caddy-config:/config
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
 
+  elasticmq:
+    image: softwaremill/elasticmq-native
+    restart: unless-stopped
+    volumes:
+      - ./elasticmq.conf:/opt/elasticmq.conf:ro
+
   control-plane:
     build: images/control-plane
     init: true
@@ -113,6 +122,8 @@ services:
       CONTAINER_HOST_ADDRESS: host.containers.internal
       CADDY_ADMIN_URL: http://caddy:2019
       CONTROL_PLANE_HOST: control-plane
+      QUEUE_ENDPOINT: http://elasticmq:9324
+      QUEUE_URL: http://elasticmq:9324/000000000000/workspace-jobs
     security_opt:
       - label=disable
     restart: unless-stopped
@@ -123,6 +134,7 @@ services:
       - /var/run/docker.sock:/run/podman.sock
     depends_on:
       - caddy
+      - elasticmq
 
 volumes:
   caddy-data:
@@ -165,17 +177,11 @@ Or run host Vite on a different port and access it directly, bypassing Caddy.
 
 ```dockerfile
 # images/control-plane/Dockerfile
-FROM docker.io/softwaremill/elasticmq-native AS elasticmq
-
 FROM node:22-bookworm-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends podman make python3 g++ && \
     rm -rf /var/lib/apt/lists/*
-
-COPY --from=elasticmq /opt/elasticmq /opt/elasticmq
-COPY --from=elasticmq /opt/elasticmq.conf /opt/elasticmq.conf
-COPY --from=elasticmq /opt/logback.xml /opt/logback.xml
 
 COPY entrypoint.sh /opt/entrypoint.sh
 
@@ -185,9 +191,9 @@ ENTRYPOINT ["/opt/entrypoint.sh"]
 CMD ["node", "--experimental-strip-types", "packages/server/src/index.ts"]
 ```
 
-Multi-stage image: Node.js 22 + Podman CLI + ElasticMQ native binary. The project source and `node_modules` are bind-mounted from the host. No `npm install` inside the container.
+Node.js 22 + Podman CLI. The project source and `node_modules` are bind-mounted from the host. No `npm install` inside the container.
 
-The entrypoint script starts ElasticMQ, the worker process, and Vite (in dev mode when `SPA_PROXY_URL` is set) as background processes, then `exec`s the CMD (the API server). The compose `init: true` flag adds tini for proper signal handling and zombie reaping.
+The entrypoint script starts the worker process and Vite (in dev mode when `SPA_PROXY_URL` is set) as background processes, then `exec`s the CMD (the API server). The compose `init: true` flag adds tini for proper signal handling and zombie reaping.
 
 The `podman` CLI uses `CONTAINER_HOST=unix:///run/podman.sock` (set in compose) to talk to the host's Podman service. All `podman create`, `podman exec`, `podman port` commands in `podman-runtime.ts` are routed through the socket.
 
@@ -257,7 +263,7 @@ ENV_FILE=ci.env podman compose up -d
 
 ### ElasticMQ configuration
 
-ElasticMQ is baked into the control-plane image via multi-stage build. A single `elasticmq.conf` (port 9324) is copied into the image. No separate test config is needed — the port is container-internal and doesn't conflict between profiles.
+ElasticMQ runs as a separate compose service using the official `elasticmq-native` image. A single `elasticmq.conf` (port 9324) is mounted into the container. No separate test config is needed — the control-plane reaches ElasticMQ via compose DNS name `elasticmq`, and the port doesn't conflict between profiles.
 
 ## npm Script Changes
 

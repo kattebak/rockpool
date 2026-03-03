@@ -8,6 +8,12 @@ services:
       - caddy-config:/config
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
 
+  elasticmq:
+    image: docker.io/softwaremill/elasticmq-native
+    restart: unless-stopped
+    volumes:
+      - ./elasticmq.conf:/opt/elasticmq.conf:ro
+
   control-plane:
     build: images/control-plane
     init: true
@@ -18,6 +24,8 @@ services:
       CONTAINER_HOST_ADDRESS: host.containers.internal
       CADDY_ADMIN_URL: http://caddy:2019
       CONTROL_PLANE_HOST: control-plane
+      QUEUE_ENDPOINT: http://elasticmq:9324
+      QUEUE_URL: http://elasticmq:9324/000000000000/workspace-jobs
     security_opt:
       - label=disable
     restart: unless-stopped
@@ -28,6 +36,7 @@ services:
       - /var/run/docker.sock:/run/podman.sock
     depends_on:
       - caddy
+      - elasticmq
 
 volumes:
   caddy-data:
