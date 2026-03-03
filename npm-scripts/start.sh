@@ -6,7 +6,6 @@ set -euo pipefail
 # On Linux: runs compose locally.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PLATFORM="$(uname -s)"
 
 if [ "$PLATFORM" = "Darwin" ]; then
@@ -14,6 +13,5 @@ if [ "$PLATFORM" = "Darwin" ]; then
   "$SSH_SCRIPT" "cd /mnt/rockpool && podman compose -f compose.yaml up -d"
   exec "$SSH_SCRIPT" "cd /mnt/rockpool && podman compose logs -f"
 else
-  cd "$ROOT_DIR"
-  podman compose up
+  "${SCRIPT_DIR}/podman.sh" development.env up
 fi
