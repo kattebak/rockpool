@@ -7,7 +7,62 @@ on:
     branches: [main]
 
 jobs:
+  build-control-plane:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache control-plane image
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/control-plane-image.tar
+          key: control-plane-${{ hashFiles('images/control-plane/Dockerfile') }}
+
+      - name: Build control-plane image
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          podman build -t rockpool-control-plane:latest images/control-plane/
+          podman save -o /tmp/control-plane-image.tar rockpool-control-plane:latest
+
+      - name: Upload control-plane image
+        uses: actions/upload-artifact@v4
+        with:
+          name: control-plane-image
+          path: /tmp/control-plane-image.tar
+          retention-days: 1
+
+  build-workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache workspace image
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/workspace-image.tar
+          key: workspace-${{ hashFiles('images/workspace/Dockerfile', 'images/workspace/entrypoint.sh', 'images/scripts/setup.sh') }}
+
+      - name: Build workspace image
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          podman build -t rockpool-workspace:latest images/workspace/
+          podman save -o /tmp/workspace-image.tar rockpool-workspace:latest
+
+      - name: Upload workspace image
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-image
+          path: /tmp/workspace-image.tar
+          retention-days: 1
+
   e2e:
+    needs: [build-control-plane, build-workspace]
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -44,66 +99,28 @@ jobs:
         if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install chromium
 
-      - name: Cache control-plane image
-        id: cache-control-plane
-        uses: actions/cache@v4
+      - name: Download control-plane image
+        uses: actions/download-artifact@v4
         with:
-          path: /tmp/control-plane-image.tar
-          key: control-plane-${{ hashFiles('images/control-plane/Dockerfile') }}
+          name: control-plane-image
+          path: /tmp
 
-      - name: Cache workspace image
-        id: cache-workspace
-        uses: actions/cache@v4
+      - name: Download workspace image
+        uses: actions/download-artifact@v4
         with:
-          path: /tmp/workspace-image.tar
-          key: workspace-${{ hashFiles('images/workspace/Dockerfile', 'images/workspace/entrypoint.sh', 'images/scripts/setup.sh') }}
+          name: workspace-image
+          path: /tmp
 
-      - name: Load or build container images (parallel)
+      - name: Load container images
         run: |
-          set -euo pipefail
-
-          load_or_build_control_plane() {
-            if [ "${{ steps.cache-control-plane.outputs.cache-hit }}" = "true" ]; then
-              echo "::group::Loading control-plane image from cache"
-              podman load -i /tmp/control-plane-image.tar
-              echo "::endgroup::"
-            else
-              echo "::group::Building control-plane image"
-              podman build -t rockpool-control-plane:latest images/control-plane/
-              podman save -o /tmp/control-plane-image.tar rockpool-control-plane:latest
-              echo "::endgroup::"
-            fi
-            mkdir -p .stamps && touch .stamps/rockpool-control-plane
-          }
-
-          load_or_build_workspace() {
-            if [ "${{ steps.cache-workspace.outputs.cache-hit }}" = "true" ]; then
-              echo "::group::Loading workspace image from cache"
-              podman load -i /tmp/workspace-image.tar
-              echo "::endgroup::"
-            else
-              echo "::group::Building workspace image"
-              podman build -t rockpool-workspace:latest images/workspace/
-              podman save -o /tmp/workspace-image.tar rockpool-workspace:latest
-              echo "::endgroup::"
-            fi
-            mkdir -p .stamps && touch .stamps/rockpool-workspace-container
-          }
-
-          load_or_build_control_plane &
-          pid_cp=$!
-
-          load_or_build_workspace &
-          pid_ws=$!
-
-          wait $pid_cp || exit 1
-          wait $pid_ws || exit 1
-
-          echo "Both container images ready."
+          podman load -i /tmp/control-plane-image.tar
+          podman load -i /tmp/workspace-image.tar
+          mkdir -p .stamps
+          touch .stamps/rockpool-control-plane
+          touch .stamps/rockpool-workspace-container
 
       - name: Populate node_modules volume
         run: |
-          mkdir -p .stamps
           podman run --rm -e CI=1 \
             -v ${{ github.workspace }}:/app \
             -v rockpool_node-modules:/app/node_modules \
@@ -115,6 +132,8 @@ jobs:
 
       - name: Run E2E tests
         run: npm run test:e2e:headless
+        env:
+          SKIP_PRETEST: "1"
 
       - name: Upload test artifacts
         if: failure()
