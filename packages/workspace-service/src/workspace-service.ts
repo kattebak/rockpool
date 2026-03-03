@@ -37,19 +37,23 @@ const VALID_TRANSITIONS: Record<string, WorkspaceStatus[]> = {
 	[WS.error]: [WS.creating],
 };
 
+function containerName(workspace: Workspace): string {
+	return `${workspace.name}-${workspace.id}`;
+}
+
 export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 	const { db, queue, runtime, caddy, logger } = deps;
 	const healthCheck = deps.healthCheck ?? defaultHealthCheck(logger);
 
-	async function configureWorkspace(workspaceName: string, folder?: string): Promise<void> {
+	async function configureWorkspace(workspace: Workspace, folder?: string): Promise<void> {
 		if (runtime.configure) {
 			const env: Record<string, string> = {
-				ROCKPOOL_WORKSPACE_NAME: workspaceName,
+				ROCKPOOL_WORKSPACE_NAME: workspace.name,
 			};
 			if (folder) {
 				env.ROCKPOOL_FOLDER = folder;
 			}
-			await runtime.configure(workspaceName, env);
+			await runtime.configure(containerName(workspace), env);
 		}
 	}
 
@@ -152,16 +156,20 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				return;
 			}
 
-			logger.info({ workspaceId: id, name: workspace.name }, "Provisioning workspace");
+			const cname = containerName(workspace);
+			logger.info(
+				{ workspaceId: id, name: workspace.name, containerName: cname },
+				"Provisioning workspace",
+			);
 
-			const vmStatus = await runtime.status(workspace.name);
+			const vmStatus = await runtime.status(cname);
 
 			if (vmStatus === "not_found") {
-				await runtime.create(workspace.name, workspace.image);
-				await runtime.start(workspace.name);
+				await runtime.create(cname, workspace.image);
+				await runtime.start(cname);
 			} else if (vmStatus === "stopped") {
 				logger.info({ workspaceId: id, name: workspace.name }, "VM exists but stopped, starting");
-				await runtime.start(workspace.name);
+				await runtime.start(cname);
 			} else {
 				logger.info(
 					{ workspaceId: id, name: workspace.name },
@@ -173,13 +181,13 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 			const repoName = repository?.split("/")[1];
 			const folder = repoName ? `/home/admin/${repoName}` : undefined;
 
-			await configureWorkspace(workspace.name, folder);
+			await configureWorkspace(workspace, folder);
 
 			if (repository && runtime.clone) {
-				await runtime.clone(workspace.name, "", repository, opts?.githubAccessToken);
+				await runtime.clone(cname, "", repository, opts?.githubAccessToken);
 			}
 
-			const vmIp = await runtime.getIp(workspace.name);
+			const vmIp = await runtime.getIp(cname);
 			await healthCheck(vmIp);
 
 			if (runtime.writeFile) {
@@ -187,7 +195,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				await Promise.all(
 					blobs.map((blob) =>
 						runtime
-							.writeFile?.(workspace.name, vmIp, PREFS_FILE_PATHS[blob.name], blob.blob)
+							.writeFile?.(cname, vmIp, PREFS_FILE_PATHS[blob.name], blob.blob)
 							?.catch((err) => {
 								logger.warn(
 									{ workspaceId: id, prefsFile: blob.name, error: err },
@@ -211,13 +219,14 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				return;
 			}
 
+			const cname = containerName(workspace);
 			logger.info({ workspaceId: id, name: workspace.name, mode }, "Tearing down workspace");
 
 			if (mode === "stop") {
 				if (workspace.autoSyncPrefs && workspace.vmIp && runtime.readFile) {
 					for (const [name, filePath] of Object.entries(PREFS_FILE_PATHS)) {
 						const content = await runtime
-							.readFile(workspace.name, workspace.vmIp, filePath)
+							.readFile(cname, workspace.vmIp, filePath)
 							.catch(() => null);
 						if (content === null) continue;
 
@@ -234,15 +243,15 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				}
 
 				await removeAllPorts(db, id);
-				await runtime.stop(workspace.name);
+				await runtime.stop(cname);
 				await caddy.removeWorkspaceRoute(workspace.name);
 				await updateWorkspaceStatus(db, id, WS.stopped, { vmIp: null });
 				logger.info({ workspaceId: id, name: workspace.name }, "Workspace stopped");
 				return;
 			}
 
-			await runtime.stop(workspace.name).catch(() => {});
-			await runtime.remove(workspace.name).catch(() => {});
+			await runtime.stop(cname).catch(() => {});
+			await runtime.remove(cname).catch(() => {});
 			await caddy.removeWorkspaceRoute(workspace.name);
 			await deleteWorkspace(db, id);
 			logger.info({ workspaceId: id, name: workspace.name }, "Workspace deleted");
