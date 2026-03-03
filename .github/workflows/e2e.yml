@@ -115,8 +115,6 @@ jobs:
 
       - name: Run E2E tests
         run: npm run test:e2e:headless
-        env:
-          SKIP_PRETEST: "1"
 
       - name: Upload test artifacts
         if: failure()
