@@ -3,7 +3,7 @@ import { createCaddyClient } from "@rockpool/caddy";
 import { createDb } from "@rockpool/db";
 import { createSqsQueue } from "@rockpool/queue";
 import type { RuntimeRepository } from "@rockpool/runtime";
-import { createPodmanRuntime, createStubRuntime, createTartRuntime } from "@rockpool/runtime";
+import { createPodmanRuntime, createTartRuntime } from "@rockpool/runtime";
 import { createWorkspaceService } from "@rockpool/workspace-service";
 import pino from "pino";
 import { createPollLoop } from "./poll-loop.ts";
@@ -30,28 +30,21 @@ const platform = (process.env.PLATFORM ?? process.platform) as "darwin" | "linux
 
 function createRuntimeFromEnv(): RuntimeRepository {
 	const runtimeEnv = process.env.RUNTIME;
-
-	if (runtimeEnv === "stub" || process.env.NODE_ENV === "test") {
-		return createStubRuntime();
-	}
+	const hostAddress = process.env.CONTAINER_HOST_ADDRESS;
 
 	if (runtimeEnv === "podman") {
-		return createPodmanRuntime();
+		return createPodmanRuntime({ hostAddress });
 	}
 
 	if (runtimeEnv === "tart" || (!runtimeEnv && platform === "darwin")) {
 		return createTartRuntime({ sshKeyPath });
 	}
 
-	return createStubRuntime();
+	return createPodmanRuntime({ hostAddress });
 }
 
 const runtime = createRuntimeFromEnv();
-const isStubRuntime = process.env.RUNTIME === "stub" || process.env.NODE_ENV === "test";
-
-const noopHealthCheck = async () => {};
-const healthCheck = isStubRuntime ? noopHealthCheck : undefined;
-const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger, healthCheck });
+const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger });
 const processor = createProcessor({ workspaceService, logger });
 const pollLoop = createPollLoop({ queue, processor, logger });
 

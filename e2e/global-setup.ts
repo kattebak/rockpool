@@ -10,34 +10,31 @@ const POLL_INTERVAL = 2_000;
 const AUTH_HEADER = `Basic ${Buffer.from(`${CADDY_USERNAME}:${CADDY_PASSWORD}`).toString("base64")}`;
 
 const IS_ROOTVM = process.env.E2E_PROFILE === "rootvm";
-const IS_PODMAN = process.env.E2E_PROFILE === "podman";
-
-function resolvePm2Config(): string {
-	if (IS_ROOTVM) return "ecosystem.rootvm-test.config.cjs";
-	if (IS_PODMAN) return "ecosystem.podman-test.config.cjs";
-	return "ecosystem.test.config.cjs";
-}
-
-const PM2_CONFIG = resolvePm2Config();
 
 function sshCmd(remoteCommand: string): string {
 	return `npm run ssh:vm -- '${remoteCommand}'`;
 }
 
-function pm2Cmd(args: string): string {
+function composeCmd(args: string): string {
+	const envFile = process.env.ENV_FILE ?? "test.env";
+	const elasticmqConf = process.env.ELASTICMQ_CONF ?? "elasticmq.test.conf";
+	const linuxOverlay = process.platform === "linux" ? " -f compose.linux.yaml" : "";
+	const base = `ENV_FILE=${envFile} ELASTICMQ_CONF=${elasticmqConf} podman compose -f compose.yaml -f compose.test.yaml${linuxOverlay}`;
+
 	if (IS_ROOTVM) {
-		return sshCmd(`cd /mnt/rockpool && npx pm2 ${args}`);
+		return sshCmd(`cd /mnt/rockpool && ${base} ${args}`);
 	}
-	return `npx pm2 ${args}`;
+
+	return `${base} ${args}`;
 }
 
-function dumpPm2Logs(): void {
+function dumpComposeLogs(): void {
 	try {
-		const output = execSync(pm2Cmd("logs --nostream --lines 30"), {
+		const output = execSync(composeCmd("logs --tail=30"), {
 			encoding: "utf-8",
 			timeout: 15_000,
 		});
-		console.error("--- PM2 logs ---\n", output);
+		console.error("--- compose logs ---\n", output);
 	} catch {}
 }
 
@@ -56,7 +53,7 @@ async function pollUntilReady(
 		} catch {}
 		await new Promise((r) => setTimeout(r, POLL_INTERVAL));
 	}
-	dumpPm2Logs();
+	dumpComposeLogs();
 	throw new Error(`${url} did not become ready within ${timeoutMs}ms (last status: ${lastStatus})`);
 }
 
@@ -73,10 +70,10 @@ async function ensureQueue(): Promise<void> {
 }
 
 export default async function globalSetup(): Promise<void> {
-	execSync(pm2Cmd(`delete ${PM2_CONFIG}`), {
-		stdio: "ignore",
-	});
-	execSync(pm2Cmd(`start ${PM2_CONFIG}`), { stdio: "inherit" });
+	try {
+		execSync(composeCmd("down"), { stdio: "ignore" });
+	} catch {}
+	execSync(composeCmd("up -d"), { stdio: "inherit" });
 
 	await ensureQueue();
 	await pollUntilReady(`${API_URL}/health`, 60_000);

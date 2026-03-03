@@ -4,10 +4,6 @@ const API_BASE = process.env.API_URL ?? "http://localhost:8080/api";
 const CADDY_USERNAME = process.env.CADDY_USERNAME ?? "admin";
 const CADDY_PASSWORD = process.env.CADDY_PASSWORD ?? "admin";
 
-export function isStubRuntime(): boolean {
-	return process.env.RUNTIME === "stub";
-}
-
 export function hasGitHubAuth(): boolean {
 	return Boolean(process.env.GITHUB_OAUTH_CLIENT_ID);
 }

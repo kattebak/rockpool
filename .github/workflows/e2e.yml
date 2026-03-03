@@ -9,7 +9,7 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -19,19 +19,10 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Cache Caddy binary
-        id: cache-caddy
-        uses: actions/cache@v4
-        with:
-          path: /usr/local/bin/caddy
-          key: caddy-linux-amd64-2.9.1
-
-      - name: Install Caddy
-        if: steps.cache-caddy.outputs.cache-hit != 'true'
+      - name: Start Podman socket
         run: |
-          curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v2.9.1/caddy_2.9.1_linux_amd64.tar.gz" \
-            | sudo tar -xz -C /usr/local/bin caddy
-          caddy version
+          systemctl --user start podman.socket
+          echo "DOCKER_HOST=unix://${XDG_RUNTIME_DIR}/podman/podman.sock" >> $GITHUB_ENV
 
       - name: Cache build artifacts
         uses: actions/cache@v4
@@ -41,17 +32,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Cache ElasticMQ
-        id: cache-elasticmq
-        uses: actions/cache@v4
-        with:
-          path: .elasticmq
-          key: elasticmq-1.6.9
-
-      - name: Download ElasticMQ
-        if: steps.cache-elasticmq.outputs.cache-hit != 'true'
-        run: npm-scripts/setup-elasticmq.sh download
 
       - name: Cache Playwright browsers
         id: cache-playwright
@@ -64,11 +44,17 @@ jobs:
         if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install chromium
 
+      - name: Build control-plane image and populate node_modules volume
+        run: make node-modules-linux
+
+      - name: Build workspace image
+        run: make .stamps/rockpool-workspace-container
+
       - name: Build client
         run: npm run build -w packages/client
 
-      - name: Run E2E tests (CI profile)
-        run: npm run test:e2e:ci
+      - name: Run E2E tests
+        run: npm run test:e2e:headless
 
       - name: Upload test artifacts
         if: failure()

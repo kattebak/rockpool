@@ -202,6 +202,16 @@ describe("PodmanRuntime", () => {
 			assert.equal(ip, "127.0.0.1:39493");
 		});
 
+		it("uses custom hostAddress when provided", async () => {
+			const { exec } = createMockExec(
+				new Map([["podman port my-workspace 8080", "0.0.0.0:39493"]]),
+			);
+			const runtime = createPodmanRuntime({ exec, hostAddress: "host.containers.internal" });
+
+			const ip = await runtime.getIp("my-workspace");
+			assert.equal(ip, "host.containers.internal:39493");
+		});
+
 		it("throws when no port mapping is returned", async () => {
 			const { exec } = createMockExec(new Map([["podman port my-workspace 8080", ""]]));
 			const runtime = createPodmanRuntime({ exec });

@@ -8,11 +8,6 @@ import {
 } from "../helpers/platform";
 import { deleteWorkspaceViaApi, pollUntilStatus, uniqueWorkspaceName } from "../helpers/workspace";
 
-test.skip(
-	process.env.RUNTIME === "stub",
-	"IDE loading requires real VMs — skipped with stub runtime",
-);
-
 const IDE_PORT = Number.parseInt(process.env.SRV1_PORT ?? "8081", 10);
 
 function buildIdeUrl(workspaceName: string): string {

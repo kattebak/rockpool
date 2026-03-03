@@ -8,11 +8,6 @@ import {
 } from "../helpers/platform";
 import { deleteWorkspaceViaApi, pollUntilStatus, uniqueWorkspaceName } from "../helpers/workspace";
 
-test.skip(
-	process.env.RUNTIME === "stub",
-	"Preferences save requires real VMs — skipped with stub runtime",
-);
-
 test.describe("Preferences: save from running workspace", () => {
 	test.describe.configure({ mode: "serial" });
 

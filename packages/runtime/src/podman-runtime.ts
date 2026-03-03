@@ -54,6 +54,7 @@ export interface PodmanRuntimeOptions {
 	memory?: string;
 	defaultImage?: string;
 	user?: string;
+	hostAddress?: string;
 }
 
 export function createPodmanRuntime(options: PodmanRuntimeOptions = {}): RuntimeRepository {
@@ -62,6 +63,7 @@ export function createPodmanRuntime(options: PodmanRuntimeOptions = {}): Runtime
 	const memory = options.memory ?? DEFAULT_MEMORY;
 	const defaultImage = options.defaultImage ?? DEFAULT_IMAGE;
 	const user = options.user ?? DEFAULT_USER;
+	const hostAddress = options.hostAddress ?? "127.0.0.1";
 
 	function podman(args: string[]): Promise<string> {
 		return exec("podman", args);
@@ -134,7 +136,7 @@ export function createPodmanRuntime(options: PodmanRuntimeOptions = {}): Runtime
 			if (!match) {
 				throw new Error(`Podman: unexpected port output for container "${name}": ${output}`);
 			}
-			return `127.0.0.1:${match[1]}`;
+			return `${hostAddress}:${match[1]}`;
 		},
 
 		async configure(name: string, env: Record<string, string>): Promise<void> {
@@ -190,10 +192,11 @@ export function createPodmanRuntime(options: PodmanRuntimeOptions = {}): Runtime
 			}
 
 			const repoName = repository.split("/")[1];
+			const dest = `/home/${user}/${repoName}`;
 			await podmanExec(name, [
 				"sh",
 				"-c",
-				`git clone --depth 1 --single-branch https://github.com/${repository}.git /home/${user}/${repoName}`,
+				`rm -rf ${dest} && git clone --depth 1 --single-branch https://github.com/${repository}.git ${dest}`,
 			]);
 		},
 

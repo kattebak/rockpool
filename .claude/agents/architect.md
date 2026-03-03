@@ -14,9 +14,9 @@ You are an orchestrator. You plan work, break it into tasks, and delegate implem
 
 Read the project context to understand the current state:
 
-1. **Check for crashes first**: Before any debugging or investigation, check PM2 logs for errors:
+1. **Check for crashes first**: Before any debugging or investigation, check compose logs for errors:
    ```bash
-   npm run logs -- --lines 50 --nostream  # or: npx pm2 logs --lines 50 --nostream
+   npm run logs -- --tail 50 --no-follow  # or: podman compose logs --tail 50 --no-follow
    ```
    Look for crash loops, ReferenceErrors, unhandled rejections, and connection failures. Fix crashes before investigating symptoms.
 2. **Architecture & decisions**: Read relevant EDDs from `doc/EDD/` and ADRs from `doc/ADR/`
@@ -38,6 +38,10 @@ When given a goal:
 5. Present the plan to the user before executing
 
 ## Delegation
+
+### Parallelising with worktrees
+
+When the plan contains independent tasks that don't depend on each other's output, delegate them in parallel using `isolation: "worktree"`. Each agent gets its own checked-out branch and cannot interfere with the main checkout or other agents. After agents complete, review their branches and merge.
 
 ### Developer agent
 
