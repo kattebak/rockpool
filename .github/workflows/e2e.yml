@@ -119,16 +119,42 @@ jobs:
           touch .stamps/rockpool-control-plane
           touch .stamps/rockpool-workspace-container
 
+      - name: Cache node_modules volume
+        id: cache-node-modules
+        uses: actions/cache@v4
+        with:
+          path: /tmp/node-modules-volume.tar
+          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json', 'images/control-plane/Dockerfile') }}
+
+      - name: Restore node_modules volume
+        if: steps.cache-node-modules.outputs.cache-hit == 'true'
+        run: |
+          podman volume create rockpool_node-modules
+          podman volume import rockpool_node-modules /tmp/node-modules-volume.tar
+          mkdir -p .stamps
+          touch .stamps/node-modules-linux
+
       - name: Populate node_modules volume
+        if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: |
           podman run --rm -e CI=1 \
             --entrypoint="" \
             -v ${{ github.workspace }}:/app \
             -v rockpool-node-modules:/app/node_modules \
             -w /app rockpool-control-plane:latest npm ci
+          podman volume export rockpool_node-modules > /tmp/node-modules-volume.tar
+          mkdir -p .stamps
           touch .stamps/node-modules-linux
 
+      - name: Cache client build
+        id: cache-client
+        uses: actions/cache@v4
+        with:
+          path: packages/client/dist
+          key: client-${{ hashFiles('packages/client/src/**', 'packages/client/index.html', 'packages/client/vite.config.*', 'packages/client/tsconfig.*', 'packages/client/tailwind.*', 'packages/client/postcss.*') }}
+
       - name: Build client
+        if: steps.cache-client.outputs.cache-hit != 'true'
         run: npm run build -w packages/client
 
       - name: Run E2E tests
