@@ -38,11 +38,11 @@ npm start                                     # boots VM, starts stack, tails lo
 ### Linux
 
 ```sh
-sudo apt install qemu-system-x86 qemu-utils virtiofsd mmdebstrap e2fsprogs
+sudo apt install qemu-system-x86 qemu-utils mmdebstrap e2fsprogs fakeroot
 sudo usermod -aG kvm $USER                   # log out and back in
-images/root-vm/build-root-vm.sh              # build Root VM image (no sudo needed)
 cp development.env.example development.env   # fill in secrets
 npm install
+npm run vm -- build                          # build Root VM image (no sudo needed)
 npm start
 ```
 
@@ -79,13 +79,19 @@ Either GitHub OAuth **or** basic auth credentials must be set. See [doc/EDD/003_
 ### Useful commands
 
 ```sh
-npm start              # boot VM + start stack + tail logs
-npm stop               # stop compose stack inside the VM
-npm run stop:vm        # shut down the VM
-npm run ssh:vm         # SSH into the Root VM
-npm run vm:logs        # tail compose logs from the VM
-npm test               # run unit tests across all packages
-npm run fix -- --unsafe  # format and lint
+npm start                          # boot VM + start stack + tail logs
+npm stop                           # stop compose stack inside the VM
+npm run vm -- start                # boot the VM, wait for SSH
+npm run vm -- stop                 # shut down the VM
+npm run vm -- deploy               # rsync code + npm ci on VM
+npm run vm -- configure dev.env    # push env file to VM
+npm run vm -- up                   # podman compose up -d on VM
+npm run vm -- down                 # podman compose down on VM
+npm run vm -- restart              # podman compose restart on VM
+npm run vm -- logs                 # tail compose logs from VM
+npm run vm -- ssh                  # SSH into the Root VM
+npm test                           # run unit tests across all packages
+npm run fix -- --unsafe            # format and lint
 ```
 
 ### Building the workspace image
@@ -93,7 +99,7 @@ npm run fix -- --unsafe  # format and lint
 The workspace container image must be built inside the Root VM:
 
 ```sh
-npm run ssh:vm
+npm run vm -- ssh
 # inside the VM:
 podman build -t rockpool-workspace:latest /mnt/rockpool/images/workspace/
 ```
