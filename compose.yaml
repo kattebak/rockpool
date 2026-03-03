@@ -31,7 +31,6 @@ services:
     restart: unless-stopped
     volumes:
       - .:/app
-      - node-modules:/app/node_modules
       - rockpool-data:/opt/rockpool
       - /var/run/docker.sock:/run/podman.sock
     depends_on:
@@ -42,4 +41,3 @@ volumes:
   caddy-data:
   caddy-config:
   rockpool-data:
-  node-modules:
