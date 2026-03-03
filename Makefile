@@ -8,7 +8,7 @@ export TART_HOME
 TSP_SOURCES := typespec/main.tsp typespec/tspconfig.yaml
 
 ifeq ($(UNAME_S),Linux)
-all: development.env build/sdk
+all: development.env build/sdk $(STAMP_DIR)/node-modules-linux
 else
 all: development.env build/sdk $(STAMP_DIR)/rockpool-workspace $(STAMP_DIR)/rockpool-root-vm-tart
 endif
@@ -44,6 +44,10 @@ development.env:
 $(STAMP_DIR)/rockpool-workspace: images/workspace.pkr.hcl images/scripts/setup.sh | $(STAMP_DIR)
 	packer init images/workspace.pkr.hcl
 	packer build images/workspace.pkr.hcl
+	touch $@
+
+$(STAMP_DIR)/node-modules-linux: package-lock.json $(STAMP_DIR)/rockpool-control-plane | $(STAMP_DIR)
+	podman run --rm -e CI=1 -v $(CURDIR):/app -v rockpool-node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm ci
 	touch $@
 
 $(STAMP_DIR)/rockpool-control-plane: images/control-plane/Dockerfile images/control-plane/entrypoint.sh | $(STAMP_DIR)
