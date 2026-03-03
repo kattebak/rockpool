@@ -9,7 +9,7 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -43,6 +43,12 @@ jobs:
       - name: Install Playwright Chromium
         if: steps.cache-playwright.outputs.cache-hit != 'true'
         run: npx playwright install chromium
+
+      - name: Build control-plane image and populate node_modules volume
+        run: make node-modules-linux
+
+      - name: Build workspace image
+        run: make .stamps/rockpool-workspace-container
 
       - name: Build client
         run: npm run build -w packages/client
