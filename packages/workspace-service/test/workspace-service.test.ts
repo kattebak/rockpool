@@ -90,11 +90,8 @@ describe("provisionAndStart", () => {
 
 		await service.provisionAndStart(ws.id);
 
-		assert.deepEqual(runtime.calls, [
-			"create:prov-create",
-			"start:prov-create",
-			"configure:prov-create",
-		]);
+		const cname = `prov-create-${ws.id}`;
+		assert.deepEqual(runtime.calls, [`create:${cname}`, `start:${cname}`, `configure:${cname}`]);
 		assert.deepEqual(caddy.calls, ["addRoute:prov-create"]);
 
 		const updated = await getWorkspace(db, ws.id);
@@ -118,7 +115,8 @@ describe("provisionAndStart", () => {
 
 		await service.provisionAndStart(ws.id);
 
-		assert.deepEqual(runtime.calls, ["start:prov-start-stopped", "configure:prov-start-stopped"]);
+		const cname = `prov-start-stopped-${ws.id}`;
+		assert.deepEqual(runtime.calls, [`start:${cname}`, `configure:${cname}`]);
 		assert.deepEqual(caddy.calls, ["addRoute:prov-start-stopped"]);
 
 		const updated = await getWorkspace(db, ws.id);
@@ -142,7 +140,7 @@ describe("provisionAndStart", () => {
 
 		await service.provisionAndStart(ws.id);
 
-		assert.deepEqual(runtime.calls, ["configure:prov-running"]);
+		assert.deepEqual(runtime.calls, [`configure:prov-running-${ws.id}`]);
 		assert.deepEqual(caddy.calls, ["addRoute:prov-running"]);
 
 		const updated = await getWorkspace(db, ws.id);
@@ -193,7 +191,7 @@ describe("teardown (stop)", () => {
 
 		await service.teardown(ws.id, "stop");
 
-		assert.deepEqual(runtime.calls, ["stop:tear-stop"]);
+		assert.deepEqual(runtime.calls, [`stop:tear-stop-${ws.id}`]);
 		assert.deepEqual(caddy.calls, ["removeRoute:tear-stop"]);
 
 		const updated = await getWorkspace(db, ws.id);
@@ -267,7 +265,8 @@ describe("teardown (delete)", () => {
 
 		await service.teardown(ws.id, "delete");
 
-		assert.deepEqual(runtime.calls, ["stop:tear-delete", "remove:tear-delete"]);
+		const cname = `tear-delete-${ws.id}`;
+		assert.deepEqual(runtime.calls, [`stop:${cname}`, `remove:${cname}`]);
 		assert.deepEqual(caddy.calls, ["removeRoute:tear-delete"]);
 
 		const deleted = await getWorkspace(db, ws.id);
@@ -293,7 +292,7 @@ describe("teardown (delete)", () => {
 
 		await service.teardown(ws.id, "delete");
 
-		assert.deepEqual(runtime.calls, ["remove:tear-delete-err"]);
+		assert.deepEqual(runtime.calls, [`remove:tear-delete-err-${ws.id}`]);
 		assert.deepEqual(caddy.calls, ["removeRoute:tear-delete-err"]);
 
 		const deleted = await getWorkspace(db, ws.id);
@@ -319,7 +318,7 @@ describe("teardown (delete)", () => {
 
 		await service.teardown(ws.id, "delete");
 
-		assert.deepEqual(runtime.calls, ["stop:tear-delete-rm-err"]);
+		assert.deepEqual(runtime.calls, [`stop:tear-delete-rm-err-${ws.id}`]);
 		assert.deepEqual(caddy.calls, ["removeRoute:tear-delete-rm-err"]);
 
 		const deleted = await getWorkspace(db, ws.id);
@@ -372,8 +371,9 @@ describe("provisionAndStart with clone", () => {
 			githubAccessToken: "ghp_test123",
 		});
 
-		assert.ok(runtime.calls.includes("clone:prov-clone:octocat/Hello-World"));
-		assert.ok(runtime.calls.includes("configure:prov-clone"));
+		const cname = `prov-clone-${ws.id}`;
+		assert.ok(runtime.calls.includes(`clone:${cname}:octocat/Hello-World`));
+		assert.ok(runtime.calls.includes(`configure:${cname}`));
 		assert.deepEqual(caddy.calls, ["addRoute:prov-clone"]);
 
 		const updated = await getWorkspace(db, ws.id);
@@ -398,7 +398,7 @@ describe("provisionAndStart with clone", () => {
 
 		const cloneCalls = runtime.calls.filter((c) => c.startsWith("clone:"));
 		assert.equal(cloneCalls.length, 0);
-		assert.ok(runtime.calls.includes("configure:prov-no-clone"));
+		assert.ok(runtime.calls.includes(`configure:prov-no-clone-${ws.id}`));
 	});
 
 	it("clone failure puts workspace in error state via thrown error", async () => {
