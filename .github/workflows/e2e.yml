@@ -45,7 +45,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Build control-plane image and populate node_modules volume
-        run: make node-modules-linux
+        run: make .stamps/node-modules-linux
 
       - name: Build workspace image
         run: make .stamps/rockpool-workspace-container
@@ -55,6 +55,8 @@ jobs:
 
       - name: Run E2E tests
         run: npm run test:e2e:headless
+        env:
+          SKIP_PRETEST: "1"
 
       - name: Upload test artifacts
         if: failure()
