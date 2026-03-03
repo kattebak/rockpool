@@ -12,6 +12,5 @@ PLATFORM="$(uname -s)"
 if [ "$PLATFORM" = "Darwin" ]; then
   "${SCRIPT_DIR}/ssh-root-vm.sh" "cd /mnt/rockpool && podman compose down" || true
 else
-  cd "$ROOT_DIR"
-  podman compose down
+  "${SCRIPT_DIR}/podman.sh" development.env down
 fi
