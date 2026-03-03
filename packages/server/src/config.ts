@@ -16,8 +16,6 @@ export interface ServerConfig {
 	spaProxyUrl: string;
 	queueEndpoint: string;
 	queueUrl: string;
-	platform: "darwin" | "linux";
-	sshKeyPath: string;
 	auth: AuthConfig | null;
 	secureCookies: boolean;
 }
@@ -55,8 +53,6 @@ export function loadConfig(): ServerConfig {
 		spaProxyUrl: process.env.SPA_PROXY_URL ?? "",
 		queueEndpoint: process.env.QUEUE_ENDPOINT ?? "http://localhost:9324",
 		queueUrl: process.env.QUEUE_URL ?? "http://localhost:9324/000000000000/workspace-jobs",
-		platform: (process.env.PLATFORM ?? process.platform) as "darwin" | "linux",
-		sshKeyPath: resolve(projectRoot, process.env.SSH_KEY_PATH ?? "images/ssh/rockpool_ed25519"),
 		auth,
 		secureCookies: process.env.SECURE_COOKIES === "true",
 	};
