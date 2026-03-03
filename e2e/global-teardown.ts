@@ -8,15 +8,15 @@ function sshCmd(remoteCommand: string): string {
 }
 
 function composeCmd(args: string): string {
-	const envFile = process.env.ENV_FILE ?? "test.env";
-	const elasticmqConf = process.env.ELASTICMQ_CONF ?? "elasticmq.test.conf";
-	const base = `ENV_FILE=${envFile} ELASTICMQ_CONF=${elasticmqConf} podman compose`;
-
 	if (IS_ROOTVM) {
-		return sshCmd(`cd /mnt/rockpool && ${base} -f compose.yaml ${args}`);
+		const envFile = process.env.ENV_FILE ?? "test.env";
+		const elasticmqConf = process.env.ELASTICMQ_CONF ?? "elasticmq.test.conf";
+		return sshCmd(
+			`cd /mnt/rockpool && ENV_FILE=${envFile} ELASTICMQ_CONF=${elasticmqConf} podman compose -f compose.yaml -f compose.test.yaml ${args}`,
+		);
 	}
 
-	return `${base} ${args}`;
+	return `npm-scripts/podman.sh test.env ${args}`;
 }
 
 export default async function globalTeardown(): Promise<void> {
