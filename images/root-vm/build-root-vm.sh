@@ -1,32 +1,38 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build a bootable QEMU qcow2 disk image for the Rockpool Root VM.
-# Requires: debootstrap, qemu-utils, root privileges
+# Build a QEMU qcow2 disk image for the Rockpool Root VM -- fully rootless.
 #
-# Usage: sudo images/root-vm/build-root-vm.sh [output-dir]
+# Uses mmdebstrap (user namespace) + mke2fs -d (no mount) + qemu-img convert.
+# Produces a raw ext4 image (no partition table) and extracts kernel+initrd
+# for QEMU direct kernel boot (no GRUB).
 #
-# Produces: <output-dir>/rockpool-root.qcow2
+# See doc/EDD/024_Rootless_VM_Image_Build.md
+#
+# Usage: images/root-vm/build-root-vm.sh [output-dir]
+#
+# Produces:
+#   <output-dir>/rockpool-root.qcow2   (compressed disk image)
+#   <output-dir>/vmlinuz                (kernel for -kernel flag)
+#   <output-dir>/initrd.img             (initramfs for -initrd flag)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 OUTPUT_DIR="${1:-${ROOT_DIR}/.qemu}"
 SETUP_SCRIPT="${SCRIPT_DIR}/setup-root-vm.sh"
-SSH_PUBKEY="${SCRIPT_DIR}/keys/rockpool-root-vm_ed25519.pub"
-RAW_IMAGE="${OUTPUT_DIR}/rockpool-root.raw"
+
+TARBALL="${OUTPUT_DIR}/rootfs.tar"
+RAW_IMAGE="${OUTPUT_DIR}/rootfs.raw"
 QCOW2_IMAGE="${OUTPUT_DIR}/rockpool-root.qcow2"
-IMAGE_SIZE_MB=61440
-VM_USER="admin"
+VMLINUZ="${OUTPUT_DIR}/vmlinuz"
+INITRD="${OUTPUT_DIR}/initrd.img"
 
-if [ "$(id -u)" -ne 0 ]; then
-  echo "ERROR: This script must be run as root (sudo)."
-  exit 1
-fi
+IMAGE_SIZE="60G"
 
-for cmd in debootstrap qemu-img grub-install; do
+for cmd in mmdebstrap mke2fs qemu-img fakeroot; do
   if ! command -v "$cmd" &>/dev/null; then
     echo "ERROR: ${cmd} is not installed."
-    echo "Install with: apt install debootstrap qemu-utils grub-pc-bin grub2-common"
+    echo "Install with: sudo apt install mmdebstrap e2fsprogs qemu-utils fakeroot"
     exit 1
   fi
 done
@@ -36,144 +42,76 @@ if [ ! -f "$SETUP_SCRIPT" ]; then
   exit 1
 fi
 
-if [ ! -f "$SSH_PUBKEY" ]; then
-  echo "ERROR: SSH public key not found at $SSH_PUBKEY"
-  echo "Generate it with: ssh-keygen -t ed25519 -f images/root-vm/keys/rockpool-root-vm_ed25519 -N '' -C 'rockpool-root-vm'"
-  exit 1
-fi
-
 mkdir -p "$OUTPUT_DIR"
 
-MOUNT_DIR=$(mktemp -d)
-LOOP_DEV=""
-
+ROOTFS_DIR=""
 cleanup() {
-  echo "Cleaning up..."
-  if mountpoint -q "${MOUNT_DIR}/dev/pts" 2>/dev/null; then umount "${MOUNT_DIR}/dev/pts" || true; fi
-  if mountpoint -q "${MOUNT_DIR}/dev" 2>/dev/null; then umount "${MOUNT_DIR}/dev" || true; fi
-  if mountpoint -q "${MOUNT_DIR}/proc" 2>/dev/null; then umount "${MOUNT_DIR}/proc" || true; fi
-  if mountpoint -q "${MOUNT_DIR}/sys" 2>/dev/null; then umount "${MOUNT_DIR}/sys" || true; fi
-  if mountpoint -q "${MOUNT_DIR}/run" 2>/dev/null; then umount "${MOUNT_DIR}/run" || true; fi
-  if mountpoint -q "${MOUNT_DIR}" 2>/dev/null; then umount "${MOUNT_DIR}" || true; fi
-  if [ -n "$LOOP_DEV" ]; then losetup -d "$LOOP_DEV" 2>/dev/null || true; fi
-  rmdir "$MOUNT_DIR" 2>/dev/null || true
+  rm -f "$TARBALL" "$RAW_IMAGE"
+  [ -n "$ROOTFS_DIR" ] && rm -rf "$ROOTFS_DIR" || true
 }
 trap cleanup EXIT
 
-echo "Creating raw disk image (${IMAGE_SIZE_MB}MB sparse)..."
-dd if=/dev/zero of="$RAW_IMAGE" bs=1M count=0 seek=$IMAGE_SIZE_MB 2>/dev/null
+echo "=== Building Rockpool Root VM (rootless) ==="
+echo ""
 
-echo "Partitioning disk image..."
-parted -s "$RAW_IMAGE" \
-  mklabel msdos \
-  mkpart primary ext4 1MiB 100%
+echo "Installing Debian Bookworm via mmdebstrap (user namespace)..."
+mmdebstrap \
+  --mode=unshare \
+  --variant=important \
+  --include=systemd,systemd-sysv,dbus,linux-image-amd64,apt,ca-certificates \
+  --customize-hook="copy-in $SETUP_SCRIPT /tmp" \
+  --customize-hook='chroot "$1" bash /tmp/setup-root-vm.sh' \
+  --customize-hook='echo "/dev/vda  /  ext4  errors=remount-ro  0 1" > "$1/etc/fstab"' \
+  --customize-hook='echo "rockpool /mnt/rockpool virtiofs defaults,nofail 0 0" >> "$1/etc/fstab"' \
+  --customize-hook='chroot "$1" apt-get clean' \
+  --customize-hook='rm -rf "$1/var/lib/apt/lists"/*' \
+  --customize-hook='rm "$1/tmp/setup-root-vm.sh"' \
+  bookworm "$TARBALL"
 
-LOOP_DEV=$(losetup --find --show --partscan "$RAW_IMAGE")
-PART_DEV="${LOOP_DEV}p1"
+echo ""
+echo "Extracting kernel and initramfs from tarball..."
+KERNEL_PATH=$(tar tf "$TARBALL" | grep -E '^(\./)?boot/vmlinuz-' | head -1)
+INITRD_PATH=$(tar tf "$TARBALL" | grep -E '^(\./)?boot/initrd\.img-' | head -1)
 
-for i in $(seq 1 10); do
-  [ -b "$PART_DEV" ] && break
-  partprobe "$LOOP_DEV" 2>/dev/null || true
-  sleep 0.5
-done
-
-if [ ! -b "$PART_DEV" ]; then
-  echo "ERROR: Partition device ${PART_DEV} not found."
+if [ -z "$KERNEL_PATH" ] || [ -z "$INITRD_PATH" ]; then
+  echo "ERROR: Could not find kernel or initrd in the tarball."
+  echo "  Kernel: ${KERNEL_PATH:-not found}"
+  echo "  Initrd: ${INITRD_PATH:-not found}"
   exit 1
 fi
 
-echo "Formatting partition..."
-mkfs.ext4 -F -q "$PART_DEV"
+tar xf "$TARBALL" -C "$OUTPUT_DIR" "$KERNEL_PATH" "$INITRD_PATH"
+mv "${OUTPUT_DIR}/${KERNEL_PATH}" "$VMLINUZ"
+mv "${OUTPUT_DIR}/${INITRD_PATH}" "$INITRD"
+rm -rf "${OUTPUT_DIR}/boot" "${OUTPUT_DIR}/./boot" 2>/dev/null || true
 
-echo "Mounting partition..."
-mount "$PART_DEV" "$MOUNT_DIR"
-
-echo "Installing Debian Bookworm via debootstrap..."
-debootstrap \
-  --include=systemd,systemd-sysv,dbus,iproute2,openssh-server,sudo,linux-image-amd64,grub-pc,parted \
-  bookworm "$MOUNT_DIR" http://deb.debian.org/debian
-
-echo "Mounting virtual filesystems for chroot..."
-mount --bind /dev "$MOUNT_DIR/dev"
-mount --bind /dev/pts "$MOUNT_DIR/dev/pts"
-mount -t proc proc "$MOUNT_DIR/proc"
-mount -t sysfs sys "$MOUNT_DIR/sys"
-mount -t tmpfs tmpfs "$MOUNT_DIR/run"
-
-echo "Creating admin user..."
-chroot "$MOUNT_DIR" useradd -m -s /bin/bash -G sudo "$VM_USER" 2>/dev/null || true
-chroot "$MOUNT_DIR" sh -c "echo '${VM_USER}:${VM_USER}' | chpasswd"
-
-echo "Running Root VM provisioning script..."
-cp "$SETUP_SCRIPT" "$MOUNT_DIR/tmp/setup-root-vm.sh"
-chroot "$MOUNT_DIR" bash /tmp/setup-root-vm.sh
-rm -f "$MOUNT_DIR/tmp/setup-root-vm.sh"
-
-echo "Installing fnm and Node.js as ${VM_USER}..."
-chroot "$MOUNT_DIR" su - "$VM_USER" -c 'curl -fsSL https://fnm.vercel.app/install | bash'
-# shellcheck disable=SC2016
-chroot "$MOUNT_DIR" su - "$VM_USER" -c \
-  'export PATH="$HOME/.local/share/fnm:$PATH" && eval "$(fnm env)" && fnm install --lts && npm install -g pm2'
-
-echo "Configuring fstab..."
-PART_UUID=$(blkid -s UUID -o value "$PART_DEV")
-cat > "$MOUNT_DIR/etc/fstab" <<EOF
-UUID=${PART_UUID}  /  ext4  errors=remount-ro  0 1
-rockpool /mnt/rockpool virtiofs defaults,nofail 0 0
-EOF
-
-echo "Installing GRUB bootloader..."
-LOOP_BASE=$(basename "$LOOP_DEV")
-mkdir -p "$MOUNT_DIR/boot/grub"
-
-cat > "$MOUNT_DIR/boot/grub/device.map" <<EOF
-(hd0)   ${LOOP_DEV}
-EOF
-
-chroot "$MOUNT_DIR" grub-install --target=i386-pc --boot-directory=/boot "$LOOP_DEV"
-
-cat > "$MOUNT_DIR/etc/default/grub" <<'GRUBCONF'
-GRUB_DEFAULT=0
-GRUB_TIMEOUT=1
-GRUB_CMDLINE_LINUX_DEFAULT=""
-GRUB_CMDLINE_LINUX="console=tty0 console=ttyS0,115200n8"
-GRUB_TERMINAL="serial console"
-GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1"
-GRUBCONF
-
-chroot "$MOUNT_DIR" update-grub
-
-rm -f "$MOUNT_DIR/boot/grub/device.map"
-
-echo "Final cleanup inside chroot..."
-chroot "$MOUNT_DIR" apt-get clean
-rm -rf "$MOUNT_DIR/var/lib/apt/lists/"*
-
-echo "Unmounting virtual filesystems..."
-umount "$MOUNT_DIR/dev/pts" || true
-umount "$MOUNT_DIR/dev" || true
-umount "$MOUNT_DIR/proc" || true
-umount "$MOUNT_DIR/sys" || true
-umount "$MOUNT_DIR/run" || true
-
-echo "Unmounting root partition..."
-umount "$MOUNT_DIR"
-
-echo "Converting raw image to qcow2..."
-qemu-img convert -f raw -O qcow2 -c "$RAW_IMAGE" "$QCOW2_IMAGE"
-rm -f "$RAW_IMAGE"
-
-losetup -d "$LOOP_DEV" 2>/dev/null || true
-LOOP_DEV=""
-
-if [ -n "${SUDO_USER:-}" ]; then
-  chown "${SUDO_USER}:${SUDO_USER}" "$QCOW2_IMAGE"
-  chown "${SUDO_USER}:${SUDO_USER}" "$OUTPUT_DIR"
-fi
+echo "  Kernel: ${VMLINUZ}"
+echo "  Initrd: ${INITRD}"
 
 echo ""
-echo "Root VM image built successfully."
-echo "  Image: ${QCOW2_IMAGE}"
-echo "  Size:  $(du -h "$QCOW2_IMAGE" | cut -f1)"
+echo "Creating ext4 disk image (${IMAGE_SIZE}, no mount needed)..."
+# mke2fs -d only accepts directories (not tarballs) on stock Ubuntu/Debian
+# because e2fsprogs is compiled without libarchive. Use fakeroot to extract
+# the tarball with correct ownership faking, then mke2fs -d reads the faked UIDs.
+ROOTFS_DIR=$(mktemp -d)
+export TARBALL ROOTFS_DIR RAW_IMAGE IMAGE_SIZE
+fakeroot bash -c '
+  tar xpf "$TARBALL" -C "$ROOTFS_DIR"
+  mke2fs -t ext4 -d "$ROOTFS_DIR" "$RAW_IMAGE" "$IMAGE_SIZE"
+'
+rm -rf "$ROOTFS_DIR"
+ROOTFS_DIR=""
+
+echo ""
+echo "Converting raw image to compressed qcow2..."
+qemu-img convert -f raw -O qcow2 -c "$RAW_IMAGE" "$QCOW2_IMAGE"
+
+rm -f "$TARBALL" "$RAW_IMAGE"
+
+echo ""
+echo "Root VM image built successfully (no sudo required)."
+echo "  Image:   ${QCOW2_IMAGE} ($(du -h "$QCOW2_IMAGE" | cut -f1))"
+echo "  Kernel:  ${VMLINUZ}"
+echo "  Initrd:  ${INITRD}"
 echo ""
 echo "Start the VM with: npm run start:vm"

@@ -235,13 +235,13 @@ Debian Bookworm (aarch64 for macOS/Apple Silicon, x86_64 for Linux x86 hosts).
 
 ### Build
 
-Built via `images/root-vm/build-root-vm.sh` using debootstrap + chroot. Produces `.qemu/rockpool-root.qcow2`. The script handles MBR partitioning, GRUB bootloader with serial console, admin user creation, and raw-to-qcow2 conversion.
+Built via `images/root-vm/build-root-vm.sh` using mmdebstrap (rootless, user namespace) + mke2fs -d (no mount) + qemu-img convert. Produces `.qemu/rockpool-root.qcow2`, `.qemu/vmlinuz`, and `.qemu/initrd.img`. The image has no partition table -- the entire disk is a single ext4 filesystem. QEMU boots via direct kernel boot (`-kernel`, `-initrd`, `-append`) instead of GRUB. No sudo required. See [EDD-024](024_Rootless_VM_Image_Build.md).
 
 #### Makefile target
 
 ```makefile
 $(STAMP_DIR)/rockpool-root-vm: images/root-vm/build-root-vm.sh images/root-vm/setup-root-vm.sh images/root-vm/keys/rockpool-root-vm_ed25519.pub
-	sudo bash images/root-vm/build-root-vm.sh
+	images/root-vm/build-root-vm.sh
 	touch $@
 ```
 
@@ -417,12 +417,11 @@ npm start      # boots VM, starts stack, tails logs
 ### Linux (QEMU/KVM)
 
 ```bash
-sudo apt install qemu-system-x86 qemu-utils virtiofsd debootstrap grub-pc-bin
+sudo apt install qemu-system-x86 qemu-utils virtiofsd mmdebstrap e2fsprogs
 sudo usermod -aG kvm $USER   # log out and back in
 
-# Build the Root VM image (requires sudo for debootstrap/chroot)
-sudo bash images/root-vm/build-root-vm.sh
-sudo chown -R $USER:$USER .qemu/
+# Build the Root VM image (no sudo needed)
+images/root-vm/build-root-vm.sh
 
 npm install
 npm start
@@ -461,12 +460,9 @@ Phases 1-2 use the existing stub runtime to validate VM infrastructure. Phases 3
 
 **Steps:**
 
-1. Create a base QEMU VM image (Debian Bookworm x86_64) using debootstrap + chroot (`images/root-vm/build-root-vm.sh`, requires `sudo`)
+1. Create a base QEMU VM image (Debian Bookworm x86_64) using mmdebstrap + mke2fs (`images/root-vm/build-root-vm.sh`, no sudo needed). See [EDD-024](024_Rootless_VM_Image_Build.md).
 2. Write `images/root-vm/setup-root-vm.sh` provisioning script that installs:
-   - Node.js (via fnm)
-   - PM2 (global)
-   - Caddy (from official apt repo)
-   - ElasticMQ (Java + jar at `/opt/elasticmq/`)
+   - Podman (rootless, from Debian repos)
    - SSH server with Rockpool keypair (Ed25519, password auth disabled)
    - Virtiofs fstab entry, systemd-networkd DHCP, serial console
 3. Add Makefile target: `$(STAMP_DIR)/rockpool-root-vm`
@@ -709,9 +705,9 @@ During container state transitions (restart, stop), `podman inspect` may return 
 
 The EDD only mentioned registering Podman in the server's `createRuntimeFromConfig()`. The worker also creates a runtime and needed the same `RUNTIME=podman` branch.
 
-### Image build: debootstrap, not Packer
+### Image build: mmdebstrap, not Packer
 
-The Root VM image is built with `debootstrap` + `chroot` instead of Packer. This avoids a Packer dependency and produces a minimal Debian installation. The build script (`images/root-vm/build-root-vm.sh`) handles partitioning, GRUB installation, and qcow2 conversion.
+The Root VM image is built with `mmdebstrap` (rootless, user namespace) + `mke2fs -d` (no mount) instead of Packer. This avoids a Packer dependency, produces a minimal Debian installation, and requires no sudo. The build script (`images/root-vm/build-root-vm.sh`) produces a raw ext4 image (no partition table), extracts the kernel and initrd for direct kernel boot, and converts to qcow2. See [EDD-024](024_Rootless_VM_Image_Build.md).
 
 ### SSH keypair for Root VM access
 
@@ -774,14 +770,14 @@ When accessing the dashboard via LAN hostname (e.g., `http://homelab:8080/`), Vi
 
 ### 8. `.qemu/` directory ownership
 
-`build-root-vm.sh` runs as root and creates `.qemu/` with root ownership. The start script (running as unprivileged user) can't write PID files. **Workaround:** `sudo chown -R $USER .qemu/` after build. **Image rebuild fix:** ensure the build script's final step chowns the output directory.
+**Resolved by [EDD-024](024_Rootless_VM_Image_Build.md).** The build is now fully rootless -- `.qemu/` is created with the invoking user's ownership. No `sudo chown` workaround needed.
 
 ### Files created
 
 | File | Purpose |
 |------|---------|
-| `images/root-vm/build-root-vm.sh` | Builds QEMU qcow2 image via debootstrap |
-| `images/root-vm/setup-root-vm.sh` | Provisioning script (runs in chroot) |
+| `images/root-vm/build-root-vm.sh` | Builds QEMU qcow2 image via mmdebstrap (rootless) |
+| `images/root-vm/setup-root-vm.sh` | Provisioning script (runs in mmdebstrap hook or tart exec) |
 | `images/root-vm/keys/` | SSH keypair for VM access |
 | `images/workspace/Dockerfile` | Workspace container image |
 | `images/workspace/entrypoint.sh` | code-server entrypoint with optional folder arg |

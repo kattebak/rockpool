@@ -185,11 +185,23 @@ start_qemu() {
     exit 1
   fi
 
+  local VMLINUZ="${QEMU_DIR}/vmlinuz"
+  local INITRD="${QEMU_DIR}/initrd.img"
+
   if [ ! -f "$QCOW2_IMAGE" ]; then
     echo "ERROR: Root VM image not found at ${QCOW2_IMAGE}"
     echo ""
     echo "Build it with:"
     echo "  make .stamps/rockpool-root-vm"
+    exit 1
+  fi
+
+  if [ ! -f "$VMLINUZ" ] || [ ! -f "$INITRD" ]; then
+    echo "ERROR: Kernel or initrd not found."
+    echo "  Expected: ${VMLINUZ}"
+    echo "  Expected: ${INITRD}"
+    echo ""
+    echo "Rebuild with: make .stamps/rockpool-root-vm"
     exit 1
   fi
 
@@ -243,6 +255,9 @@ start_qemu() {
     -cpu host \
     -m "$ROOT_VM_MEMORY" \
     -smp "$ROOT_VM_CPUS" \
+    -kernel "$VMLINUZ" \
+    -initrd "$INITRD" \
+    -append "root=/dev/vda rw console=ttyS0,115200n8 rootwait" \
     -drive file="$QCOW2_IMAGE",format=qcow2,if=virtio \
     -object memory-backend-memfd,id=mem,size="$ROOT_VM_MEMORY",share=on \
     -numa node,memdev=mem \

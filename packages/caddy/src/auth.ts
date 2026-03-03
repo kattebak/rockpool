@@ -277,7 +277,7 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 		srv2Routes.push(buildAuthGate("srv2-auth-gate", ["/workspace/*"], options.authMode));
 	}
 
-	return {
+	const config: Record<string, unknown> = {
 		apps: {
 			http: {
 				servers: {
@@ -297,4 +297,10 @@ export function buildBootstrapConfig(options: BootstrapOptions = {}): Record<str
 			},
 		},
 	};
+
+	if (options.adminPort) {
+		config.admin = { listen: `localhost:${options.adminPort}` };
+	}
+
+	return config;
 }

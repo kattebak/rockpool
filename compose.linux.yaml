@@ -1,0 +1,8 @@
+services:
+  server:
+    volumes:
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/podman.sock
+
+  worker:
+    volumes:
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/podman.sock

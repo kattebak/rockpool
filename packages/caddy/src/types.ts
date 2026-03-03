@@ -38,4 +38,5 @@ export interface BootstrapOptions {
 	srv1Port?: number;
 	srv2Port?: number;
 	authMode?: AuthMode;
+	adminPort?: number;
 }

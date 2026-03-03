@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# View PM2 logs from inside the Rockpool Root VM.
-# Passes all arguments through to pm2 logs.
+# View compose logs from inside the Rockpool Root VM.
+# Passes all arguments through to podman compose logs.
 #
 # Usage:
 #   npm run vm:logs                        # follow all logs
-#   npm run vm:logs -- --lines 50          # last 50 lines
-#   npm run vm:logs -- --nostream          # dump and exit
+#   npm run vm:logs -- --tail 50           # last 50 lines
+#   npm run vm:logs -- --no-follow         # dump and exit
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SSH_SCRIPT="${SCRIPT_DIR}/ssh-root-vm.sh"
 
-PM2_ARGS="${*:---lines 50}"
+COMPOSE_ARGS="${*:---follow}"
 
-exec "$SSH_SCRIPT" "cd /mnt/rockpool && npm run dev:logs -- ${PM2_ARGS}"
+exec "$SSH_SCRIPT" "cd /mnt/rockpool && podman compose logs ${COMPOSE_ARGS}"

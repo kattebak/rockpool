@@ -10,7 +10,7 @@ set -euo pipefail
 #
 # Usage:
 #   npm run ssh:vm                        # interactive shell
-#   npm run ssh:vm -- 'pm2 status'        # run a command
+#   npm run ssh:vm -- 'podman compose ps'  # run a command
 #   npm run ssh:vm -- -t 'htop'           # run interactive command
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

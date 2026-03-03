@@ -45,7 +45,7 @@ fi
 
 if [ "$(uname -s)" != "Darwin" ]; then
   echo "ERROR: This script is for macOS only."
-  echo "On Linux, use: sudo images/root-vm/build-root-vm.sh"
+  echo "On Linux, use: images/root-vm/build-root-vm.sh"
   exit 1
 fi
 
@@ -75,7 +75,6 @@ fi
 cleanup() {
   echo "Stopping VM..."
   tart stop "$VM_NAME" 2>/dev/null || true
-  rm -f "${ROOT_DIR}/.tart-build-fnm-block.sh"
 }
 
 echo "=== Building Rockpool Root VM (Tart/macOS) ==="
@@ -124,28 +123,6 @@ echo "=== Resizing root partition to fill disk ==="
 tart exec "$VM_NAME" -- sudo bash -c \
   'ROOT_DEV=$(findmnt -n -o SOURCE /) && DISK_DEV=$(lsblk -ndo PKNAME "$ROOT_DEV" | head -1) && growpart "/dev/$DISK_DEV" 1 && resize2fs "$ROOT_DEV"' \
   || echo "WARNING: Partition resize skipped (growpart may not be available)."
-
-echo ""
-echo "=== Installing fnm and Node.js ==="
-tart exec "$VM_NAME" -- bash -c 'curl -fsSL https://fnm.vercel.app/install | bash'
-# shellcheck disable=SC2016
-tart exec "$VM_NAME" -- bash -c \
-  'export PATH="$HOME/.local/share/fnm:$PATH" && eval "$(fnm env)" && fnm install --lts && npm install -g pm2'
-
-echo ""
-echo "=== Configuring fnm PATH for non-interactive sessions ==="
-cat > "${ROOT_DIR}/.tart-build-fnm-block.sh" << 'FNMBLOCK'
-
-# fnm -- must be before interactive guard so SSH commands find node/npm/pm2
-FNM_PATH="$HOME/.local/share/fnm"
-if [ -d "$FNM_PATH" ]; then
-  export PATH="$FNM_PATH:$PATH"
-  eval "$(fnm env)"
-fi
-FNMBLOCK
-tart exec "$VM_NAME" -- bash -c \
-  "cat '${VIRTIOFS_MOUNT}/.tart-build-fnm-block.sh' >> ~/.bashrc"
-rm -f "${ROOT_DIR}/.tart-build-fnm-block.sh"
 
 echo ""
 echo "=== Configuring Virtiofs fstab entry ==="

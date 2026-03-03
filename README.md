@@ -29,7 +29,7 @@ See [doc/EDD/](doc/EDD/) for detailed design documents and [doc/ADR/](doc/ADR/) 
 ### macOS
 
 ```sh
-brew install cirruslabs/cli/tart openjdk
+brew install cirruslabs/cli/tart
 cp development.env.example development.env   # fill in secrets
 npm install                                   # builds TypeSpec, SDK, Root VM image
 npm start                                     # boots VM, starts stack, tails logs
@@ -38,10 +38,9 @@ npm start                                     # boots VM, starts stack, tails lo
 ### Linux
 
 ```sh
-sudo apt install qemu-system-x86 qemu-utils virtiofsd debootstrap grub-pc-bin
+sudo apt install qemu-system-x86 qemu-utils virtiofsd mmdebstrap e2fsprogs
 sudo usermod -aG kvm $USER                   # log out and back in
-sudo bash images/root-vm/build-root-vm.sh    # build Root VM image
-sudo chown -R $USER:$USER .qemu/
+images/root-vm/build-root-vm.sh              # build Root VM image (no sudo needed)
 cp development.env.example development.env   # fill in secrets
 npm install
 npm start
@@ -49,9 +48,9 @@ npm start
 
 ### Either platform
 
-`npm start` boots the Root VM, mounts the project directory via Virtiofs, and starts the full stack (ElasticMQ, Caddy, API server, worker, Vite dev server) inside it via PM2.
+`npm start` boots the Root VM, mounts the project directory via Virtiofs, and starts the full stack (ElasticMQ, Caddy, API server, worker, Vite dev server) inside it via Podman Compose.
 
-Edit files on the host — changes appear instantly in the VM. PM2 watches for changes and restarts the server automatically.
+Edit files on the host — changes appear instantly in the VM. Node.js `--watch` restarts the server automatically on file changes.
 
 The dashboard is at `http://<vm-ip>:8080/app/workspaces` (macOS) or `http://localhost:8080/app/workspaces` (Linux, port-forwarded).
 
@@ -81,10 +80,10 @@ Either GitHub OAuth **or** basic auth credentials must be set. See [doc/EDD/003_
 
 ```sh
 npm start              # boot VM + start stack + tail logs
-npm stop               # stop PM2 inside the VM
+npm stop               # stop compose stack inside the VM
 npm run stop:vm        # shut down the VM
 npm run ssh:vm         # SSH into the Root VM
-npm run vm:logs        # tail PM2 logs from the VM
+npm run vm:logs        # tail compose logs from the VM
 npm test               # run unit tests across all packages
 npm run fix -- --unsafe  # format and lint
 ```

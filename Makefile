@@ -8,7 +8,7 @@ export TART_HOME
 TSP_SOURCES := typespec/main.tsp typespec/tspconfig.yaml
 
 ifeq ($(UNAME_S),Linux)
-all: development.env build/sdk
+all: development.env build/sdk node-modules-linux
 else
 all: development.env build/sdk $(STAMP_DIR)/rockpool-workspace $(STAMP_DIR)/rockpool-root-vm-tart
 endif
@@ -31,6 +31,11 @@ build/sdk: build/openapi/openapi.yaml
 	echo 'export { client } from "./client.gen.js";' >> $@/index.ts
 	touch $@
 
+node-modules-linux: $(STAMP_DIR)/rockpool-control-plane | $(STAMP_DIR)
+	podman run --rm -v $(CURDIR):/app -v rockpool_node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm ci --ignore-scripts
+	podman run --rm -v $(CURDIR):/app -v rockpool_node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm rebuild better-sqlite3
+
+
 clean:
 	rm -rf build $(STAMP_DIR)
 
@@ -44,12 +49,17 @@ $(STAMP_DIR)/rockpool-workspace: images/workspace.pkr.hcl images/scripts/setup.s
 	packer build images/workspace.pkr.hcl
 	touch $@
 
+$(STAMP_DIR)/rockpool-control-plane: images/control-plane/Dockerfile | $(STAMP_DIR)
+	podman build -t rockpool-control-plane:latest images/control-plane/
+	touch $@
+
+
 $(STAMP_DIR)/rockpool-workspace-container: images/workspace/Dockerfile images/scripts/setup.sh | $(STAMP_DIR)
 	podman build -t rockpool-workspace:latest images/workspace/
 	touch $@
 
 $(STAMP_DIR)/rockpool-root-vm: images/root-vm/build-root-vm.sh images/root-vm/setup-root-vm.sh images/root-vm/keys/rockpool-root-vm_ed25519.pub | $(STAMP_DIR)
-	sudo images/root-vm/build-root-vm.sh
+	images/root-vm/build-root-vm.sh
 	touch $@
 
 $(STAMP_DIR)/rockpool-root-vm-tart: images/root-vm/build-root-vm-tart.sh images/root-vm/setup-root-vm.sh images/root-vm/keys/rockpool-root-vm_ed25519.pub | $(STAMP_DIR)
@@ -59,11 +69,11 @@ $(STAMP_DIR)/rockpool-root-vm-tart: images/root-vm/build-root-vm-tart.sh images/
 setup:
 ifeq ($(UNAME_S),Darwin)
 	@echo "Detected macOS — install prerequisites via Homebrew:"
-	@echo "  brew install cirruslabs/cli/tart openjdk"
+	@echo "  brew install cirruslabs/cli/tart"
 	@echo "  make all"
 else ifeq ($(UNAME_S),Linux)
 	@echo "Detected Linux — install prerequisites:"
-	@echo "  sudo apt install qemu-system-x86 qemu-utils virtiofsd debootstrap grub-pc-bin podman"
+	@echo "  sudo apt install qemu-system-x86 qemu-utils virtiofsd mmdebstrap e2fsprogs podman"
 	@echo "  make all"
 else
 	@echo "Unsupported platform: $(UNAME_S)"
