@@ -21,7 +21,8 @@
 		"stop:dev": "npm-scripts/podman.sh development.env down",
 		"logs:dev": "npm-scripts/podman.sh development.env logs -f",
 		"pretest:e2e:headless": "npm run start:test",
-		"test:e2e:headless": "ENV_FILE=test.env ELASTICMQ_CONF=elasticmq.test.conf node --env-file=test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts"
+		"test:e2e:headless": "ENV_FILE=test.env ELASTICMQ_CONF=elasticmq.test.conf node --env-file=test.env node_modules/.bin/playwright test --config e2e/playwright.config.ts",
+		"vm": "npm-scripts/root-vm.sh"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",

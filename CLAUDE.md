@@ -16,12 +16,27 @@ Do NOT use `EnterPlanMode`. Use the **architect** agent for multi-step work, **d
 
 ## Stack Management
 
-The entire stack runs via podman compose:
+The entire stack runs via podman compose, either locally or inside a Root VM:
 
 ```bash
 npm start              # start all services (caddy, server, worker, elasticmq, client)
 npm stop               # stop all services
 npm run logs           # tail compose logs (pass -- --no-follow for snapshot)
+```
+
+### Root VM
+
+A single script `npm-scripts/root-vm.sh` manages the VM lifecycle. Run `npm run vm -- <command>`:
+
+```bash
+npm run vm -- build              # build VM image (platform-detected)
+npm run vm -- start              # boot VM, wait for SSH
+npm run vm -- stop               # shut down VM
+npm run vm -- deploy             # rsync code + npm ci on VM
+npm run vm -- configure dev.env  # push env file to VM
+npm run vm -- up                 # podman compose up -d on VM
+npm run vm -- down               # podman compose down on VM
+npm run vm -- ssh                # interactive SSH shell
 ```
 
 Container naming follows the `${name}-${id}` pattern. Health checks use native `fetch()` with `AbortSignal.timeout`.
