@@ -19,7 +19,7 @@ services:
     image: docker.io/softwaremill/elasticmq-native
     restart: unless-stopped
     ports:
-      - "9324:9324"
+      - "${QUEUE_PORT:-9324}:9324"
     volumes:
       - ./elasticmq.conf:/opt/elasticmq.conf:ro
 
@@ -39,6 +39,7 @@ services:
       DB_PATH: ${DB_PATH:-rockpool.db}
       QUEUE_ENDPOINT: http://elasticmq:9324
       QUEUE_URL: http://elasticmq:9324/000000000000/workspace-jobs
+      QUEUE_PORT: ${QUEUE_PORT:-9324}
       CONTAINER_HOST_ADDRESS: host.containers.internal
       SPA_PROXY_URL: ${SPA_PROXY_URL:-}
       NODE_WATCH: ${NODE_WATCH:-}
