@@ -124,13 +124,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/node-modules-volume.tar
-          key: node-modules-v2-${{ runner.os }}-${{ hashFiles('package-lock.json', 'images/control-plane/Dockerfile') }}
+          key: node-modules-v3-${{ runner.os }}-${{ hashFiles('package-lock.json', 'images/control-plane/Dockerfile') }}
 
       - name: Restore node_modules volume
         if: steps.cache-node-modules.outputs.cache-hit == 'true'
         run: |
           podman volume create rockpool-node-modules
-          podman volume import rockpool-node-modules /tmp/node-modules-volume.tar
+          podman run --rm -v rockpool-node-modules:/vol -v /tmp/node-modules-volume.tar:/import.tar:ro alpine tar xf /import.tar -C /vol
           mkdir -p .stamps
           touch .stamps/node-modules-linux
 
@@ -142,12 +142,7 @@ jobs:
             -v ${{ github.workspace }}:/app \
             -v rockpool-node-modules:/app/node_modules \
             -w /app rockpool-control-plane:latest npm ci
-          podman run --rm \
-            --entrypoint="" \
-            -v ${{ github.workspace }}:/app \
-            -v rockpool-node-modules:/app/node_modules \
-            -w /app/node_modules rockpool-control-plane:latest \
-            tar cf /dev/stdout --dereference . > /tmp/node-modules-volume.tar
+          podman volume export rockpool-node-modules > /tmp/node-modules-volume.tar
           mkdir -p .stamps
           touch .stamps/node-modules-linux
 
