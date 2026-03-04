@@ -1,0 +1,13 @@
+{
+	"$schema": "./packages/config/rockpool.schema.json",
+	"auth": {
+		"mode": "basic",
+		"basic": {
+			"username": "test",
+			"password": "test"
+		}
+	},
+	"spa": {
+		"root": "packages/client/dist"
+	}
+}

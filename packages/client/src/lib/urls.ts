@@ -1,5 +1,8 @@
-const IDE_BASE_URL = import.meta.env.VITE_IDE_URL || "http://localhost:8081";
-const PREVIEW_BASE_URL = import.meta.env.VITE_PREVIEW_URL || "http://localhost:8082";
+declare const __IDE_URL__: string;
+declare const __PREVIEW_URL__: string;
+
+const IDE_BASE_URL = __IDE_URL__;
+const PREVIEW_BASE_URL = __PREVIEW_URL__;
 
 export function buildIdeUrl(workspaceName: string): string {
 	return `${IDE_BASE_URL}/workspace/${workspaceName}/`;

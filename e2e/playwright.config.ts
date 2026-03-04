@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
-const BASE_URL = process.env.DASHBOARD_URL ?? "http://localhost:8080";
+const srv0Port = process.env.SRV0_PORT ?? "8080";
+const BASE_URL = `http://localhost:${srv0Port}`;
 
 export default defineConfig({
 	testDir: "tests",

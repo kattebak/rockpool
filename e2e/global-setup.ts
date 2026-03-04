@@ -1,13 +1,20 @@
 import { execSync } from "node:child_process";
+import { loadConfig } from "@rockpool/config";
 
-const DASHBOARD_URL = process.env.DASHBOARD_URL ?? "http://localhost:8080";
-const API_URL = process.env.API_URL ?? "http://localhost:8080/api";
-const QUEUE_ENDPOINT = process.env.QUEUE_ENDPOINT ?? "http://localhost:9324";
-const CADDY_USERNAME = process.env.CADDY_USERNAME ?? "admin";
-const CADDY_PASSWORD = process.env.CADDY_PASSWORD ?? "admin";
+const config = loadConfig();
+
+const srv0Port = process.env.SRV0_PORT ?? "8080";
+const queuePort = process.env.QUEUE_PORT ?? "9324";
+
+const DASHBOARD_URL = `http://localhost:${srv0Port}`;
+const API_URL = `http://localhost:${srv0Port}/api`;
+const QUEUE_ENDPOINT = `http://localhost:${queuePort}`;
+
+const AUTH_HEADER = config.auth.basic
+	? `Basic ${Buffer.from(`${config.auth.basic.username}:${config.auth.basic.password}`).toString("base64")}`
+	: "";
 
 const POLL_INTERVAL = 2_000;
-const AUTH_HEADER = `Basic ${Buffer.from(`${CADDY_USERNAME}:${CADDY_PASSWORD}`).toString("base64")}`;
 
 const IS_ROOTVM = process.env.E2E_PROFILE === "rootvm";
 
@@ -17,12 +24,11 @@ function sshCmd(remoteCommand: string): string {
 
 function composeCmd(args: string): string {
 	if (IS_ROOTVM) {
-		const envFile = process.env.ENV_FILE ?? "test.env";
-		const base = `ENV_FILE=${envFile} podman compose -f compose.yaml -f compose.test.yaml`;
+		const base = "podman compose";
 		return sshCmd(`cd /mnt/rockpool && ${base} ${args}`);
 	}
 
-	return `npm-scripts/podman.sh test.env ${args}`;
+	return `npm-scripts/podman.sh ${args}`;
 }
 
 function dumpComposeLogs(): void {

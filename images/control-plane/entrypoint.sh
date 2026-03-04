@@ -7,4 +7,10 @@ if [ -n "${SPA_PROXY_URL:-}" ]; then
   npx vite --config packages/client/vite.config.ts &
 fi
 
-exec "$@"
+watch_flag=""
+if [ "${NODE_WATCH:-}" = "1" ]; then
+  watch_flag="--watch"
+fi
+
+# shellcheck disable=SC2086
+exec node $watch_flag --experimental-strip-types packages/server/src/index.ts

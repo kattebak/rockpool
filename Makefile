@@ -8,12 +8,12 @@ export TART_HOME
 TSP_SOURCES := typespec/main.tsp typespec/tspconfig.yaml
 
 ifeq ($(UNAME_S),Linux)
-all: development.env build/sdk $(STAMP_DIR)/node-modules-linux
+all: rockpool.config.json build/sdk $(STAMP_DIR)/node-modules-linux
 else
-all: development.env build/sdk $(STAMP_DIR)/rockpool-workspace $(STAMP_DIR)/rockpool-root-vm-tart
+all: rockpool.config.json build/sdk $(STAMP_DIR)/rockpool-workspace $(STAMP_DIR)/rockpool-root-vm-tart
 endif
 
-ci: development.env build/sdk
+ci: rockpool.config.json build/sdk
 
 $(STAMP_DIR):
 	mkdir -p $(STAMP_DIR)
@@ -36,10 +36,12 @@ build/sdk: build/openapi/openapi.yaml
 clean:
 	rm -rf build $(STAMP_DIR)
 
-development.env:
-	cp development.env.example $@
-	@echo "Created development.env from template — fill in your secrets."
-	@echo "See doc/EDD/003_Caddy_Reverse_Proxy.md appendix for setup instructions."
+rockpool.config.json:
+	cp rockpool.config.example.json $@
+	@echo "Created rockpool.config.json from template — edit to configure."
+
+packages/config/rockpool.schema.json: packages/config/src/schema.ts
+	npm run generate-schema -w packages/config
 
 $(STAMP_DIR)/rockpool-workspace: images/workspace.pkr.hcl images/scripts/setup.sh | $(STAMP_DIR)
 	packer init images/workspace.pkr.hcl

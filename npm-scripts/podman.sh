@@ -1,49 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Wrapper for podman compose that derives compose files from a given env file.
-# Detects Linux and layers compose.linux.yaml automatically.
+# Wrapper for podman compose.
+# Detects Linux and sets PODMAN_SOCKET automatically.
 #
-# Usage: podman.sh <env-file> <compose-subcommand> [args...]
-#
-# The env file name determines which compose overlay to use via naming convention:
-#
-#   development.env → compose.development.yaml
-#   test.env        → compose.test.yaml
+# Usage: podman.sh <compose-subcommand> [args...]
 #
 # Examples:
-#   podman.sh development.env up -d
-#   podman.sh test.env logs --tail 50
+#   podman.sh up -d
+#   podman.sh logs --tail 50
+#   podman.sh down
 
-if [ $# -lt 2 ]; then
-  echo "Usage: podman.sh <env-file> <compose-subcommand> [args...]"
+if [ $# -lt 1 ]; then
+  echo "Usage: podman.sh <compose-subcommand> [args...]"
   echo ""
   echo "Examples:"
-  echo "  podman.sh development.env up -d"
-  echo "  podman.sh test.env logs --tail 50"
+  echo "  podman.sh up -d"
+  echo "  podman.sh logs --tail 50"
+  echo "  podman.sh down"
   exit 1
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-ENV_FILE="$1"
-shift
-
-PROFILE="${ENV_FILE%.env}"
-
-export ENV_FILE
-
-FILES=(-f compose.yaml)
-
-OVERLAY="compose.${PROFILE}.yaml"
-if [ -f "${ROOT_DIR}/${OVERLAY}" ]; then
-  FILES+=(-f "$OVERLAY")
-fi
-
 if [ "$(uname -s)" = "Linux" ]; then
-  FILES+=(-f compose.linux.yaml)
+  export PODMAN_SOCKET="${XDG_RUNTIME_DIR}/podman/podman.sock"
 fi
 
 cd "$ROOT_DIR"
-exec podman compose "${FILES[@]}" "$@"
+exec podman compose "$@"
