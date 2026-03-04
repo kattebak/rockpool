@@ -94,6 +94,9 @@ production.env
 !test.env
 .envrc
 
+# Rockpool config (local, generated from example)
+rockpool.config.json
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache

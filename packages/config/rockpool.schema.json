@@ -1,0 +1,115 @@
+{
+	"$ref": "#/definitions/RockpoolConfig",
+	"definitions": {
+		"RockpoolConfig": {
+			"type": "object",
+			"properties": {
+				"logLevel": {
+					"type": "string",
+					"enum": ["fatal", "error", "warn", "info", "debug", "trace"],
+					"default": "info"
+				},
+				"runtime": {
+					"type": "string",
+					"enum": ["podman", "stub"],
+					"default": "podman"
+				},
+				"server": {
+					"type": "object",
+					"properties": {
+						"secureCookies": {
+							"type": "boolean",
+							"default": false
+						}
+					},
+					"additionalProperties": false,
+					"default": {}
+				},
+				"auth": {
+					"type": "object",
+					"properties": {
+						"mode": {
+							"type": "string",
+							"enum": ["basic", "github"],
+							"default": "basic"
+						},
+						"basic": {
+							"type": "object",
+							"properties": {
+								"username": {
+									"type": "string",
+									"minLength": 1
+								},
+								"password": {
+									"type": "string",
+									"minLength": 1
+								}
+							},
+							"required": ["username", "password"],
+							"additionalProperties": false
+						},
+						"github": {
+							"type": "object",
+							"properties": {
+								"clientId": {
+									"type": "string",
+									"minLength": 1
+								},
+								"clientSecret": {
+									"type": "string",
+									"minLength": 1
+								},
+								"callbackUrl": {
+									"type": "string",
+									"format": "uri",
+									"default": "http://localhost:8080/api/auth/callback"
+								},
+								"sessionMaxAgeMs": {
+									"type": "integer",
+									"exclusiveMinimum": 0,
+									"default": 86400000
+								}
+							},
+							"required": ["clientId", "clientSecret"],
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				"spa": {
+					"type": "object",
+					"properties": {
+						"root": {
+							"type": "string",
+							"default": ""
+						},
+						"proxyUrl": {
+							"type": "string",
+							"default": ""
+						}
+					},
+					"additionalProperties": false,
+					"default": {}
+				},
+				"urls": {
+					"type": "object",
+					"properties": {
+						"ide": {
+							"type": "string",
+							"format": "uri"
+						},
+						"preview": {
+							"type": "string",
+							"format": "uri"
+						}
+					},
+					"required": ["ide", "preview"],
+					"additionalProperties": false
+				}
+			},
+			"required": ["auth"],
+			"additionalProperties": false
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#"
+}

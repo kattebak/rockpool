@@ -9,7 +9,7 @@ Do NOT use `EnterPlanMode`. Use the **architect** agent for multi-step work, **d
 ## Structure
 
 - `typespec/main.tsp` → `build/` (`@rockpool/openapi`, `@rockpool/validators`, `@rockpool/enums`, `@rockpool/db-schema`) — generated, do not edit
-- `packages/` — source: `server`, `worker`, `db`, `queue`, `runtime`, `caddy`
+- `packages/` — source: `server`, `worker`, `db`, `queue`, `runtime`, `caddy`, `config`
 - `doc/ADR/`, `doc/EDD/` — design docs, read before architectural changes
 - `npm-scripts/` — operational scripts
 - `Makefile` — build artifacts (`make all`)

@@ -9,4 +9,3 @@ COPY entrypoint.sh /opt/entrypoint.sh
 WORKDIR /app
 
 ENTRYPOINT ["/opt/entrypoint.sh"]
-CMD ["node", "--experimental-strip-types", "packages/server/src/index.ts"]

@@ -4,11 +4,12 @@ import {
 	createTestPage,
 	getApiUrl,
 	getAuthHeader,
+	getIdeUrl,
 	launchBrowser,
 } from "../helpers/platform";
 import { deleteWorkspaceViaApi, pollUntilStatus, uniqueWorkspaceName } from "../helpers/workspace";
 
-const IDE_URL = process.env.VITE_IDE_URL ?? "http://localhost:8081";
+const IDE_URL = getIdeUrl();
 
 test.describe("Open IDE button points to correct URL", () => {
 	test.describe.configure({ mode: "serial" });

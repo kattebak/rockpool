@@ -1,5 +1,5 @@
 {
-	"name": "@rockpool/worker",
+	"name": "@rockpool/config",
 	"version": "0.0.1",
 	"private": true,
 	"type": "module",
@@ -12,18 +12,13 @@
 	"scripts": {
 		"test": "node --test --experimental-strip-types test/**/*.test.ts",
 		"check": "tsc --noEmit",
-		"start": "node --experimental-strip-types src/main.ts"
+		"generate-schema": "node --experimental-strip-types src/generate-schema.ts"
 	},
 	"dependencies": {
-		"@rockpool/caddy": "*",
-		"@rockpool/config": "*",
-		"@rockpool/db": "*",
-		"@rockpool/queue": "*",
-		"@rockpool/runtime": "*",
-		"@rockpool/workspace-service": "*",
-		"pino": "^9.6.0"
+		"zod": "^3.24.0"
 	},
 	"devDependencies": {
+		"zod-to-json-schema": "^3.23.0",
 		"typescript": "*"
 	}
 }

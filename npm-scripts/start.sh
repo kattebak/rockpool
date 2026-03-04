@@ -13,5 +13,5 @@ if [ "$PLATFORM" = "Darwin" ]; then
   "$VM_SCRIPT" up
   exec "$VM_SCRIPT" logs
 else
-  "${SCRIPT_DIR}/podman.sh" development.env up
+  "${SCRIPT_DIR}/podman.sh" development up
 fi
