@@ -97,6 +97,77 @@ describe("RockpoolConfigSchema", () => {
 			});
 		});
 	});
+
+	it("parses config with urls section", () => {
+		const result = RockpoolConfigSchema.parse({
+			auth: {
+				mode: "basic",
+				basic: { username: "admin", password: "admin" },
+			},
+			urls: {
+				ide: "https://ide.rockpool.example.com",
+				preview: "https://preview.rockpool.example.com",
+			},
+		});
+
+		assert.equal(result.urls?.ide, "https://ide.rockpool.example.com");
+		assert.equal(result.urls?.preview, "https://preview.rockpool.example.com");
+	});
+
+	it("parses config without urls section (backward compatible)", () => {
+		const result = RockpoolConfigSchema.parse({
+			auth: {
+				mode: "basic",
+				basic: { username: "admin", password: "admin" },
+			},
+		});
+
+		assert.equal(result.urls, undefined);
+	});
+
+	it("rejects malformed ide URL in urls section", () => {
+		assert.throws(() => {
+			RockpoolConfigSchema.parse({
+				auth: {
+					mode: "basic",
+					basic: { username: "admin", password: "admin" },
+				},
+				urls: {
+					ide: "not-a-url",
+					preview: "https://preview.rockpool.example.com",
+				},
+			});
+		});
+	});
+
+	it("rejects malformed preview URL in urls section", () => {
+		assert.throws(() => {
+			RockpoolConfigSchema.parse({
+				auth: {
+					mode: "basic",
+					basic: { username: "admin", password: "admin" },
+				},
+				urls: {
+					ide: "https://ide.rockpool.example.com",
+					preview: "not-a-url",
+				},
+			});
+		});
+	});
+
+	it("rejects urls section with missing fields", () => {
+		assert.throws(() => {
+			RockpoolConfigSchema.parse({
+				auth: {
+					mode: "basic",
+					basic: { username: "admin", password: "admin" },
+				},
+				urls: {
+					ide: "https://ide.rockpool.example.com",
+				},
+			});
+		});
+	});
 });
 
 describe("loadConfig", () => {

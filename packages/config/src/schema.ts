@@ -39,10 +39,16 @@ const SpaSchema = z.object({
 	proxyUrl: z.string().default(""),
 });
 
+const UrlsSchema = z.object({
+	ide: z.string().url(),
+	preview: z.string().url(),
+});
+
 export const RockpoolConfigSchema = z.object({
 	logLevel: LogLevelSchema.default("info"),
 	runtime: RuntimeSchema.default("podman"),
 	server: ServerSchema.default({}),
 	auth: AuthSchema,
 	spa: SpaSchema.default({}),
+	urls: UrlsSchema.optional(),
 });

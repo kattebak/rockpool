@@ -1,10 +1,25 @@
-import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-const ideUrl = process.env.VITE_IDE_URL ?? "http://localhost:8081";
-const previewUrl = process.env.VITE_PREVIEW_URL ?? "http://localhost:8082";
+const REPO_ROOT = resolve(__dirname, "../..");
+
+function loadUrlsFromConfig(): { ide?: string; preview?: string } {
+	const configPath = process.env.ROCKPOOL_CONFIG;
+	if (!configPath) return {};
+
+	const resolved = isAbsolute(configPath) ? configPath : resolve(REPO_ROOT, configPath);
+	const raw = readFileSync(resolved, "utf-8");
+	const json = JSON.parse(raw) as Record<string, unknown>;
+	const urls = json.urls as { ide?: string; preview?: string } | undefined;
+	return urls ?? {};
+}
+
+const configUrls = loadUrlsFromConfig();
+const ideUrl = configUrls.ide ?? process.env.VITE_IDE_URL ?? "http://localhost:8081";
+const previewUrl = configUrls.preview ?? process.env.VITE_PREVIEW_URL ?? "http://localhost:8082";
 const serverPort = process.env.PORT ?? "7163";
 
 export default defineConfig({

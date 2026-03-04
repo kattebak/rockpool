@@ -90,6 +90,21 @@
 					},
 					"additionalProperties": false,
 					"default": {}
+				},
+				"urls": {
+					"type": "object",
+					"properties": {
+						"ide": {
+							"type": "string",
+							"format": "uri"
+						},
+						"preview": {
+							"type": "string",
+							"format": "uri"
+						}
+					},
+					"required": ["ide", "preview"],
+					"additionalProperties": false
 				}
 			},
 			"required": ["auth"],
