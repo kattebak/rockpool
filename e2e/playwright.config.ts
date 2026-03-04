@@ -1,6 +1,8 @@
 import { defineConfig } from "@playwright/test";
+import { loadConfig } from "@rockpool/config";
 
-const BASE_URL = process.env.DASHBOARD_URL ?? "http://localhost:8080";
+const config = loadConfig();
+const BASE_URL = config.urls.dashboard;
 
 export default defineConfig({
 	testDir: "tests",

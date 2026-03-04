@@ -12,4 +12,4 @@ services:
       - "9324:9324"
   control-plane:
     environment:
-      CADDY_ADMIN_URL: http://caddy:9019
+      ROCKPOOL_CONFIG: /app/rockpool.compose.test.config.json

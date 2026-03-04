@@ -18,14 +18,10 @@ services:
     build: images/control-plane
     init: true
     working_dir: /app
-    env_file: ${ENV_FILE:-development.env}
     environment:
+      ROCKPOOL_CONFIG: /app/rockpool.compose.config.json
       CONTAINER_HOST: unix:///run/podman.sock
-      CONTAINER_HOST_ADDRESS: host.containers.internal
-      CADDY_ADMIN_URL: http://caddy:2019
       CONTROL_PLANE_HOST: control-plane
-      QUEUE_ENDPOINT: http://elasticmq:9324
-      QUEUE_URL: http://elasticmq:9324/000000000000/workspace-jobs
     security_opt:
       - label=disable
     restart: unless-stopped

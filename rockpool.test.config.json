@@ -1,0 +1,36 @@
+{
+	"$schema": "./packages/config/rockpool.schema.json",
+	"server": {
+		"port": 9163
+	},
+	"caddy": {
+		"adminUrl": "http://localhost:9019",
+		"adminPort": 9019,
+		"srv0Port": 9080,
+		"srv1Port": 9081,
+		"srv2Port": 9082
+	},
+	"auth": {
+		"mode": "basic",
+		"basic": {
+			"username": "test",
+			"password": "test"
+		}
+	},
+	"db": {
+		"path": "/opt/rockpool/e2e.db"
+	},
+	"queue": {
+		"endpoint": "http://localhost:9324",
+		"queueUrl": "http://localhost:9324/000000000000/workspace-jobs"
+	},
+	"spa": {
+		"root": "packages/client/dist"
+	},
+	"urls": {
+		"dashboard": "http://localhost:9080",
+		"api": "http://localhost:9080/api",
+		"ide": "http://localhost:9081",
+		"preview": "http://localhost:9082"
+	}
+}

@@ -1,0 +1,208 @@
+{
+	"$ref": "#/definitions/RockpoolConfig",
+	"definitions": {
+		"RockpoolConfig": {
+			"type": "object",
+			"properties": {
+				"logLevel": {
+					"type": "string",
+					"enum": ["fatal", "error", "warn", "info", "debug", "trace"],
+					"default": "info"
+				},
+				"runtime": {
+					"type": "string",
+					"enum": ["podman", "stub"],
+					"default": "podman"
+				},
+				"server": {
+					"type": "object",
+					"properties": {
+						"port": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 65535,
+							"default": 7163
+						},
+						"secureCookies": {
+							"type": "boolean",
+							"default": false
+						}
+					},
+					"additionalProperties": false,
+					"default": {}
+				},
+				"caddy": {
+					"type": "object",
+					"properties": {
+						"adminUrl": {
+							"type": "string",
+							"format": "uri",
+							"default": "http://localhost:2019"
+						},
+						"adminPort": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 65535,
+							"default": 2019
+						},
+						"srv0Port": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 65535,
+							"default": 8080
+						},
+						"srv1Port": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 65535,
+							"default": 8081
+						},
+						"srv2Port": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 65535,
+							"default": 8082
+						}
+					},
+					"additionalProperties": false,
+					"default": {}
+				},
+				"auth": {
+					"type": "object",
+					"properties": {
+						"mode": {
+							"type": "string",
+							"enum": ["basic", "github"],
+							"default": "basic"
+						},
+						"basic": {
+							"type": "object",
+							"properties": {
+								"username": {
+									"type": "string",
+									"minLength": 1
+								},
+								"password": {
+									"type": "string",
+									"minLength": 1
+								}
+							},
+							"required": ["username", "password"],
+							"additionalProperties": false
+						},
+						"github": {
+							"type": "object",
+							"properties": {
+								"clientId": {
+									"type": "string",
+									"minLength": 1
+								},
+								"clientSecret": {
+									"type": "string",
+									"minLength": 1
+								},
+								"callbackUrl": {
+									"type": "string",
+									"format": "uri",
+									"default": "http://localhost:8080/api/auth/callback"
+								},
+								"sessionMaxAgeMs": {
+									"type": "integer",
+									"exclusiveMinimum": 0,
+									"default": 86400000
+								}
+							},
+							"required": ["clientId", "clientSecret"],
+							"additionalProperties": false
+						}
+					},
+					"additionalProperties": false
+				},
+				"db": {
+					"type": "object",
+					"properties": {
+						"path": {
+							"type": "string",
+							"default": "rockpool.db"
+						}
+					},
+					"additionalProperties": false,
+					"default": {}
+				},
+				"queue": {
+					"type": "object",
+					"properties": {
+						"endpoint": {
+							"type": "string",
+							"format": "uri",
+							"default": "http://localhost:9324"
+						},
+						"queueUrl": {
+							"type": "string",
+							"format": "uri",
+							"default": "http://localhost:9324/000000000000/workspace-jobs"
+						}
+					},
+					"additionalProperties": false,
+					"default": {}
+				},
+				"container": {
+					"type": "object",
+					"properties": {
+						"hostAddress": {
+							"type": "string",
+							"default": "host.containers.internal"
+						}
+					},
+					"additionalProperties": false,
+					"default": {}
+				},
+				"spa": {
+					"type": "object",
+					"properties": {
+						"root": {
+							"type": "string",
+							"default": ""
+						},
+						"proxyUrl": {
+							"type": "string",
+							"default": ""
+						}
+					},
+					"additionalProperties": false,
+					"default": {}
+				},
+				"urls": {
+					"type": "object",
+					"properties": {
+						"dashboard": {
+							"type": "string",
+							"format": "uri",
+							"default": "http://localhost:8080"
+						},
+						"api": {
+							"type": "string",
+							"format": "uri",
+							"default": "http://localhost:8080/api"
+						},
+						"ide": {
+							"type": "string",
+							"format": "uri",
+							"default": "http://localhost:8081"
+						},
+						"preview": {
+							"type": "string",
+							"format": "uri",
+							"default": "http://localhost:8082"
+						}
+					},
+					"additionalProperties": false,
+					"default": {}
+				}
+			},
+			"required": ["auth"],
+			"additionalProperties": false
+		}
+	},
+	"$schema": "http://json-schema.org/draft-07/schema#"
+}

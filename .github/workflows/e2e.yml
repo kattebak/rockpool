@@ -156,11 +156,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/client/dist
-          key: client-${{ hashFiles('packages/client/src/**', 'packages/client/index.html', 'packages/client/vite.config.*', 'packages/client/tsconfig.*', 'packages/client/tailwind.*', 'packages/client/postcss.*') }}
+          key: client-${{ hashFiles('packages/client/src/**', 'packages/client/index.html', 'packages/client/vite.config.*', 'packages/client/tsconfig.*', 'packages/client/tailwind.*', 'packages/client/postcss.*', 'rockpool.test.config.json') }}
 
       - name: Build client
         if: steps.cache-client.outputs.cache-hit != 'true'
-        run: npm run build -w packages/client
+        run: ROCKPOOL_CONFIG=rockpool.test.config.json npm run build -w packages/client
 
       - name: Run E2E tests
         run: npm run test:e2e:headless

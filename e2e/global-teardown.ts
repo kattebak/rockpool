@@ -9,13 +9,11 @@ function sshCmd(remoteCommand: string): string {
 
 function composeCmd(args: string): string {
 	if (IS_ROOTVM) {
-		const envFile = process.env.ENV_FILE ?? "test.env";
-		return sshCmd(
-			`cd /mnt/rockpool && ENV_FILE=${envFile} podman compose -f compose.yaml -f compose.test.yaml ${args}`,
-		);
+		const base = "podman compose -f compose.yaml -f compose.test.yaml";
+		return sshCmd(`cd /mnt/rockpool && ${base} ${args}`);
 	}
 
-	return `npm-scripts/podman.sh test.env ${args}`;
+	return `npm-scripts/podman.sh test ${args}`;
 }
 
 export default async function globalTeardown(): Promise<void> {

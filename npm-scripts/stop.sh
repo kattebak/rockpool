@@ -11,5 +11,5 @@ PLATFORM="$(uname -s)"
 if [ "$PLATFORM" = "Darwin" ]; then
   "${SCRIPT_DIR}/root-vm.sh" down || true
 else
-  "${SCRIPT_DIR}/podman.sh" development.env down
+  "${SCRIPT_DIR}/podman.sh" development down
 fi

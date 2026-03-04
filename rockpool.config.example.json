@@ -1,0 +1,13 @@
+{
+	"$schema": "./packages/config/rockpool.schema.json",
+	"auth": {
+		"mode": "basic",
+		"basic": {
+			"username": "admin",
+			"password": "admin"
+		}
+	},
+	"spa": {
+		"proxyUrl": "http://localhost:5173"
+	}
+}

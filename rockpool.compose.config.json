@@ -1,0 +1,20 @@
+{
+	"$schema": "./packages/config/rockpool.schema.json",
+	"auth": {
+		"mode": "basic",
+		"basic": {
+			"username": "admin",
+			"password": "admin"
+		}
+	},
+	"caddy": {
+		"adminUrl": "http://caddy:2019"
+	},
+	"queue": {
+		"endpoint": "http://elasticmq:9324",
+		"queueUrl": "http://elasticmq:9324/000000000000/workspace-jobs"
+	},
+	"spa": {
+		"proxyUrl": "http://control-plane:5173"
+	}
+}

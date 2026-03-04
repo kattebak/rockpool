@@ -16,7 +16,7 @@ See [doc/EDD/](doc/EDD/) for detailed design documents and [doc/ADR/](doc/ADR/) 
 
 | Layer    | Technology                                                |
 | -------- | --------------------------------------------------------- |
-| API spec | TypeSpec → OpenAPI, Zod, TypeScript types, Drizzle tables |
+| API spec | TypeSpec -> OpenAPI, Zod, TypeScript types, Drizzle tables |
 | Backend  | Express + express-openapi-validator                       |
 | Database | SQLite + Drizzle ORM                                      |
 | Frontend | React, shadcn/ui, TanStack Query/Router                   |
@@ -30,19 +30,19 @@ See [doc/EDD/](doc/EDD/) for detailed design documents and [doc/ADR/](doc/ADR/) 
 
 ```sh
 brew install cirruslabs/cli/tart
-cp development.env.example development.env   # fill in secrets
-npm install                                   # builds TypeSpec, SDK, Root VM image
-npm start                                     # boots VM, starts stack, tails logs
+make rockpool.config.json              # creates config from example template
+npm install                            # builds TypeSpec, SDK, Root VM image
+npm start                              # boots VM, starts stack, tails logs
 ```
 
 ### Linux
 
 ```sh
 sudo apt install qemu-system-x86 qemu-utils mmdebstrap e2fsprogs fakeroot
-sudo usermod -aG kvm $USER                   # log out and back in
-cp development.env.example development.env   # fill in secrets
+sudo usermod -aG kvm $USER            # log out and back in
+make rockpool.config.json              # creates config from example template
 npm install
-npm run vm -- build                          # build Root VM image (no sudo needed)
+npm run vm -- build                    # build Root VM image (no sudo needed)
 npm start
 ```
 
@@ -50,9 +50,23 @@ npm start
 
 `npm start` boots the Root VM, mounts the project directory via Virtiofs, and starts the full stack (ElasticMQ, Caddy, API server, worker, Vite dev server) inside it via Podman Compose.
 
-Edit files on the host — changes appear instantly in the VM. Node.js `--watch` restarts the server automatically on file changes.
+Edit files on the host -- changes appear instantly in the VM. Node.js `--watch` restarts the server automatically on file changes.
 
 The dashboard is at `http://<vm-ip>:8080/app/workspaces` (macOS) or `http://localhost:8080/app/workspaces` (Linux, port-forwarded).
+
+## Configuration
+
+Rockpool uses JSON config files validated by a zod schema (`@rockpool/config`). See [EDD-027](doc/EDD/EDD-027-configuration-package.md) for full details.
+
+| File | Purpose | Committed |
+|------|---------|-----------|
+| `rockpool.config.example.json` | Template for local dev | Yes |
+| `rockpool.config.json` | Local dev config (gitignored) | No |
+| `rockpool.test.config.json` | E2E test profile (host-side) | Yes |
+| `rockpool.compose.config.json` | Dev compose (container-internal URLs) | Yes |
+| `rockpool.compose.test.config.json` | Test compose (container-internal URLs) | Yes |
+
+Either GitHub OAuth **or** basic auth credentials must be configured in the `auth` section. See [doc/EDD/003_Caddy_Reverse_Proxy.md](doc/EDD/003_Caddy_Reverse_Proxy.md) appendix for GitHub OAuth setup.
 
 ## Development
 
@@ -65,17 +79,6 @@ npm run check
 npm test
 ```
 
-### `development.env`
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `RUNTIME` | yes | `podman` (Root VM), `tart` (legacy macOS), or `stub` (no real workspaces) |
-| `GITHUB_OAUTH_CLIENT_ID` | for OAuth | GitHub OAuth app client ID |
-| `GITHUB_OAUTH_CLIENT_SECRET` | for OAuth | GitHub OAuth app client secret |
-| `CADDY_USERNAME` / `CADDY_PASSWORD` | for basic auth | Fallback when OAuth is not configured |
-
-Either GitHub OAuth **or** basic auth credentials must be set. See [doc/EDD/003_Caddy_Reverse_Proxy.md](doc/EDD/003_Caddy_Reverse_Proxy.md) appendix for GitHub OAuth setup.
-
 ### Useful commands
 
 ```sh
@@ -84,7 +87,6 @@ npm stop                           # stop compose stack inside the VM
 npm run vm -- start                # boot the VM, wait for SSH
 npm run vm -- stop                 # shut down the VM
 npm run vm -- deploy               # rsync code + npm ci on VM
-npm run vm -- configure dev.env    # push env file to VM
 npm run vm -- up                   # podman compose up -d on VM
 npm run vm -- down                 # podman compose down on VM
 npm run vm -- restart              # podman compose restart on VM
@@ -107,7 +109,5 @@ podman build -t rockpool-workspace:latest /mnt/rockpool/images/workspace/
 ### E2E tests
 
 ```sh
-npm run test:e2e:ci        # stub runtime, no containers needed
-npm run test:e2e:podman    # real Podman containers (requires workspace image)
+npm run test:e2e:headless          # real Podman containers, headless Playwright
 ```
-

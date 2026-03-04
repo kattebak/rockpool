@@ -1,6 +1,8 @@
+import type { AuthConfig } from "@rockpool/auth";
 import { createAuthService } from "@rockpool/auth";
 import type { AuthMode, BootstrapOptions } from "@rockpool/caddy";
 import { buildBootstrapConfig, createCaddyClient, hashPassword } from "@rockpool/caddy";
+import type { RockpoolConfig } from "@rockpool/config";
 import { createDb, listPorts, listWorkspacesByStatus, updateWorkspaceStatus } from "@rockpool/db";
 import { WorkspaceStatus as WS } from "@rockpool/enums";
 import type { QueueRepository } from "@rockpool/queue";
@@ -14,32 +16,37 @@ import { createPortService } from "./services/port-service.ts";
 import { createWorkspaceService } from "./services/workspace-service.ts";
 
 const config = loadConfig();
-const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
+const logger = pino({ level: config.logLevel });
 
-const hasBasicAuth = Boolean(config.caddyUsername && config.caddyPassword);
-const hasOAuth = Boolean(config.auth);
-
-if (!hasBasicAuth && !hasOAuth) {
-	throw new Error(
-		"Authentication required: set GITHUB_OAUTH_CLIENT_ID + GITHUB_OAUTH_CLIENT_SECRET, or CADDY_USERNAME + CADDY_PASSWORD",
-	);
+function resolveAuth(cfg: RockpoolConfig): AuthConfig | null {
+	if (cfg.auth.mode === "github" && cfg.auth.github) {
+		return {
+			clientId: cfg.auth.github.clientId,
+			clientSecret: cfg.auth.github.clientSecret,
+			callbackUrl: cfg.auth.github.callbackUrl,
+			sessionMaxAgeMs: cfg.auth.github.sessionMaxAgeMs,
+		};
+	}
+	return null;
 }
-function createRuntimeFromConfig(): RuntimeRepository {
-	const runtimeEnv = process.env.RUNTIME;
-	const hostAddress = process.env.CONTAINER_HOST_ADDRESS;
 
-	if (!runtimeEnv || runtimeEnv === "podman") {
-		return createPodmanRuntime({ hostAddress });
+const oauthConfig = resolveAuth(config);
+const hasBasicAuth = config.auth.mode === "basic" && config.auth.basic !== undefined;
+const hasOAuth = oauthConfig !== null;
+
+function createRuntimeFromConfig(): RuntimeRepository {
+	if (config.runtime === "podman") {
+		return createPodmanRuntime({ hostAddress: config.container.hostAddress });
 	}
 
-	throw new Error(`Unsupported RUNTIME: ${runtimeEnv}`);
+	throw new Error(`Unsupported runtime: ${config.runtime}`);
 }
 
-const db = createDb(config.dbPath);
+const db = createDb(config.db.path);
 
 const queue = createSqsQueue({
-	endpoint: config.queueEndpoint,
-	queueUrl: config.queueUrl,
+	endpoint: config.queue.endpoint,
+	queueUrl: config.queue.queueUrl,
 });
 
 const controlPlaneHost = process.env.CONTROL_PLANE_HOST ?? "127.0.0.1";
@@ -48,8 +55,8 @@ function resolveAuthMode(): AuthMode | undefined {
 	if (hasOAuth) {
 		return {
 			mode: "oauth",
-			controlPlaneDial: `${controlPlaneHost}:${config.port}`,
-			srv0Port: config.srv0Port,
+			controlPlaneDial: `${controlPlaneHost}:${config.server.port}`,
+			srv0Port: config.caddy.srv0Port,
 		};
 	}
 	return undefined;
@@ -57,12 +64,12 @@ function resolveAuthMode(): AuthMode | undefined {
 
 const authMode = resolveAuthMode();
 
-const caddy = createCaddyClient({ adminUrl: config.caddyAdminUrl, authMode });
+const caddy = createCaddyClient({ adminUrl: config.caddy.adminUrl, authMode });
 const runtime = createRuntimeFromConfig();
 const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger });
 const portService = createPortService({ db, caddy });
 
-const authService = config.auth ? createAuthService(config.auth) : null;
+const authService = oauthConfig ? createAuthService(oauthConfig) : null;
 
 const app = createApp({
 	workspaceService,
@@ -70,33 +77,33 @@ const app = createApp({
 	settingsRouterDeps: { db, runtime },
 	logger,
 	authService,
-	secureCookies: config.secureCookies,
+	secureCookies: config.server.secureCookies,
 	db,
-	spaRoot: config.spaRoot || undefined,
+	spaRoot: config.spa.root || undefined,
 });
 
 async function bootstrapCaddy(): Promise<void> {
-	const controlPlaneUrl = `http://${controlPlaneHost}:${config.port}`;
+	const controlPlaneUrl = `http://${controlPlaneHost}:${config.server.port}`;
 
 	const bootstrapOptions: BootstrapOptions = {
 		controlPlaneUrl,
-		srv0Port: config.srv0Port,
-		srv1Port: config.srv1Port,
-		srv2Port: config.srv2Port,
-		adminUrl: config.caddyAdminUrl,
+		srv0Port: config.caddy.srv0Port,
+		srv1Port: config.caddy.srv1Port,
+		srv2Port: config.caddy.srv2Port,
+		adminUrl: config.caddy.adminUrl,
 	};
 
-	if (config.spaProxyUrl) {
-		bootstrapOptions.spaProxyUrl = config.spaProxyUrl;
-	} else if (config.spaRoot) {
-		bootstrapOptions.spaRoot = config.spaRoot;
+	if (config.spa.proxyUrl) {
+		bootstrapOptions.spaProxyUrl = config.spa.proxyUrl;
+	} else if (config.spa.root) {
+		bootstrapOptions.spaRoot = config.spa.root;
 	}
 
-	if (hasBasicAuth && !hasOAuth) {
-		const passwordHash = await hashPassword(config.caddyPassword);
+	if (hasBasicAuth && !hasOAuth && config.auth.basic) {
+		const passwordHash = await hashPassword(config.auth.basic.password);
 		bootstrapOptions.authMode = {
 			mode: "basic",
-			credentials: { username: config.caddyUsername, passwordHash },
+			credentials: { username: config.auth.basic.username, passwordHash },
 		};
 	} else if (authMode) {
 		bootstrapOptions.authMode = authMode;
@@ -107,7 +114,7 @@ async function bootstrapCaddy(): Promise<void> {
 	logger.info(
 		{
 			controlPlaneUrl,
-			spaRoot: config.spaRoot || "(none)",
+			spaRoot: config.spa.root || "(none)",
 			authMode: hasOAuth ? "oauth" : "basic",
 		},
 		"Caddy bootstrapped",
@@ -163,8 +170,8 @@ async function recoverOrphanedWorkspaces(q: QueueRepository): Promise<void> {
 	}
 }
 
-app.listen(config.port, () => {
-	logger.info({ port: config.port }, "Rockpool control plane started");
+app.listen(config.server.port, () => {
+	logger.info({ port: config.server.port }, "Rockpool control plane started");
 
 	bootstrapCaddy()
 		.then(() => recoverRunningWorkspaces(runtime, queue))

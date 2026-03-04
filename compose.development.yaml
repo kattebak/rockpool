@@ -7,6 +7,5 @@ services:
       - "8082:8082"
   control-plane:
     environment:
-      CADDY_ADMIN_URL: http://caddy:2019
-      SPA_PROXY_URL: http://control-plane:5173
+      SPA_PROXY_URL: "1"
     command: node --watch --experimental-strip-types packages/server/src/index.ts
