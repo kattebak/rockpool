@@ -47,7 +47,7 @@ $(STAMP_DIR)/rockpool-workspace: images/workspace.pkr.hcl images/scripts/setup.s
 	touch $@
 
 $(STAMP_DIR)/node-modules-linux: package-lock.json $(STAMP_DIR)/rockpool-control-plane | $(STAMP_DIR)
-	podman run --rm -e CI=1 -v $(CURDIR):/app -v rockpool-node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm ci
+	podman run --rm -e CI=1 --entrypoint="" -v $(CURDIR):/app -v rockpool-node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm ci
 	touch $@
 
 $(STAMP_DIR)/rockpool-control-plane: images/control-plane/Dockerfile images/control-plane/entrypoint.sh | $(STAMP_DIR)
