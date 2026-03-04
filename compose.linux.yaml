@@ -1,4 +1,0 @@
-services:
-  control-plane:
-    volumes:
-      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/podman.sock

@@ -10,14 +10,14 @@ Runs `npm run test --workspaces --if-present` across all packages.
 
 ## E2E Profiles
 
-Two profiles controlled by `E2E_PROFILE` and `ENV_FILE`:
+A single `compose.yaml` serves both profiles. The test profile uses different port numbers passed via env vars to avoid colliding with development:
 
-| Profile | Port | Runtime | Use case |
-| --- | --- | --- | --- |
-| **development** | 8080 | podman | `npm start` / `npm stop`. User clicks around, devtools debugging. Not Playwright. |
-| **test** | 9080 | podman | Headless Playwright with real containers. Separate DB/ports — does not interfere with development. |
+| Profile | Ports | Use case |
+| --- | --- | --- |
+| **development** | 8080/8081/8082 (defaults) | `npm run start:dev` / `npm run stop:dev`. Manual testing, devtools. |
+| **test** | 9080/9081/9082 | `npm run test:e2e:headless`. Headless Playwright with real containers. |
 
-Config for test lives in `test.env`. The test profile auto-starts the server stack via Playwright `globalSetup` using `podman compose`.
+The test profile auto-starts the server stack via Playwright `globalSetup` using `podman compose`.
 
 ### Commands
 
