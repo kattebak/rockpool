@@ -3,9 +3,12 @@ import { loadConfig } from "@rockpool/config";
 
 const config = loadConfig();
 
-const DASHBOARD_URL = config.urls.dashboard;
-const API_URL = config.urls.api;
-const QUEUE_ENDPOINT = config.queue.endpoint;
+const srv0Port = process.env.SRV0_PORT ?? "8080";
+const queuePort = process.env.QUEUE_PORT ?? "9324";
+
+const DASHBOARD_URL = `http://localhost:${srv0Port}`;
+const API_URL = `http://localhost:${srv0Port}/api`;
+const QUEUE_ENDPOINT = `http://localhost:${queuePort}`;
 
 const AUTH_HEADER = config.auth.basic
 	? `Basic ${Buffer.from(`${config.auth.basic.username}:${config.auth.basic.password}`).toString("base64")}`

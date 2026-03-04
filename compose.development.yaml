@@ -7,5 +7,5 @@ services:
       - "8082:8082"
   control-plane:
     environment:
-      SPA_PROXY_URL: "1"
+      SPA_PROXY_URL: "http://control-plane:5173"
     command: node --watch --experimental-strip-types packages/server/src/index.ts

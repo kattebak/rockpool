@@ -19,9 +19,18 @@ services:
     init: true
     working_dir: /app
     environment:
-      ROCKPOOL_CONFIG: /app/rockpool.compose.config.json
+      ROCKPOOL_CONFIG: /app/rockpool.config.json
       CONTAINER_HOST: unix:///run/podman.sock
       CONTROL_PLANE_HOST: control-plane
+      PORT: 7163
+      CADDY_ADMIN_URL: http://caddy:2019
+      SRV0_PORT: 8080
+      SRV1_PORT: 8081
+      SRV2_PORT: 8082
+      DB_PATH: rockpool.db
+      QUEUE_ENDPOINT: http://elasticmq:9324
+      QUEUE_URL: http://elasticmq:9324/000000000000/workspace-jobs
+      CONTAINER_HOST_ADDRESS: host.containers.internal
     security_opt:
       - label=disable
     restart: unless-stopped

@@ -1,8 +1,7 @@
 import { defineConfig } from "@playwright/test";
-import { loadConfig } from "@rockpool/config";
 
-const config = loadConfig();
-const BASE_URL = config.urls.dashboard;
+const srv0Port = process.env.SRV0_PORT ?? "8080";
+const BASE_URL = `http://localhost:${srv0Port}`;
 
 export default defineConfig({
 	testDir: "tests",

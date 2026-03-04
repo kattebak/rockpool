@@ -22,34 +22,16 @@ describe("RockpoolConfigSchema", () => {
 
 		assert.equal(result.logLevel, "info");
 		assert.equal(result.runtime, "podman");
-		assert.equal(result.server.port, 7163);
 		assert.equal(result.server.secureCookies, false);
-		assert.equal(result.caddy.adminUrl, "http://localhost:2019");
-		assert.equal(result.caddy.srv0Port, 8080);
-		assert.equal(result.caddy.srv1Port, 8081);
-		assert.equal(result.caddy.srv2Port, 8082);
-		assert.equal(result.db.path, "rockpool.db");
-		assert.equal(result.queue.endpoint, "http://localhost:9324");
-		assert.equal(result.queue.queueUrl, "http://localhost:9324/000000000000/workspace-jobs");
-		assert.equal(result.container.hostAddress, "host.containers.internal");
-		assert.equal(result.urls.dashboard, "http://localhost:8080");
-		assert.equal(result.urls.api, "http://localhost:8080/api");
-		assert.equal(result.urls.ide, "http://localhost:8081");
-		assert.equal(result.urls.preview, "http://localhost:8082");
+		assert.equal(result.spa.root, "");
+		assert.equal(result.spa.proxyUrl, "");
 	});
 
 	it("parses a full config with all fields", () => {
 		const result = RockpoolConfigSchema.parse({
 			logLevel: "debug",
 			runtime: "stub",
-			server: { port: 9163, secureCookies: true },
-			caddy: {
-				adminUrl: "http://localhost:9019",
-				adminPort: 9019,
-				srv0Port: 9080,
-				srv1Port: 9081,
-				srv2Port: 9082,
-			},
+			server: { secureCookies: true },
 			auth: {
 				mode: "github",
 				github: {
@@ -59,30 +41,15 @@ describe("RockpoolConfigSchema", () => {
 					sessionMaxAgeMs: 3_600_000,
 				},
 			},
-			db: { path: "/tmp/test.db" },
-			queue: {
-				endpoint: "http://localhost:9424",
-				queueUrl: "http://localhost:9424/000000000000/workspace-jobs",
-			},
-			container: { hostAddress: "10.0.0.1" },
 			spa: { root: "packages/client/dist", proxyUrl: "" },
-			urls: {
-				dashboard: "http://localhost:9080",
-				api: "http://localhost:9080/api",
-				ide: "http://localhost:9081",
-				preview: "http://localhost:9082",
-			},
 		});
 
 		assert.equal(result.logLevel, "debug");
 		assert.equal(result.runtime, "stub");
-		assert.equal(result.server.port, 9163);
 		assert.equal(result.server.secureCookies, true);
-		assert.equal(result.caddy.srv0Port, 9080);
 		assert.equal(result.auth.mode, "github");
 		assert.equal(result.auth.github?.clientId, "abc");
-		assert.equal(result.db.path, "/tmp/test.db");
-		assert.equal(result.container.hostAddress, "10.0.0.1");
+		assert.equal(result.spa.root, "packages/client/dist");
 	});
 
 	it("rejects missing auth section", () => {
@@ -107,36 +74,26 @@ describe("RockpoolConfigSchema", () => {
 		});
 	});
 
-	it("rejects invalid port number", () => {
+	it("rejects invalid log level", () => {
 		assert.throws(() => {
 			RockpoolConfigSchema.parse({
 				auth: {
 					mode: "basic",
 					basic: { username: "admin", password: "admin" },
 				},
-				server: { port: 0 },
-			});
-		});
-
-		assert.throws(() => {
-			RockpoolConfigSchema.parse({
-				auth: {
-					mode: "basic",
-					basic: { username: "admin", password: "admin" },
-				},
-				server: { port: 99999 },
+				logLevel: "verbose",
 			});
 		});
 	});
 
-	it("rejects invalid URL", () => {
+	it("rejects invalid runtime", () => {
 		assert.throws(() => {
 			RockpoolConfigSchema.parse({
 				auth: {
 					mode: "basic",
 					basic: { username: "admin", password: "admin" },
 				},
-				caddy: { adminUrl: "not-a-url" },
+				runtime: "docker",
 			});
 		});
 	});
@@ -164,7 +121,7 @@ describe("loadConfig", () => {
 		const config = loadConfig(configPath);
 		assert.equal(config.auth.mode, "basic");
 		assert.equal(config.auth.basic?.username, "test");
-		assert.equal(config.server.port, 7163);
+		assert.equal(config.server.secureCookies, false);
 	});
 
 	it("throws on missing config file", () => {
@@ -182,7 +139,7 @@ describe("loadConfig", () => {
 	});
 
 	it("throws on invalid config data", () => {
-		const configPath = writeTempConfig(tempDir, { server: { port: -1 } });
+		const configPath = writeTempConfig(tempDir, { logLevel: "invalid" });
 		assert.throws(() => {
 			loadConfig(configPath);
 		});

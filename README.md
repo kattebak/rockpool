@@ -56,15 +56,13 @@ The dashboard is at `http://<vm-ip>:8080/app/workspaces` (macOS) or `http://loca
 
 ## Configuration
 
-Rockpool uses JSON config files validated by a zod schema (`@rockpool/config`). See [EDD-027](doc/EDD/EDD-027-configuration-package.md) for full details.
+Rockpool uses JSON config files for application settings (auth, feature flags) validated by a zod schema (`@rockpool/config`). Infrastructure topology (hostnames, ports, service URLs) is configured via compose environment variables.
 
 | File | Purpose | Committed |
 |------|---------|-----------|
 | `rockpool.config.example.json` | Template for local dev | Yes |
 | `rockpool.config.json` | Local dev config (gitignored) | No |
-| `rockpool.test.config.json` | E2E test profile (host-side) | Yes |
-| `rockpool.compose.config.json` | Dev compose (container-internal URLs) | Yes |
-| `rockpool.compose.test.config.json` | Test compose (container-internal URLs) | Yes |
+| `rockpool.test.config.json` | E2E test profile | Yes |
 
 Either GitHub OAuth **or** basic auth credentials must be configured in the `auth` section. See [doc/EDD/003_Caddy_Reverse_Proxy.md](doc/EDD/003_Caddy_Reverse_Proxy.md) appendix for GitHub OAuth setup.
 

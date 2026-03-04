@@ -34,7 +34,6 @@
 		"zod": "^3.24.0"
 	},
 	"devDependencies": {
-		"@rockpool/config": "*",
 		"@tailwindcss/postcss": "^4.2.0",
 		"@tailwindcss/vite": "^4.2.0",
 		"@testing-library/jest-dom": "^6.9.1",

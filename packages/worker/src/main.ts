@@ -11,20 +11,26 @@ import { createProcessor } from "./processor.ts";
 const config = loadConfig();
 const logger = pino({ level: config.logLevel });
 
-const db = createDb(config.db.path);
+const dbPath = process.env.DB_PATH ?? "rockpool.db";
+const queueEndpoint = process.env.QUEUE_ENDPOINT ?? "http://localhost:9324";
+const queueUrl = process.env.QUEUE_URL ?? "http://localhost:9324/000000000000/workspace-jobs";
+const caddyAdminUrl = process.env.CADDY_ADMIN_URL ?? "http://localhost:2019";
+const hostAddress = process.env.CONTAINER_HOST_ADDRESS ?? "host.containers.internal";
+
+const db = createDb(dbPath);
 
 const queue = createSqsQueue({
-	endpoint: config.queue.endpoint,
-	queueUrl: config.queue.queueUrl,
+	endpoint: queueEndpoint,
+	queueUrl,
 });
 
 const caddy = createCaddyClient({
-	adminUrl: config.caddy.adminUrl,
+	adminUrl: caddyAdminUrl,
 });
 
 function createRuntimeFromConfig() {
 	if (config.runtime === "podman") {
-		return createPodmanRuntime({ hostAddress: config.container.hostAddress });
+		return createPodmanRuntime({ hostAddress });
 	}
 
 	throw new Error(`Unsupported runtime: ${config.runtime}`);

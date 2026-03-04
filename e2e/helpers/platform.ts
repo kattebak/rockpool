@@ -3,7 +3,10 @@ import { loadConfig } from "@rockpool/config";
 
 const config = loadConfig();
 
-const API_BASE = config.urls.api;
+const srv0Port = process.env.SRV0_PORT ?? "8080";
+const srv1Port = process.env.SRV1_PORT ?? "8081";
+
+const API_BASE = `http://localhost:${srv0Port}/api`;
 const CADDY_USERNAME = config.auth.basic?.username ?? "";
 const CADDY_PASSWORD = config.auth.basic?.password ?? "";
 
@@ -16,7 +19,7 @@ export function getApiUrl(): string {
 }
 
 export function getIdeUrl(): string {
-	return config.urls.ide;
+	return `http://localhost:${srv1Port}`;
 }
 
 export async function launchBrowser(): Promise<Browser> {

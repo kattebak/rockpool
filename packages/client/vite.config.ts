@@ -1,10 +1,11 @@
 import { resolve } from "node:path";
-import { loadConfig } from "@rockpool/config";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-const config = loadConfig();
+const ideUrl = process.env.VITE_IDE_URL ?? "http://localhost:8081";
+const previewUrl = process.env.VITE_PREVIEW_URL ?? "http://localhost:8082";
+const serverPort = process.env.PORT ?? "7163";
 
 export default defineConfig({
 	root: __dirname,
@@ -16,15 +17,15 @@ export default defineConfig({
 		},
 	},
 	define: {
-		__IDE_URL__: JSON.stringify(config.urls.ide),
-		__PREVIEW_URL__: JSON.stringify(config.urls.preview),
+		__IDE_URL__: JSON.stringify(ideUrl),
+		__PREVIEW_URL__: JSON.stringify(previewUrl),
 	},
 	server: {
 		port: 5173,
 		allowedHosts: true,
 		proxy: {
 			"/api": {
-				target: `http://localhost:${config.server.port}`,
+				target: `http://localhost:${serverPort}`,
 				changeOrigin: true,
 			},
 		},

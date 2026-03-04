@@ -160,7 +160,7 @@ jobs:
 
       - name: Build client
         if: steps.cache-client.outputs.cache-hit != 'true'
-        run: ROCKPOOL_CONFIG=rockpool.test.config.json npm run build -w packages/client
+        run: VITE_IDE_URL=http://localhost:9081 VITE_PREVIEW_URL=http://localhost:9082 ROCKPOOL_CONFIG=rockpool.test.config.json npm run build -w packages/client
 
       - name: Run E2E tests
         run: npm run test:e2e:headless

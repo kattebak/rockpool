@@ -18,6 +18,16 @@ import { createWorkspaceService } from "./services/workspace-service.ts";
 const config = loadConfig();
 const logger = pino({ level: config.logLevel });
 
+const port = Number.parseInt(process.env.PORT ?? "7163", 10);
+const caddyAdminUrl = process.env.CADDY_ADMIN_URL ?? "http://localhost:2019";
+const srv0Port = Number.parseInt(process.env.SRV0_PORT ?? "8080", 10);
+const srv1Port = Number.parseInt(process.env.SRV1_PORT ?? "8081", 10);
+const srv2Port = Number.parseInt(process.env.SRV2_PORT ?? "8082", 10);
+const dbPath = process.env.DB_PATH ?? "rockpool.db";
+const queueEndpoint = process.env.QUEUE_ENDPOINT ?? "http://localhost:9324";
+const queueUrl = process.env.QUEUE_URL ?? "http://localhost:9324/000000000000/workspace-jobs";
+const hostAddress = process.env.CONTAINER_HOST_ADDRESS ?? "host.containers.internal";
+
 function resolveAuth(cfg: RockpoolConfig): AuthConfig | null {
 	if (cfg.auth.mode === "github" && cfg.auth.github) {
 		return {
@@ -36,17 +46,17 @@ const hasOAuth = oauthConfig !== null;
 
 function createRuntimeFromConfig(): RuntimeRepository {
 	if (config.runtime === "podman") {
-		return createPodmanRuntime({ hostAddress: config.container.hostAddress });
+		return createPodmanRuntime({ hostAddress });
 	}
 
 	throw new Error(`Unsupported runtime: ${config.runtime}`);
 }
 
-const db = createDb(config.db.path);
+const db = createDb(dbPath);
 
 const queue = createSqsQueue({
-	endpoint: config.queue.endpoint,
-	queueUrl: config.queue.queueUrl,
+	endpoint: queueEndpoint,
+	queueUrl,
 });
 
 const controlPlaneHost = process.env.CONTROL_PLANE_HOST ?? "127.0.0.1";
@@ -55,8 +65,8 @@ function resolveAuthMode(): AuthMode | undefined {
 	if (hasOAuth) {
 		return {
 			mode: "oauth",
-			controlPlaneDial: `${controlPlaneHost}:${config.server.port}`,
-			srv0Port: config.caddy.srv0Port,
+			controlPlaneDial: `${controlPlaneHost}:${port}`,
+			srv0Port,
 		};
 	}
 	return undefined;
@@ -64,7 +74,7 @@ function resolveAuthMode(): AuthMode | undefined {
 
 const authMode = resolveAuthMode();
 
-const caddy = createCaddyClient({ adminUrl: config.caddy.adminUrl, authMode });
+const caddy = createCaddyClient({ adminUrl: caddyAdminUrl, authMode });
 const runtime = createRuntimeFromConfig();
 const workspaceService = createWorkspaceService({ db, queue, runtime, caddy, logger });
 const portService = createPortService({ db, caddy });
@@ -83,18 +93,19 @@ const app = createApp({
 });
 
 async function bootstrapCaddy(): Promise<void> {
-	const controlPlaneUrl = `http://${controlPlaneHost}:${config.server.port}`;
+	const controlPlaneUrl = `http://${controlPlaneHost}:${port}`;
 
 	const bootstrapOptions: BootstrapOptions = {
 		controlPlaneUrl,
-		srv0Port: config.caddy.srv0Port,
-		srv1Port: config.caddy.srv1Port,
-		srv2Port: config.caddy.srv2Port,
-		adminUrl: config.caddy.adminUrl,
+		srv0Port,
+		srv1Port,
+		srv2Port,
+		adminUrl: caddyAdminUrl,
 	};
 
-	if (config.spa.proxyUrl) {
-		bootstrapOptions.spaProxyUrl = config.spa.proxyUrl;
+	const spaProxyUrl = process.env.SPA_PROXY_URL || config.spa.proxyUrl;
+	if (spaProxyUrl) {
+		bootstrapOptions.spaProxyUrl = spaProxyUrl;
 	} else if (config.spa.root) {
 		bootstrapOptions.spaRoot = config.spa.root;
 	}
@@ -170,8 +181,8 @@ async function recoverOrphanedWorkspaces(q: QueueRepository): Promise<void> {
 	}
 }
 
-app.listen(config.server.port, () => {
-	logger.info({ port: config.server.port }, "Rockpool control plane started");
+app.listen(port, () => {
+	logger.info({ port }, "Rockpool control plane started");
 
 	bootstrapCaddy()
 		.then(() => recoverRunningWorkspaces(runtime, queue))

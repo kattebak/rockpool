@@ -12,4 +12,10 @@ services:
       - "9324:9324"
   control-plane:
     environment:
-      ROCKPOOL_CONFIG: /app/rockpool.compose.test.config.json
+      ROCKPOOL_CONFIG: /app/rockpool.test.config.json
+      PORT: 9163
+      CADDY_ADMIN_URL: http://caddy:9019
+      SRV0_PORT: 9080
+      SRV1_PORT: 9081
+      SRV2_PORT: 9082
+      DB_PATH: /opt/rockpool/e2e.db
