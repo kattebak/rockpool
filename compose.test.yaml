@@ -1,10 +1,15 @@
 services:
   caddy:
+    environment:
+      CADDY_ADMIN_PORT: 9019
     ports:
-      - "5173:5173"
       - "9019:9019"
       - "9080:9080"
       - "9081:9081"
       - "9082:9082"
-      - "9163:9163"
-      - "9424:9424"
+  elasticmq:
+    ports:
+      - "9324:9324"
+  control-plane:
+    environment:
+      CADDY_ADMIN_URL: http://caddy:9019

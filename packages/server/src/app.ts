@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import type { AuthService, Session } from "@rockpool/auth";
 import type { DbClient } from "@rockpool/db";
 import cookieParser from "cookie-parser";
@@ -24,6 +25,7 @@ export interface AppDeps {
 	authService: AuthService | null;
 	secureCookies?: boolean;
 	db: DbClient;
+	spaRoot?: string;
 }
 
 function parseCookies(req: Request): Record<string, string> {
@@ -43,7 +45,7 @@ export function createApp(deps: AppDeps) {
 			apiSpec,
 			validateRequests: true,
 			validateResponses: false,
-			ignorePaths: /^\/api\/(health|ping|auth)/,
+			ignorePaths: /^(\/api\/(health|ping|auth)|\/app)/,
 		}),
 	);
 
@@ -90,6 +92,14 @@ export function createApp(deps: AppDeps) {
 	app.get("/api/ping", (_req, res) => {
 		res.json({ status: "ok" });
 	});
+
+	if (deps.spaRoot) {
+		const absoluteRoot = resolve(deps.spaRoot);
+		app.use("/app/assets", express.static(resolve(absoluteRoot, "assets")));
+		app.use("/app", (_req, res) => {
+			res.sendFile(resolve(absoluteRoot, "index.html"));
+		});
+	}
 
 	app.use(
 		(

@@ -42,10 +42,15 @@ const queue = createSqsQueue({
 	queueUrl: config.queueUrl,
 });
 
+const controlPlaneHost = process.env.CONTROL_PLANE_HOST ?? "127.0.0.1";
+
 function resolveAuthMode(): AuthMode | undefined {
 	if (hasOAuth) {
-		const host = "127.0.0.1";
-		return { mode: "oauth", controlPlaneDial: `${host}:${config.port}`, srv0Port: config.srv0Port };
+		return {
+			mode: "oauth",
+			controlPlaneDial: `${controlPlaneHost}:${config.port}`,
+			srv0Port: config.srv0Port,
+		};
 	}
 	return undefined;
 }
@@ -67,19 +72,18 @@ const app = createApp({
 	authService,
 	secureCookies: config.secureCookies,
 	db,
+	spaRoot: config.spaRoot || undefined,
 });
 
 async function bootstrapCaddy(): Promise<void> {
-	const controlPlaneUrl = `http://localhost:${config.port}`;
-
-	const adminPort = new URL(config.caddyAdminUrl).port;
+	const controlPlaneUrl = `http://${controlPlaneHost}:${config.port}`;
 
 	const bootstrapOptions: BootstrapOptions = {
 		controlPlaneUrl,
 		srv0Port: config.srv0Port,
 		srv1Port: config.srv1Port,
 		srv2Port: config.srv2Port,
-		adminPort: adminPort ? Number(adminPort) : undefined,
+		adminUrl: config.caddyAdminUrl,
 	};
 
 	if (config.spaProxyUrl) {

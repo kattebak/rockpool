@@ -31,9 +31,6 @@ build/sdk: build/openapi/openapi.yaml
 	echo 'export { client } from "./client.gen.js";' >> $@/index.ts
 	touch $@
 
-$(STAMP_DIR)/node-modules-linux: package-lock.json $(STAMP_DIR)/rockpool-control-plane | $(STAMP_DIR)
-	podman run --rm -e CI=1 -v $(CURDIR):/app -v rockpool_node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm ci
-	touch $@
 
 
 clean:
@@ -49,7 +46,11 @@ $(STAMP_DIR)/rockpool-workspace: images/workspace.pkr.hcl images/scripts/setup.s
 	packer build images/workspace.pkr.hcl
 	touch $@
 
-$(STAMP_DIR)/rockpool-control-plane: images/control-plane/Dockerfile | $(STAMP_DIR)
+$(STAMP_DIR)/node-modules-linux: package-lock.json $(STAMP_DIR)/rockpool-control-plane | $(STAMP_DIR)
+	podman run --rm -e CI=1 --entrypoint="" -v $(CURDIR):/app -v rockpool-node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm ci
+	touch $@
+
+$(STAMP_DIR)/rockpool-control-plane: images/control-plane/Dockerfile images/control-plane/entrypoint.sh | $(STAMP_DIR)
 	podman build -t rockpool-control-plane:latest images/control-plane/
 	touch $@
 
