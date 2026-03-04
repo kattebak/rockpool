@@ -181,3 +181,8 @@ images/root-vm/keys/rockpool-root-vm_ed25519
 
 # Playwright test results
 test-results/
+
+# Cloudflare Tunnel
+.tunnel-token
+.tunnel-metadata.json
+.cloudflare
