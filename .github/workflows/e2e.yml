@@ -122,8 +122,9 @@ jobs:
       - name: Populate node_modules volume
         run: |
           podman run --rm -e CI=1 \
+            --entrypoint="" \
             -v ${{ github.workspace }}:/app \
-            -v rockpool_node-modules:/app/node_modules \
+            -v rockpool-node-modules:/app/node_modules \
             -w /app rockpool-control-plane:latest npm ci
           touch .stamps/node-modules-linux
 

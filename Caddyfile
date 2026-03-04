@@ -1,3 +1,5 @@
 {
-	admin localhost:{$CADDY_ADMIN_PORT:2019}
+	admin 0.0.0.0:{$CADDY_ADMIN_PORT:2019} {
+		origins caddy:{$CADDY_ADMIN_PORT:2019} localhost:{$CADDY_ADMIN_PORT:2019}
+	}
 }
