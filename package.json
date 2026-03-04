@@ -24,7 +24,8 @@
 		"test:e2e:headless": "SRV0_PORT=9080 SRV1_PORT=9081 QUEUE_PORT=9324 ROCKPOOL_CONFIG=rockpool.test.config.json node_modules/.bin/playwright test --config e2e/playwright.config.ts",
 		"start:tunnel": "make .stamps/rockpool-workspace-container && npm run build -w packages/client && npm-scripts/podman.sh --profile tunnel up -d",
 		"stop:tunnel": "npm-scripts/podman.sh --profile tunnel down",
-		"vm": "npm-scripts/root-vm.sh"
+		"vm": "npm-scripts/root-vm.sh",
+		"cf": "npm-scripts/cloudflare.sh"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",
