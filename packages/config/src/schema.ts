@@ -44,6 +44,13 @@ const UrlsSchema = z.object({
 	preview: z.string().url(),
 });
 
+const PortsSchema = z.object({
+	http: z.number().int().min(1).max(65535).default(8080),
+	ide: z.number().int().min(1).max(65535).default(8081),
+	preview: z.number().int().min(1).max(65535).default(8082),
+	caddy: z.number().int().min(1).max(65535).default(2019),
+});
+
 export const RockpoolConfigSchema = z.object({
 	logLevel: LogLevelSchema.default("info"),
 	runtime: RuntimeSchema.default("podman"),
@@ -51,4 +58,5 @@ export const RockpoolConfigSchema = z.object({
 	auth: AuthSchema,
 	spa: SpaSchema.default({}),
 	urls: UrlsSchema.optional(),
+	ports: PortsSchema.default({}),
 });
