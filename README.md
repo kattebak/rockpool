@@ -1,11 +1,10 @@
 # Rockpool
 
-Cloud IDE platform. Isolated development environments in Podman containers inside a Linux VM, accessible via browser.
+Cloud IDE platform. Isolated development environments in Podman containers, accessible via browser.
 
 ## Architecture
 
-- **Root VM**: Linux VM (Tart on macOS, QEMU/KVM on Linux) runs the entire control plane
-- **Workspaces**: Podman rootless containers inside the Root VM running Debian with code-server
+- **Workspaces**: Podman rootless containers running Debian with code-server
 - **Reverse proxy**: Caddy with path-based routing, dynamically configured via admin API
 - **Control plane**: Workspace Service (CRUD), Caddy Service (routing), Workspace Worker (async jobs via ElasticMQ)
 - **Frontend**: React SPA for workspace management
@@ -21,38 +20,22 @@ See [doc/EDD/](doc/EDD/) for detailed design documents and [doc/ADR/](doc/ADR/) 
 | Database | SQLite + Drizzle ORM                                      |
 | Frontend | React, shadcn/ui, TanStack Query/Router                   |
 | Runtime  | Node.js >= 22, ES modules                                 |
-| VMs      | Tart (macOS) / QEMU-KVM (Linux) + Podman workspaces      |
+| Containers | Podman rootless workspaces                              |
 | Tooling  | Biome (lint/format), esbuild (bundle), node:test          |
 
 ## Quick Start
 
-### macOS
-
 ```sh
-brew install cirruslabs/cli/tart
 make rockpool.config.json              # creates config from example template
-npm install                            # builds TypeSpec, SDK, Root VM image
-npm start                              # boots VM, starts stack, tails logs
+npm install                            # builds TypeSpec, SDK
+npm start                              # starts stack via podman compose
 ```
 
-### Linux
+`npm start` starts the full stack (ElasticMQ, Caddy, API server, worker, Vite dev server) via Podman Compose.
 
-```sh
-sudo apt install qemu-system-x86 qemu-utils mmdebstrap e2fsprogs fakeroot
-sudo usermod -aG kvm $USER            # log out and back in
-make rockpool.config.json              # creates config from example template
-npm install
-npm run vm -- build                    # build Root VM image (no sudo needed)
-npm start
-```
+Node.js `--watch` restarts the server automatically on file changes.
 
-### Either platform
-
-`npm start` boots the Root VM, mounts the project directory via Virtiofs, and starts the full stack (ElasticMQ, Caddy, API server, worker, Vite dev server) inside it via Podman Compose.
-
-Edit files on the host -- changes appear instantly in the VM. Node.js `--watch` restarts the server automatically on file changes.
-
-The dashboard is at `http://<vm-ip>:8080/app/workspaces` (macOS) or `http://localhost:8080/app/workspaces` (Linux, port-forwarded).
+The dashboard is at `http://localhost:8080/app/workspaces`.
 
 ## Configuration
 
@@ -80,28 +63,17 @@ npm test
 ### Useful commands
 
 ```sh
-npm start                          # boot VM + start stack + tail logs
-npm stop                           # stop compose stack inside the VM
-npm run vm -- start                # boot the VM, wait for SSH
-npm run vm -- stop                 # shut down the VM
-npm run vm -- deploy               # rsync code + npm ci on VM
-npm run vm -- up                   # podman compose up -d on VM
-npm run vm -- down                 # podman compose down on VM
-npm run vm -- restart              # podman compose restart on VM
-npm run vm -- logs                 # tail compose logs from VM
-npm run vm -- ssh                  # SSH into the Root VM
+npm start                          # start stack via podman compose
+npm stop                           # stop compose stack
+npm run logs                       # tail compose logs
 npm test                           # run unit tests across all packages
 npm run fix -- --unsafe            # format and lint
 ```
 
 ### Building the workspace image
 
-The workspace container image must be built inside the Root VM:
-
 ```sh
-npm run vm -- ssh
-# inside the VM:
-podman build -t rockpool-workspace:latest /mnt/rockpool/images/workspace/
+podman build -t rockpool-workspace:latest images/workspace/
 ```
 
 ### E2E tests

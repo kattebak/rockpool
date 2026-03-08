@@ -11,14 +11,14 @@
 
 ## Summary
 
-Refactor the workspace service from a thin CRUD + queue layer into the single authority on workspace runtime state. Today, the worker (`@rockpool/worker`) directly calls `RuntimeRepository`, `CaddyRepository`, and DB queries to manage VM lifecycle. The workspace service (`@rockpool/server/services/workspace-service.ts`) only validates state transitions and enqueues jobs. This split means two packages share responsibility for the same domain, and the server has no way to answer "is this workspace actually running?" without trusting stale DB state.
+Refactor the workspace service from a thin CRUD + queue layer into the single authority on workspace runtime state. Today, the worker (`@rockpool/worker`) directly calls `RuntimeRepository`, `CaddyRepository`, and DB queries to manage container lifecycle. The workspace service (`@rockpool/server/services/workspace-service.ts`) only validates state transitions and enqueues jobs. This split means two packages share responsibility for the same domain, and the server has no way to answer "is this workspace actually running?" without trusting stale DB state.
 
-This EDD describes how to consolidate runtime authority into a standalone `@rockpool/workspace-service` package, add lazy on-demand restart when Caddy receives a request for a stopped workspace, serve a loading page during VM spinup, and make Caddy routes fully ephemeral (rebuilt on demand, never bulk-recovered at startup).
+This EDD describes how to consolidate runtime authority into a standalone `@rockpool/workspace-service` package, add lazy on-demand restart when Caddy receives a request for a stopped workspace, serve a loading page during container spinup, and make Caddy routes fully ephemeral (rebuilt on demand, never bulk-recovered at startup).
 
 ## Prerequisites
 
 - [EDD-001](001_Architecture_Overview.md) -- architecture overview, control plane layout
-- [EDD-002](002_MicroVM_Runtime.md) -- Tart runtime, `RuntimeRepository` interface
+- [EDD-002](002_MicroVM_Runtime.md) -- Podman runtime, `RuntimeRepository` interface
 - [EDD-003](003_Caddy_Reverse_Proxy.md) -- Caddy route management, origin isolation
 - [EDD-007](007_Data_Model.md) -- workspace state machine, DB schema
 - [EDD-008](008_Package_Structure.md) -- package layout, repository pattern
@@ -58,18 +58,18 @@ This EDD describes how to consolidate runtime authority into a standalone `@rock
 - Contains the health check loop (curl-based)
 
 **server startup** (`packages/server/src/index.ts`) currently:
-- Runs `recoverRunningWorkspaces()` at boot: iterates all DB-status-running workspaces, checks VM state, re-adds Caddy routes or re-enqueues start jobs
+- Runs `recoverRunningWorkspaces()` at boot: iterates all DB-status-running workspaces, checks container state, re-adds Caddy routes or re-enqueues start jobs
 - Runs `recoverOrphanedWorkspaces()` at boot: re-enqueues jobs for "creating" workspaces
 
 ### Problems
 
-1. **Split authority**: Two packages (server + worker) both write to the DB and manage infrastructure. The workspace-service cannot answer "is this VM actually running?" -- it only knows what the DB says.
+1. **Split authority**: Two packages (server + worker) both write to the DB and manage infrastructure. The workspace-service cannot answer "is this workspace actually running?" -- it only knows what the DB says.
 
 2. **Eager recovery at startup**: The server bulk-recovers all Caddy routes on boot. If the server restarts, it iterates every running workspace to re-add routes. This is O(n) on startup and races with the worker.
 
 3. **No lazy restart**: If a workspace is stopped and the user navigates to its URL, Caddy has no route and returns 404. The user must explicitly start the workspace through the API before accessing it.
 
-4. **No loading page**: When a workspace is starting (VM booting, code-server initializing), there is nothing to show the user. The workspace URL either 404s (no route) or 502s (route exists but code-server is not ready).
+4. **No loading page**: When a workspace is starting (container booting, code-server initializing), there is nothing to show the user. The workspace URL either 404s (no route) or 502s (route exists but code-server is not ready).
 
 5. **Caddy routes are treated as durable**: The current code tries to keep Caddy routes in sync with DB state. But Caddy routes are ephemeral -- lost on restart. The reconciliation logic (recovery functions in `index.ts`) is complex and error-prone.
 
@@ -94,9 +94,9 @@ The workspace service becomes the sole owner of workspace lifecycle. It owns `Ru
          |          @rockpool/workspace-service      |
          |                                           |
          |  - State machine + transitions            |
-         |  - RuntimeRepository (VM lifecycle)       |
+         |  - RuntimeRepository (container lifecycle)       |
          |  - CaddyRepository (route management)     |
-         |  - DB queries (status, vmIp, ports)       |
+         |  - DB queries (status, containerIp, ports)       |
          |  - Health check                           |
          |  - Concurrency limits                     |
          +-------------------------------------------+
@@ -112,14 +112,14 @@ The workspace service becomes the sole owner of workspace lifecycle. It owns `Ru
 
 Caddy routes are not recovered at startup. Instead, Caddy gets a fallback route that catches all `/workspace/*` requests and proxies them to the control plane. The control plane checks workspace state and either:
 - Adds the route and proxies through (if the workspace is running and has a known IP)
-- Starts the VM and returns a loading page (if the workspace is stopped)
+- Starts the container and returns a loading page (if the workspace is stopped)
 - Returns 404 (if the workspace does not exist)
 
 This eliminates the startup recovery loop entirely. Routes are added on demand, one at a time, on first request.
 
 ### Principle: Loading Page on Wake
 
-When a stopped workspace receives a request, the server returns an HTML loading page that polls for readiness. Once the workspace is running and the Caddy route is in place, the page redirects to the workspace URL (which now goes through Caddy directly to the VM).
+When a stopped workspace receives a request, the server returns an HTML loading page that polls for readiness. Once the workspace is running and the Caddy route is in place, the page redirects to the workspace URL (which now goes through Caddy directly to the container).
 
 ## Package Layout
 
@@ -181,7 +181,7 @@ interface WorkspaceService {
 }
 
 type EnsureRouteResult =
-  | { status: "routed"; vmIp: string }
+  | { status: "routed"; containerIp: string }
   | { status: "starting"; workspaceId: string }
   | { status: "not_found" };
 ```
@@ -197,22 +197,22 @@ type EnsureRouteResult =
 **`remove(id)`** -- validates workspace is not running/creating, enqueues "delete" job. Unchanged externally.
 
 **`provisionAndStart(id)`** -- called by the worker for "create" and "start" jobs. This is where the actual runtime work happens:
-1. Check VM status via `RuntimeRepository.status()`
-2. Create VM if not found, start VM if stopped, skip if already running
-3. Get VM IP via `RuntimeRepository.getIp()`
-4. Configure VM via `RuntimeRepository.configure()` (code-server base path)
+1. Check container status via `RuntimeRepository.status()`
+2. Create container if not found, start container if stopped, skip if already running
+3. Get container IP via `RuntimeRepository.getIp()`
+4. Configure container via `RuntimeRepository.configure()` (code-server base path)
 5. Wait for health check (curl-based, moved from worker)
 6. Add Caddy route via `CaddyRepository.addWorkspaceRoute()`
-7. Update DB status to "running" with vmIp
+7. Update DB status to "running" with containerIp
 
 **`teardown(id)`** -- called by the worker for "stop" and "delete" jobs:
-- For stop: remove ports from DB, stop VM, remove Caddy route, update DB to "stopped"
-- For delete: stop VM (ignore errors), remove VM, remove Caddy route, delete DB record
+- For stop: remove ports from DB, stop container, remove Caddy route, update DB to "stopped"
+- For delete: stop container (ignore errors), remove container, remove Caddy route, delete DB record
 
 **`ensureRoute(name)`** -- called by the fallback route handler when Caddy does not have a route for a workspace. This is the lazy restart entry point:
 1. Look up workspace by name in DB
 2. If not found: return `{ status: "not_found" }`
-3. If status is "running" and vmIp is set: add Caddy route, return `{ status: "routed", vmIp }`
+3. If status is "running" and containerIp is set: add Caddy route, return `{ status: "routed", containerIp }`
 4. If status is "stopped": transition to "creating", enqueue "start" job, return `{ status: "starting", workspaceId }`
 5. If status is "creating" or "stopping": return `{ status: "starting", workspaceId }` (already in progress)
 6. If status is "error": return `{ status: "starting", workspaceId }` and re-enqueue (auto-retry)
@@ -275,7 +275,7 @@ GET /workspace/:name/*
       "not_found": return 404
 ```
 
-The redirect after "routed" causes the browser to re-request the URL. This time Caddy has the workspace-specific route and proxies directly to the VM, bypassing the fallback entirely. The redirect is invisible to the user.
+The redirect after "routed" causes the browser to re-request the URL. This time Caddy has the workspace-specific route and proxies directly to the container, bypassing the fallback entirely. The redirect is invisible to the user.
 
 ### Full Sequence: User Navigates to a Stopped Workspace
 
@@ -304,7 +304,7 @@ Browser                 Caddy (srv1)           Server              Worker
    |                       |                     |    (dequeues job)  |
    |                       |                     |                    |
    |                       |                     |<-- provisionAndStart()
-   |                       |                     |    start VM        |
+   |                       |                     |    start container        |
    |                       |                     |    wait for health |
    |                       |                     |    add Caddy route |
    |                       |                     |    update DB       |
@@ -317,8 +317,8 @@ Browser                 Caddy (srv1)           Server              Worker
    |    (workspace-foo     |                     |                    |
    |     route NOW exists) |                     |                    |
    |                       |                     |                    |
-   |                       |-- proxy to VM ----->|                    |
-   |<-- 200 IDE content ---|<--(from VM)---------|                    |
+   |                       |-- proxy to container ->|                  |
+   |<-- 200 IDE content ---|<-(from container)-----|                  |
 ```
 
 ### Full Sequence: User Navigates to a Running Workspace (After Server Restart)
@@ -334,7 +334,7 @@ Browser                 Caddy (srv1)           Server
    |                       |   fallback route    |
    |                       |                     |
    |                       |                     |-- ensureRoute("foo")
-   |                       |                     |   DB: status=running, vmIp=10.0.1.50
+   |                       |                     |   DB: status=running, containerIp=10.0.1.50
    |                       |                     |   -> addWorkspaceRoute("foo", "10.0.1.50")
    |                       |                     |   -> return { status: "routed" }
    |                       |                     |
@@ -342,8 +342,8 @@ Browser                 Caddy (srv1)           Server
    |                       |                     |
    |-- GET /workspace/foo/ |                     |
    |                       |                     |
-   |                       |-- proxy to VM ----->|
-   |<-- 200 IDE content ---|                     |
+   |                       |-- proxy to container ->|
+   |<-- 200 IDE content ---|                       |
 ```
 
 No startup recovery loop. The first user request triggers route creation. Subsequent requests go directly through Caddy.
@@ -427,23 +427,23 @@ Every workspace request that hits the fallback route triggers `ensureRoute()`. T
 Scenarios handled:
 - **Caddy restarted**: all routes lost, rebuilt on first request per workspace
 - **Server restarted**: same as above, server just needs DB
-- **VM crashed**: DB says running, but `ensureRoute()` finds no VM. Re-enqueue start.
-- **Stale vmIp**: DB says running with old IP, Caddy route added but 502s. The user sees the loading page, polls, and the system detects the mismatch.
+- **container crashed**: DB says running, but `ensureRoute()` finds no container. Re-enqueue start.
+- **Stale containerIp**: DB says running with old IP, Caddy route added but 502s. The user sees the loading page, polls, and the system detects the mismatch.
 
 ### Status Verification in `ensureRoute()`
 
-When the DB says a workspace is "running" and has a vmIp, `ensureRoute()` can optionally verify the VM is actually running before adding the route:
+When the DB says a workspace is "running" and has a containerIp, `ensureRoute()` can optionally verify the container is actually running before adding the route:
 
 ```
 ensureRoute(name):
   workspace = getWorkspaceByName(name)
-  if workspace.status == "running" && workspace.vmIp:
+  if workspace.status == "running" && workspace.containerIp:
     vmStatus = runtime.status(workspace.name)
     if vmStatus == "running":
-      caddy.addWorkspaceRoute(name, workspace.vmIp)
+      caddy.addWorkspaceRoute(name, workspace.containerIp)
       return { status: "routed" }
     else:
-      // VM died, DB is stale
+      // container died, DB is stale
       updateWorkspaceStatus(id, "stopped")
       // fall through to the "stopped" case below
 ```
@@ -641,7 +641,7 @@ The worker no longer depends on `@rockpool/runtime`, `@rockpool/caddy`, or `@roc
 | How are routes recovered after restart? | Lazily on first request, not at startup | Eliminates O(n) startup cost, simpler, self-healing |
 | What replaces bulk recovery? | Caddy fallback route + `ensureRoute()` | Every workspace request self-heals its own route |
 | Loading page technology? | Inline HTML served by Express | No external assets, no SPA dependency, self-contained |
-| Does `ensureRoute()` verify VM status? | Yes, one runtime.status() call per first request | Catches stale DB state, acceptable cost |
+| Does `ensureRoute()` verify container status? | Yes, one runtime.status() call per first request | Catches stale DB state, acceptable cost |
 | Error handling location | Processor catches errors and calls workspace-service error method | Worker is the execution boundary, sets error status on failure |
 | Health check location | `@rockpool/workspace-service/src/health-check.ts` | Collocated with the lifecycle methods that use it |
 

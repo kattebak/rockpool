@@ -94,7 +94,7 @@ describe("SlotAllocator", () => {
 		assert.equal(d.tapName, b.tapName);
 	});
 
-	it("get returns the allocation for an existing VM", () => {
+	it("get returns the allocation for an existing container", () => {
 		const allocator = createSlotAllocator(slotsFile);
 		const allocated = allocator.allocate("workspace-a");
 		const retrieved = allocator.get("workspace-a");
@@ -102,14 +102,14 @@ describe("SlotAllocator", () => {
 		assert.deepEqual(retrieved, allocated);
 	});
 
-	it("get returns undefined for a non-existent VM", () => {
+	it("get returns undefined for a non-existent container", () => {
 		const allocator = createSlotAllocator(slotsFile);
 		const result = allocator.get("nonexistent");
 
 		assert.equal(result, undefined);
 	});
 
-	it("release is a no-op for a non-existent VM", () => {
+	it("release is a no-op for a non-existent container", () => {
 		const allocator = createSlotAllocator(slotsFile);
 		allocator.release("nonexistent");
 	});
@@ -184,7 +184,7 @@ describe("SlotAllocator", () => {
 		assert.equal(result, undefined);
 	});
 
-	it("names returns all allocated VM names", () => {
+	it("names returns all allocated container names", () => {
 		const allocator = createSlotAllocator(slotsFile);
 		allocator.allocate("workspace-a");
 		allocator.allocate("workspace-b");
@@ -199,7 +199,7 @@ describe("SlotAllocator", () => {
 		assert.deepEqual(result, []);
 	});
 
-	it("names excludes released VMs", () => {
+	it("names excludes released containers", () => {
 		const allocator = createSlotAllocator(slotsFile);
 		allocator.allocate("workspace-a");
 		allocator.allocate("workspace-b");

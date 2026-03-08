@@ -140,16 +140,16 @@ async function recoverRunningWorkspaces(
 	for (const ws of running) {
 		const vmStatus = await runtime.status(ws.name);
 
-		if (vmStatus === "running" && ws.vmIp) {
-			await caddy.addWorkspaceRoute(ws.name, ws.vmIp);
+		if (vmStatus === "running" && ws.containerIp) {
+			await caddy.addWorkspaceRoute(ws.name, ws.containerIp);
 			logger.info(
-				{ workspaceId: ws.id, name: ws.name, vmIp: ws.vmIp },
+				{ workspaceId: ws.id, name: ws.name, containerIp: ws.containerIp },
 				"Recovered Caddy route for running workspace",
 			);
 
 			const workspacePorts = await listPorts(db, ws.id);
 			for (const p of workspacePorts) {
-				await caddy.addPortRoute(ws.name, ws.vmIp, p.port);
+				await caddy.addPortRoute(ws.name, ws.containerIp, p.port);
 				logger.info(
 					{ workspaceId: ws.id, name: ws.name, port: p.port },
 					"Recovered Caddy port route",
@@ -160,7 +160,7 @@ async function recoverRunningWorkspaces(
 
 		logger.warn(
 			{ workspaceId: ws.id, name: ws.name, vmStatus },
-			"DB says running but VM is not, re-enqueuing start",
+			"DB says running but container is not, re-enqueuing start",
 		);
 		await updateWorkspaceStatus(db, ws.id, WS.stopped);
 		await q.send({ type: "start", workspaceId: ws.id });

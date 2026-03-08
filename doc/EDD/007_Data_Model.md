@@ -27,7 +27,7 @@ The central entity. Represents a running or stopped development environment.
 - `name` (string, user-provided slug) -- appears in URLs (`/workspace/{name}/*`). Validated: lowercase `[a-z0-9-]`, 3-63 characters, unique.
 - `status` (enum) -- lifecycle state, see state machine below.
 - `image` (string) -- base image identifier (e.g. `debian-codeserver-v1`). No separate Image entity; promote to its own model when multiple managed images are needed.
-- `vmIp` (string, nullable) -- populated when the VM is running, null when stopped or pending.
+- `containerIp` (string, nullable) -- populated when the container is running, null when stopped or pending.
 - `errorMessage` (string, nullable) -- populated when status is `error`, null otherwise.
 - `createdAt` / `updatedAt` (datetime) -- standard timestamps.
 
@@ -37,7 +37,7 @@ model Workspace {
   name: string;
   status: WorkspaceStatus;
   image: string;
-  vmIp?: string;
+  containerIp?: string;
   errorMessage?: string;
   createdAt: utcDateTime;
   updatedAt: utcDateTime;
@@ -82,19 +82,19 @@ Valid transitions:
 | From     | To       | Trigger                |
 | -------- | -------- | ---------------------- |
 | (new)    | creating | `POST /api/workspaces` |
-| creating | running  | VM ready, IP assigned  |
-| creating | error    | VM creation failed     |
-| running  | stopping | `POST .../stop`        |
-| stopping | stopped  | VM confirmed stopped   |
+| creating | running  | Container ready, IP assigned  |
+| creating | error    | Container creation failed     |
+| running  | stopping | `POST .../stop`               |
+| stopping | stopped  | Container confirmed stopped   |
 | stopping | error    | Stop timed out/failed  |
 | stopped  | creating | `POST .../start`       |
 
 ### Port
 
-A registered port forwarding for a workspace. Apps inside the VM bind to arbitrary ports; the user registers them to make them accessible via Caddy at `/workspace/{name}/port/{port}/*`. Capped at 5 registered ports per workspace.
+A registered port forwarding for a workspace. Apps inside the container bind to arbitrary ports; the user registers them to make them accessible via Caddy at `/workspace/{name}/port/{port}/*`. Capped at 5 registered ports per workspace.
 
 - `workspaceId` (string) -- references the parent workspace.
-- `port` (integer) -- the actual port number inside the VM (e.g. 3000, 5000). Must be in range 1024-65535. Unique per workspace.
+- `port` (integer) -- the actual port number inside the container (e.g. 3000, 5000). Must be in range 1024-65535. Unique per workspace.
 - `label` (string, optional) -- human-readable name (e.g. "frontend", "api").
 - `createdAt` (datetime) -- when the port was registered.
 
@@ -107,14 +107,14 @@ model Port {
 }
 ```
 
-When a port is registered, the worker creates a Caddy route: `/workspace/{name}/port/{port}/*` → `VM_IP:{port}`. When removed, the route is deleted. See [EDD 003](003_Caddy_Reverse_Proxy.md) for route structure.
+When a port is registered, the worker creates a Caddy route: `/workspace/{name}/port/{port}/*` → `container:{port}`. When removed, the route is deleted. See [EDD 003](003_Caddy_Reverse_Proxy.md) for route structure.
 
 ### Excluded Entities
 
 These were considered but deferred:
 
 - **Image** -- image is a string field on Workspace. A dedicated Image entity adds schema and API surface with no current benefit. Single base image built locally per [EDD-005](005_Workspace_Image_Pipeline.md). Promote when multiple managed images are needed.
-- **Runtime** -- runtime (Tart now, Incus later) is a host-level property, not per-workspace data. The adapter pattern ([EDD-002](002_MicroVM_Runtime.md)) handles platform differences. Workspace entity stays runtime-agnostic.
+- **Runtime** -- runtime is a host-level property, not per-workspace data. The adapter pattern ([EDD-002](002_MicroVM_Runtime.md)) handles differences. Workspace entity stays runtime-agnostic.
 
 ## API Surface
 
@@ -208,7 +208,7 @@ TypeSpec source lives in `typespec/` at the repo root as its own npm workspace (
 
 | Question              | Decision                                                         | Rationale                                                         |
 | --------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Workspace fields      | Minimal: id, name, status, image, vmIp, errorMessage, timestamps | Add fields when needed, not speculatively                         |
+| Workspace fields      | Minimal: id, name, status, image, containerIp, errorMessage, timestamps | Add fields when needed, not speculatively                         |
 | Separate Image entity | No, string field on Workspace                                    | Single base image, no registry, no management UI                  |
 | Workspace templates   | Single default image template                                    | Start simple, avoid template management UI                        |
 | Workspace naming      | UUID `id` + user-provided `name` slug                            | `id` for internals, `name` for URLs and display                   |

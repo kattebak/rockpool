@@ -45,7 +45,7 @@ describe("Workspace queries", () => {
 		assert.equal(ws.name, "test-ws");
 		assert.equal(ws.image, "alpine-v1");
 		assert.equal(ws.status, WS.creating);
-		assert.equal(ws.vmIp, null);
+		assert.equal(ws.containerIp, null);
 		assert.equal(ws.errorMessage, null);
 		assert.ok(ws.createdAt instanceof Date);
 		assert.ok(ws.updatedAt instanceof Date);
@@ -76,19 +76,19 @@ describe("Workspace queries", () => {
 		assert.equal(found?.id, created.id);
 	});
 
-	it("updateWorkspaceStatus changes status and vmIp", async () => {
+	it("updateWorkspaceStatus changes status and containerIp", async () => {
 		const created = await createWorkspace(db, {
 			name: "status-test",
 			image: "alpine-v1",
 		});
 
 		const updated = await updateWorkspaceStatus(db, created.id, WS.running, {
-			vmIp: "192.168.64.5",
+			containerIp: "192.168.64.5",
 		});
 
 		assert.notEqual(updated, undefined);
 		assert.equal(updated?.status, WS.running);
-		assert.equal(updated?.vmIp, "192.168.64.5");
+		assert.equal(updated?.containerIp, "192.168.64.5");
 	});
 
 	it("updateWorkspaceStatus sets error message", async () => {
@@ -98,12 +98,12 @@ describe("Workspace queries", () => {
 		});
 
 		const updated = await updateWorkspaceStatus(db, created.id, WS.error, {
-			errorMessage: "VM creation failed",
+			errorMessage: "Container creation failed",
 		});
 
 		assert.notEqual(updated, undefined);
 		assert.equal(updated?.status, WS.error);
-		assert.equal(updated?.errorMessage, "VM creation failed");
+		assert.equal(updated?.errorMessage, "Container creation failed");
 	});
 
 	it("deleteWorkspace removes the workspace", async () => {
@@ -297,7 +297,7 @@ describe("Count queries", () => {
 
 	it("countWorkspacesByStatus filters by status", async () => {
 		const ws = await createWorkspace(db, { name: "count-status", image: "alpine-v1" });
-		await updateWorkspaceStatus(db, ws.id, WS.running, { vmIp: "10.0.1.1" });
+		await updateWorkspaceStatus(db, ws.id, WS.running, { containerIp: "10.0.1.1" });
 
 		const creating = await countWorkspacesByStatus(db, WS.creating);
 		const running = await countWorkspacesByStatus(db, WS.running);

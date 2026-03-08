@@ -22,7 +22,7 @@ This EDD specifies the UX for the Rockpool web client (workspace management SPA)
 ## Goals
 
 - Make workspace creation and access fast and obvious for a single developer.
-- Provide clear, trustworthy status and errors for VM lifecycle operations.
+- Provide clear, trustworthy status and errors for workspace lifecycle operations.
 - Ensure the UI works well on laptop and tablet widths without mobile-specific features.
 - Establish UX guidelines that are consistent and accessible across the client.
 
@@ -292,7 +292,7 @@ Keep the UI minimal and rely on shadcn built-in components with default variants
 | [Retry start]  [Delete]                                                        |
 |--------------------------------------------------------------------------------|
 | Error details                                                                   |
-| Failed to start VM. Check runtime logs and image availability.                  |
+| Failed to start workspace. Check runtime logs and image availability.            |
 +--------------------------------------------------------------------------------+
 ```
 
@@ -320,7 +320,7 @@ Keep the UI minimal and rely on shadcn built-in components with default variants
 ## Content and Copy Guidelines
 
 - Use short sentences and direct verbs.
-- Avoid internal jargon (use "workspace" instead of "VM").
+- Avoid internal jargon (use "workspace" instead of "container").
 - Errors should explain the next step when possible.
 - Use consistent labels: Create workspace, Open IDE, Stop, Delete.
 
