@@ -9,7 +9,7 @@
 
 ## Problem
 
-Rockpool workspaces are blank slates. A user creates a workspace with a name and a base image, gets an empty code-server environment, and must manually clone their code. This is the #1 friction point: every workspace starts with `git clone`, and if the repo is private, the user must manually set up credentials inside the VM.
+Rockpool workspaces are blank slates. A user creates a workspace with a name and a base image, gets an empty code-server environment, and must manually clone their code. This is the #1 friction point: every workspace starts with `git clone`, and if the repo is private, the user must manually set up credentials inside the container.
 
 The goal: a user picks a GitHub repository, clicks "Create", and lands in a running code-server with their code already checked out and ready to edit.
 
@@ -18,8 +18,8 @@ The goal: a user picks a GitHub repository, clicks "Create", and lands in a runn
 This RFC covers:
 
 1. Listing the user's accessible GitHub repositories in the client
-2. Cloning a repository into the workspace VM during provisioning
-3. Configuring git credentials inside the VM so `git push` works
+2. Cloning a repository into the workspace container during provisioning
+3. Configuring git credentials inside the container so `git push` works
 4. The auth model changes required to make this secure
 
 This RFC does **not** cover devcontainer support (see EDD-015), webhooks, PR integration, or multi-provider git hosting.
@@ -89,7 +89,7 @@ A GitHub App produces two kinds of tokens:
 - Expires in **1 hour**
 - Generated server-side using the app's private key
 
-Both are useful. User access tokens for browsing and listing. Installation access tokens for injecting into VMs (shorter-lived, tighter scope).
+Both are useful. User access tokens for browsing and listing. Installation access tokens for injecting into containers (shorter-lived, tighter scope).
 
 ## Proposed Architecture
 
@@ -195,32 +195,32 @@ When `repository` is absent:
 
 ### Clone During Provisioning
 
-The `provisionAndStart()` flow gains a new step between "get VM IP" and "configure":
+The `provisionAndStart()` flow gains a new step between "get container IP" and "configure":
 
 ```
 provisionAndStart(id)
   1. Get workspace from DB (now includes repository)
-  2. Check VM status, create/start as needed
-  3. Get VM IP
+  2. Check container status, create/start as needed
+  3. Get container IP
   4. [NEW] If repository is set:
      a. Generate a scoped credential for the repo
-     b. SSH into VM: configure git credential helper
-     c. SSH into VM: git clone https://github.com/{repository}.git /home/admin/workspace
+     b. Exec into container: configure git credential helper
+     c. Exec into container: git clone https://github.com/{repository}.git /home/admin/workspace
   5. Configure code-server (existing step)
   6. Health check
   7. Add Caddy route
   8. Update DB status
 ```
 
-The clone happens via SSH, using the same mechanism we already use for `configure()`.
+The clone happens via `podman exec`, using the same mechanism we already use for `configure()`.
 
 ### Credential Injection
 
-The VM needs git credentials to clone private repos (and later, to push). There are three approaches, in order of preference:
+The container needs git credentials to clone private repos (and later, to push). There are three approaches, in order of preference:
 
 #### Approach 1: Credential helper script (recommended for v1)
 
-During provisioning, the worker writes a credential helper script to the VM via SSH:
+During provisioning, the worker writes a credential helper script to the container via `podman exec`:
 
 ```bash
 #!/bin/sh
@@ -238,13 +238,13 @@ git config --global credential.helper '/home/admin/.rockpool/git-credential-help
 
 **Pros:** Standard git mechanism. Token not visible in process list or shell history. Works with all git operations (`clone`, `pull`, `push`, `fetch`).
 
-**Cons:** Token stored as plaintext on the VM disk. If the VM is compromised, the token is exposed.
+**Cons:** Token stored as plaintext on the container disk. If the container is compromised, the token is exposed.
 
-**Mitigation:** Use a token with the shortest viable lifetime. For installation access tokens (1h), this limits the exposure window. For user access tokens (8h), the risk is acceptable for a single-user self-hosted tool where the user trusts their own VMs.
+**Mitigation:** Use a token with the shortest viable lifetime. For installation access tokens (1h), this limits the exposure window. For user access tokens (8h), the risk is acceptable for a single-user self-hosted tool where the user trusts their own containers.
 
 #### Approach 2: Token vending service (future)
 
-A daemon or API on the host that the VM contacts to get fresh credentials:
+A daemon or API on the host that the container contacts to get fresh credentials:
 
 ```bash
 #!/bin/sh
@@ -254,9 +254,9 @@ curl -s http://HOST_IP/api/internal/git-credential?workspace=NAME
 
 **Pros:** No token stored on disk. Fresh token for every git operation. Central revocation.
 
-**Cons:** Requires network path from VM to host. Currently, Tart VMs are NAT-isolated and cannot reach the host's control plane. Changing this has security implications (VMs could attack the control plane). Could use Tart's `--dir` virtiofs mount as a side-channel (mount a FIFO or socket), but this is complex.
+**Cons:** Requires network path from container to host. Containers are network-isolated and cannot reach the host's control plane without explicit port mapping. Changing this has security implications (containers could attack the control plane).
 
-**Verdict:** Not viable for v1 without network architecture changes. Desirable for a future multi-user deployment where VMs are less trusted.
+**Verdict:** Not viable for v1 without network architecture changes. Desirable for a future multi-user deployment where containers are less trusted.
 
 #### Approach 3: Token embedded in clone URL (not recommended)
 
@@ -268,7 +268,7 @@ git clone https://x-access-token:TOKEN@github.com/owner/repo.git
 
 ### Which Token to Inject?
 
-Two options for the token we write to the VM:
+Two options for the token we write to the container:
 
 **Option A: User access token (8h)**
 - Already available in the session
@@ -395,7 +395,7 @@ type CreateJob = {
 };
 ```
 
-The access token is passed through the queue so the worker can inject it into the VM without needing access to the session store. The queue is internal (ElasticMQ on localhost), so the token is not exposed externally. The token expires in 8 hours regardless.
+The access token is passed through the queue so the worker can inject it into the container without needing access to the session store. The queue is internal (ElasticMQ on localhost), so the token is not exposed externally. The token expires in 8 hours regardless.
 
 **Alternative:** The worker could look up the session and get a fresh token. But the worker has no access to session state (it's in the server process's memory). Passing the token through the queue is simpler and avoids coupling the worker to the session store.
 
@@ -429,11 +429,11 @@ The access token is passed through the queue so the worker can inject it into th
 ### Phase 4: Clone During Provisioning
 
 1. Add clone step to `provisionAndStart()`:
-   - After VM boot + SSH ready, before `configure()`
-   - Write credential helper via SSH
-   - Run `git clone` via SSH
+   - After container start, before `configure()`
+   - Write credential helper via `podman exec`
+   - Run `git clone` via `podman exec`
 2. Update `configure()` to set `code-server` working directory to the cloned repo
-3. Increase SSH timeouts for clone operations (large repos)
+3. Increase timeouts for clone operations (large repos)
 4. Test: workspace boots with code already checked out
 
 ### Phase 5: Client UI
@@ -453,7 +453,7 @@ The access token is passed through the queue so the worker can inject it into th
 | User access token      | Server memory (session) | 8 hours  | GitHub API       |
 | Refresh token          | Server memory (session) | 6 months | GitHub API       |
 | Session ID             | Browser cookie (HttpOnly) | 24 hours | Control plane    |
-| VM credential helper   | VM disk (`~/.rockpool/`) | 8 hours* | github.com       |
+| Container credential helper | container volume (`~/.rockpool/`) | 8 hours* | github.com   |
 
 *The credential helper contains the user access token. It expires when the token expires, though the file persists. Stale tokens are harmless (git operations fail with 401, no security exposure).
 
@@ -465,9 +465,9 @@ The user access token has the **intersection** of:
 
 A user with read-only access to a repo gets read-only. A user with write access gets write access, up to the app's permission level. If the app only has `Contents: Read`, even a repo admin can only read through Rockpool's token.
 
-### VM Trust Model
+### Container Trust Model
 
-VMs are single-tenant (one user, one workspace). The user trusts their own VMs -- they run arbitrary code inside them. The token in the credential helper is the user's own token with their own permissions. If the VM is compromised, the attacker gets the same access the user already has, limited by the app's permissions and the 8-hour token expiry.
+Containers are single-tenant (one user, one workspace). The user trusts their own containers -- they run arbitrary code inside them. The token in the credential helper is the user's own token with their own permissions. If the container is compromised, the attacker gets the same access the user already has, limited by the app's permissions and the 8-hour token expiry.
 
 For multi-user deployments (future), this model should be tightened:
 - Use installation access tokens (1h) scoped to a single repo

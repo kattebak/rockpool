@@ -220,11 +220,11 @@ await runtime.configure(workspace.name, { ROCKPOOL_WORKSPACE_NAME: workspace.nam
 
 // clone runs after restart is complete
 if (repository) {
-    await runtime.clone(workspace.name, vmIp, repository, githubAccessToken);
+    await runtime.clone(workspace.name, containerIp, repository, githubAccessToken);
 }
 
 // getIp must come after configure because podman restart remaps ports
-const vmIp = await runtime.getIp(workspace.name);
+const containerIp = await runtime.getIp(workspace.name);
 ```
 
 The `githubAccessToken` is optional in `clone()`. When present, the credential helper is written before cloning. When absent (public repos), the clone runs without credentials.
@@ -244,7 +244,7 @@ Two levels of E2E coverage, matching the existing test patterns:
 
 **CI (stub runtime):** The existing `04-github-workspace.spec.ts` already creates a workspace from `octocat/Hello-World` and waits for "running" state. Once the clone step is wired in, this test exercises the full code path through the stub — token flows through queue, `clone()` is called (no-op on stub), workspace reaches "running" without error. No changes needed to the test itself; the stub's no-op clone ensures backward compatibility.
 
-**Full suite (real VMs):** New test file `05-clone-verification.spec.ts`, skipped in CI (same pattern as `03-ide-loading.spec.ts`). Uses the same public `octocat/Hello-World` repo as `04-github-workspace.spec.ts` — no GitHub auth token needed. This test:
+**Full suite (real containers):** New test file `05-clone-verification.spec.ts`, skipped in CI (same pattern as `03-ide-loading.spec.ts`). Uses the same public `octocat/Hello-World` repo as `04-github-workspace.spec.ts` — no GitHub auth token needed. This test:
 
 1. Creates a workspace with `octocat/Hello-World` via the API (no auth token, public repo)
 2. Polls until "running"
@@ -255,7 +255,7 @@ Two levels of E2E coverage, matching the existing test patterns:
 This validates the full clone pipeline with a real Podman container: `git clone` via `podman exec` succeeded, code-server folder path set correctly, user sees their code. The credential helper path (private repos + token) is covered by unit tests on the runtime.
 
 ```
-e2e/tests/05-clone-verification.spec.ts  -- real VM clone verification (skipped in CI)
+e2e/tests/05-clone-verification.spec.ts  -- real container clone verification (skipped in CI)
 ```
 
 ### Step 9: Unit tests for clone mechanics
@@ -290,7 +290,7 @@ packages/server/src/routes/workspaces.ts            -- pass repo + token to serv
 packages/workspace-service/src/workspace-service.ts -- parallel clone in provisionAndStart
 packages/worker/src/processor.ts                    -- forward job fields
 packages/db/src/queries.ts                          -- add getRepository()
-e2e/tests/05-clone-verification.spec.ts             -- real VM clone E2E (skipped in CI)
+e2e/tests/05-clone-verification.spec.ts             -- real container clone E2E (skipped in CI)
 packages/runtime/test/podman-runtime.test.ts        -- clone exec command tests
 packages/workspace-service/test/workspace-service.test.ts -- clone provisioning tests
 ```

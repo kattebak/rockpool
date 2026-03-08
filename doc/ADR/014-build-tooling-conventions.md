@@ -5,7 +5,7 @@
 
 ## Context
 
-Rockpool has multiple build artifacts (VM images, TypeSpec outputs, bundled services) and operational utilities (start a VM, configure Caddy, run health checks). Without a clear convention, these end up as scattered one-liners in READMEs, undocumented shell history, or ad-hoc npm scripts.
+Rockpool has multiple build artifacts (container images, TypeSpec outputs, bundled services) and operational utilities (configure Caddy, run health checks). Without a clear convention, these end up as scattered one-liners in READMEs, undocumented shell history, or ad-hoc npm scripts.
 
 We want a consistent answer to "how do I build X" and "how do I do Y" across the project.
 
@@ -16,8 +16,8 @@ We want a consistent answer to "how do I build X" and "how do I do Y" across the
 All build artifacts are defined as Makefile targets with proper dependency tracking:
 
 ```makefile
-images/rockpool-workspace: images/workspace.pkr.hcl images/scripts/setup.sh
-	packer build images/workspace.pkr.hcl
+build/typespec: typespec/main.tsp
+	npx tsp compile typespec/
 ```
 
 `npm run build` delegates to `make all`. Individual targets are available directly via `make`.
@@ -31,7 +31,7 @@ Reusable operational scripts live in `npm-scripts/` as small, self-contained bas
 - Handles its own argument parsing and usage output
 - Does one thing
 
-Examples: `npm-scripts/caddy-add-route.sh`, `npm-scripts/wait-for-vm.sh`
+Examples: `npm-scripts/podman.sh`, `npm-scripts/start.sh`
 
 These are invoked from Makefile targets, npm scripts in `package.json`, or directly.
 

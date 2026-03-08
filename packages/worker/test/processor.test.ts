@@ -78,13 +78,13 @@ describe("Processor", () => {
 	it("calls setError when provisionAndStart throws", async () => {
 		const workspaceService = createMockWorkspaceService();
 		workspaceService.provisionAndStart = async () => {
-			throw new Error("VM creation failed");
+			throw new Error("Container creation failed");
 		};
 		const processor = createProcessor({ workspaceService, logger });
 
 		await processor.process({ type: "create", workspaceId: "ws-5" });
 
-		assert.deepEqual(workspaceService.calls, ["setError:ws-5:VM creation failed"]);
+		assert.deepEqual(workspaceService.calls, ["setError:ws-5:Container creation failed"]);
 	});
 
 	it("calls setError when teardown throws", async () => {

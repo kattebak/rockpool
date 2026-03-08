@@ -37,7 +37,7 @@ function createMockRuntime(
 		async configure(name: string, _env: Record<string, string>) {
 			calls.push(`configure:${name}`);
 		},
-		async clone(name: string, _vmIp: string, repository: string, _token?: string) {
+		async clone(name: string, _containerIp: string, repository: string, _token?: string) {
 			calls.push(`clone:${name}:${repository}`);
 		},
 	};
@@ -47,13 +47,13 @@ function createMockCaddy(): CaddyRepository & { calls: string[] } {
 	const calls: string[] = [];
 	return {
 		calls,
-		async addWorkspaceRoute(name: string, _vmIp: string) {
+		async addWorkspaceRoute(name: string, _containerIp: string) {
 			calls.push(`addRoute:${name}`);
 		},
 		async removeWorkspaceRoute(name: string) {
 			calls.push(`removeRoute:${name}`);
 		},
-		async addPortRoute(workspaceName: string, _vmIp: string, port: number) {
+		async addPortRoute(workspaceName: string, _containerIp: string, port: number) {
 			calls.push(`addPort:${workspaceName}:${port}`);
 		},
 		async removePortRoute(workspaceName: string, port: number) {
@@ -65,7 +65,7 @@ function createMockCaddy(): CaddyRepository & { calls: string[] } {
 	};
 }
 
-async function noopHealthCheck(_vmIp: string): Promise<void> {}
+async function noopHealthCheck(_containerIp: string): Promise<void> {}
 
 describe("provisionAndStart", () => {
 	let db: DbClient;
@@ -74,7 +74,7 @@ describe("provisionAndStart", () => {
 		db = createMemoryDb();
 	});
 
-	it("creates VM, starts it, configures, adds route, updates status to running", async () => {
+	it("creates container, starts it, configures, adds route, updates status to running", async () => {
 		const ws = await createWorkspace(db, { name: "prov-create", image: "alpine-v1" });
 		const runtime = createMockRuntime("not_found");
 		const caddy = createMockCaddy();
@@ -96,10 +96,10 @@ describe("provisionAndStart", () => {
 
 		const updated = await getWorkspace(db, ws.id);
 		assert.equal(updated?.status, WS.running);
-		assert.equal(updated?.vmIp, "10.0.1.50");
+		assert.equal(updated?.containerIp, "10.0.1.50");
 	});
 
-	it("starts stopped VM without creating it", async () => {
+	it("starts stopped container without creating it", async () => {
 		const ws = await createWorkspace(db, { name: "prov-start-stopped", image: "alpine-v1" });
 		const runtime = createMockRuntime("stopped");
 		const caddy = createMockCaddy();
@@ -121,10 +121,10 @@ describe("provisionAndStart", () => {
 
 		const updated = await getWorkspace(db, ws.id);
 		assert.equal(updated?.status, WS.running);
-		assert.equal(updated?.vmIp, "10.0.1.50");
+		assert.equal(updated?.containerIp, "10.0.1.50");
 	});
 
-	it("skips create and start when VM already running (idempotent)", async () => {
+	it("skips create and start when container already running (idempotent)", async () => {
 		const ws = await createWorkspace(db, { name: "prov-running", image: "alpine-v1" });
 		const runtime = createMockRuntime("running");
 		const caddy = createMockCaddy();
@@ -145,7 +145,7 @@ describe("provisionAndStart", () => {
 
 		const updated = await getWorkspace(db, ws.id);
 		assert.equal(updated?.status, WS.running);
-		assert.equal(updated?.vmIp, "10.0.1.50");
+		assert.equal(updated?.containerIp, "10.0.1.50");
 	});
 
 	it("skips silently when workspace not found", async () => {
@@ -175,7 +175,7 @@ describe("teardown (stop)", () => {
 		db = createMemoryDb();
 	});
 
-	it("removes ports, stops VM, removes route, updates status to stopped", async () => {
+	it("removes ports, stops container, removes route, updates status to stopped", async () => {
 		const ws = await createWorkspace(db, { name: "tear-stop", image: "alpine-v1" });
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
@@ -196,7 +196,7 @@ describe("teardown (stop)", () => {
 
 		const updated = await getWorkspace(db, ws.id);
 		assert.equal(updated?.status, WS.stopped);
-		assert.equal(updated?.vmIp, null);
+		assert.equal(updated?.containerIp, null);
 	});
 
 	it("cascades port cleanup on stop", async () => {
@@ -249,7 +249,7 @@ describe("teardown (delete)", () => {
 		db = createMemoryDb();
 	});
 
-	it("stops VM, removes VM, removes route, deletes from DB", async () => {
+	it("stops container, removes container, removes route, deletes from DB", async () => {
 		const ws = await createWorkspace(db, { name: "tear-delete", image: "alpine-v1" });
 		const runtime = createMockRuntime();
 		const caddy = createMockCaddy();
@@ -273,11 +273,11 @@ describe("teardown (delete)", () => {
 		assert.equal(deleted, undefined);
 	});
 
-	it("ignores errors when stopping VM during delete", async () => {
+	it("ignores errors when stopping container during delete", async () => {
 		const ws = await createWorkspace(db, { name: "tear-delete-err", image: "alpine-v1" });
 		const runtime = createMockRuntime();
 		runtime.stop = async () => {
-			throw new Error("VM already stopped");
+			throw new Error("Container already stopped");
 		};
 		const caddy = createMockCaddy();
 		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };
@@ -299,11 +299,11 @@ describe("teardown (delete)", () => {
 		assert.equal(deleted, undefined);
 	});
 
-	it("ignores errors when removing VM during delete", async () => {
+	it("ignores errors when removing container during delete", async () => {
 		const ws = await createWorkspace(db, { name: "tear-delete-rm-err", image: "alpine-v1" });
 		const runtime = createMockRuntime();
 		runtime.remove = async () => {
-			throw new Error("VM not found");
+			throw new Error("Container not found");
 		};
 		const caddy = createMockCaddy();
 		const queue = { send: async () => {}, receive: async () => null, delete: async () => {} };

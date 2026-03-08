@@ -162,18 +162,21 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				"Provisioning workspace",
 			);
 
-			const vmStatus = await runtime.status(cname);
+			const containerStatus = await runtime.status(cname);
 
-			if (vmStatus === "not_found") {
+			if (containerStatus === "not_found") {
 				await runtime.create(cname, workspace.image);
 				await runtime.start(cname);
-			} else if (vmStatus === "stopped") {
-				logger.info({ workspaceId: id, name: workspace.name }, "VM exists but stopped, starting");
+			} else if (containerStatus === "stopped") {
+				logger.info(
+					{ workspaceId: id, name: workspace.name },
+					"Container exists but stopped, starting",
+				);
 				await runtime.start(cname);
 			} else {
 				logger.info(
 					{ workspaceId: id, name: workspace.name },
-					"VM already running, resuming setup",
+					"Container already running, resuming setup",
 				);
 			}
 
@@ -187,15 +190,15 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				await runtime.clone(cname, "", repository, opts?.githubAccessToken);
 			}
 
-			const vmIp = await runtime.getIp(cname);
-			await healthCheck(vmIp);
+			const containerIp = await runtime.getIp(cname);
+			await healthCheck(containerIp);
 
 			if (runtime.writeFile) {
 				const blobs = await getAllUserPrefsBlobs(db);
 				await Promise.all(
 					blobs.map((blob) =>
 						runtime
-							.writeFile?.(cname, vmIp, PREFS_FILE_PATHS[blob.name], blob.blob)
+							.writeFile?.(cname, containerIp, PREFS_FILE_PATHS[blob.name], blob.blob)
 							?.catch((err) => {
 								logger.warn(
 									{ workspaceId: id, prefsFile: blob.name, error: err },
@@ -206,10 +209,10 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				);
 			}
 
-			await caddy.addWorkspaceRoute(workspace.name, vmIp);
-			await updateWorkspaceStatus(db, id, WS.running, { vmIp, errorMessage: null });
+			await caddy.addWorkspaceRoute(workspace.name, containerIp);
+			await updateWorkspaceStatus(db, id, WS.running, { containerIp, errorMessage: null });
 
-			logger.info({ workspaceId: id, name: workspace.name, vmIp }, "Workspace running");
+			logger.info({ workspaceId: id, name: workspace.name, containerIp }, "Workspace running");
 		},
 
 		async teardown(id: string, mode: TeardownMode): Promise<void> {
@@ -223,10 +226,10 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 			logger.info({ workspaceId: id, name: workspace.name, mode }, "Tearing down workspace");
 
 			if (mode === "stop") {
-				if (workspace.autoSyncPrefs && workspace.vmIp && runtime.readFile) {
+				if (workspace.autoSyncPrefs && workspace.containerIp && runtime.readFile) {
 					for (const [name, filePath] of Object.entries(PREFS_FILE_PATHS)) {
 						const content = await runtime
-							.readFile(cname, workspace.vmIp, filePath)
+							.readFile(cname, workspace.containerIp, filePath)
 							.catch(() => null);
 						if (content === null) continue;
 
@@ -245,7 +248,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 				await removeAllPorts(db, id);
 				await runtime.stop(cname);
 				await caddy.removeWorkspaceRoute(workspace.name);
-				await updateWorkspaceStatus(db, id, WS.stopped, { vmIp: null });
+				await updateWorkspaceStatus(db, id, WS.stopped, { containerIp: null });
 				logger.info({ workspaceId: id, name: workspace.name }, "Workspace stopped");
 				return;
 			}

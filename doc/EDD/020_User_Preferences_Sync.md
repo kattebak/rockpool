@@ -15,18 +15,18 @@ IDE settings (theme, keybindings, editor preferences) should persist across work
 ## Prerequisites
 
 - [ADR-017](../ADR/017-code-server-web-ide.md) — code-server as the IDE (defines where settings live on disk)
-- [EDD-005](005_Workspace_Image_Pipeline.md) — Workspace image pipeline (VM SSH infrastructure)
-- [EDD-018](018_Repository_Cloning.md) — Repository cloning (established pattern for SSH file operations during provisioning)
+- [EDD-005](005_Workspace_Image_Pipeline.md) — Workspace image pipeline (container exec infrastructure)
+- [EDD-018](018_Repository_Cloning.md) — Repository cloning (established pattern for file operations during provisioning)
 
 ## Problem
 
-Every workspace starts from the same base image. If a user customizes their IDE — changes the theme, adjusts keybindings, configures editor settings — those changes live on that workspace's VM disk. Starting a new workspace means starting from scratch. The user has to redo their setup every time.
+Every workspace starts from the same base image. If a user customizes their IDE — changes the theme, adjusts keybindings, configures editor settings — those changes live on that workspace's container volume. Starting a new workspace means starting from scratch. The user has to redo their setup every time.
 
-The SSH infrastructure to read and write files inside VMs already exists (`sshExec` in tart-runtime). The missing piece is a data model to persist preference files and a sync mechanism to push/pull them during the workspace lifecycle.
+The infrastructure to read and write files inside containers already exists (`execInContainer` in podman-runtime). The missing piece is a data model to persist preference files and a sync mechanism to push/pull them during the workspace lifecycle.
 
 ## Design Goals
 
-**Enum-driven.** A single TypeSpec enum defines the complete allowlist of syncable files — their logical names and filesystem paths. This enum drives validation, the API, and the SSH file operations. No stringly-typed paths scattered through the codebase.
+**Enum-driven.** A single TypeSpec enum defines the complete allowlist of syncable files — their logical names and filesystem paths. This enum drives validation, the API, and the file operations. No stringly-typed paths scattered through the codebase.
 
 **Timestamp-safe.** Each blob has an `updatedAt` timestamp. Auto-sync on stop only overwrites if the blob is newer than what's stored. This prevents an old workspace (stopped after a long idle) from clobbering settings saved more recently from another workspace.
 
@@ -48,21 +48,21 @@ The SSH infrastructure to read and write files inside VMs already exists (`sshEx
               (always)   │        │  manual save
                          ▼        │
                     ┌─────────────┴────┐
-                    │   VM filesystem  │
+                    │   container filesystem  │
                     │  ~/.local/share/ │
                     │  code-server/... │
                     └──────────────────┘
 ```
 
-**Start (any workspace):** All stored `UserPrefsBlob` records are read from the DB and written into the VM via SSH, after `configure()` completes but before the health check passes. This reuses the existing SSH infrastructure.
+**Start (any workspace):** All stored `UserPrefsBlob` records are read from the DB and written into the container via exec, after `configure()` completes but before the health check passes. This reuses the existing SSH infrastructure.
 
 **Manual save (`PUT /api/settings/:name`):** The server SSHs into a specified running workspace, reads the file at the enum-defined path, and stores it as a blob with the current timestamp.
 
-**Auto-save on stop:** If the workspace has `autoSyncPrefs` enabled, the teardown step reads each allowlisted file from the VM before stopping it. Each blob is stored only if its content differs from what's in the DB (to avoid unnecessary timestamp bumps). The `updatedAt` is compared — if the DB already has a newer blob (saved manually from another workspace), the auto-save skips that file.
+**Auto-save on stop:** If the workspace has `autoSyncPrefs` enabled, the teardown step reads each allowlisted file from the container before stopping it. Each blob is stored only if its content differs from what's in the DB (to avoid unnecessary timestamp bumps). The `updatedAt` is compared — if the DB already has a newer blob (saved manually from another workspace), the auto-save skips that file.
 
 ### Allowlist Enum
 
-The TypeSpec enum is the single source of truth. Each value maps to a filesystem path inside the VM.
+The TypeSpec enum is the single source of truth. Each value maps to a filesystem path inside the container.
 
 ```typespec
 enum UserPrefsFileName {
@@ -95,7 +95,7 @@ The auto-sync-on-stop scenario where timestamps matter:
 Without timestamp checks, step 3 would overwrite the keybindings saved at T2 with the older version from workspace A. With timestamps:
 
 - Auto-sync reads the DB's `updatedAt` for each file before writing
-- If DB `updatedAt` >= file's modification time from the VM, the auto-sync skips that file
+- If DB `updatedAt` >= file's modification time from the container, the auto-sync skips that file
 - Manual save always writes (explicit user action takes precedence)
 
 In practice, the comparison is simple: auto-sync does a conditional update (`UPDATE ... WHERE updatedAt < ?`). Manual save does an unconditional upsert.
@@ -169,8 +169,8 @@ PUT /api/settings/CodeServerSettings?workspaceId=abc123
 The `workspaceId` query parameter identifies which running workspace to read the file from. The server:
 
 1. Validates `name` against the `UserPrefsFileName` enum (400 if invalid)
-2. Looks up the workspace, confirms it's running and has a `vmIp` (409 if not running)
-3. SSHs into the VM, reads the file at the enum-mapped path
+2. Looks up the workspace, confirms it's running and has a `containerIp` (409 if not running)
+3. SSHs into the container, reads the file at the enum-mapped path
 4. Upserts the blob in the DB with `updatedAt = now()`
 5. Returns the stored blob
 
@@ -191,35 +191,35 @@ Add two methods to the `RuntimeRepository` interface:
 ```typescript
 export interface RuntimeRepository {
     // ... existing methods ...
-    readFile?(name: string, vmIp: string, filePath: string): Promise<string>;
-    writeFile?(name: string, vmIp: string, filePath: string, content: string): Promise<void>;
+    readFile?(name: string, containerIp: string, filePath: string): Promise<string>;
+    writeFile?(name: string, containerIp: string, filePath: string, content: string): Promise<void>;
 }
 ```
 
 Both are optional (like `configure` and `clone`) so the stub runtime can omit them.
 
-Implementation in tart-runtime uses `sshExec`:
+Implementation in podman-runtime uses `execInContainer`:
 
 ```typescript
-async readFile(_name: string, vmIp: string, filePath: string): Promise<string> {
-    return sshExec(vmIp, `cat /home/${sshUser}/${filePath}`);
+async readFile(_name: string, containerIp: string, filePath: string): Promise<string> {
+    return execInContainer(containerIp, `cat /home/${sshUser}/${filePath}`);
 }
 
-async writeFile(_name: string, vmIp: string, filePath: string, content: string): Promise<void> {
+async writeFile(_name: string, containerIp: string, filePath: string, content: string): Promise<void> {
     const dir = filePath.substring(0, filePath.lastIndexOf("/"));
-    await sshExec(vmIp, `mkdir -p /home/${sshUser}/${dir} && printf '%s' '${escapeSingleQuotes(content)}' > /home/${sshUser}/${filePath}`);
+    await execInContainer(containerIp, `mkdir -p /home/${sshUser}/${dir} && printf '%s' '${escapeSingleQuotes(content)}' > /home/${sshUser}/${filePath}`);
 }
 ```
 
 ### Workspace Service: Push on Start
 
-In `provisionAndStart`, after `configureAndWait` succeeds and before the Caddy route is added, push all stored preference blobs into the VM:
+In `provisionAndStart`, after `configureAndWait` succeeds and before the Caddy route is added, push all stored preference blobs into the container:
 
 ```typescript
 const blobs = await getAllUserPrefsBlobs(db);
 await Promise.all(
     blobs.map(blob =>
-        runtime.writeFile?.(workspace.name, vmIp, PREFS_FILE_PATHS[blob.name], blob.blob)
+        runtime.writeFile?.(workspace.name, containerIp, PREFS_FILE_PATHS[blob.name], blob.blob)
     )
 );
 ```
@@ -230,12 +230,12 @@ Note: writing preferences after `configureAndWait` means code-server is already 
 
 ### Workspace Service: Pull on Stop
 
-In `teardown("stop")`, before stopping the VM, if `autoSyncPrefs` is enabled:
+In `teardown("stop")`, before stopping the container, if `autoSyncPrefs` is enabled:
 
 ```typescript
-if (workspace.autoSyncPrefs && workspace.vmIp) {
+if (workspace.autoSyncPrefs && workspace.containerIp) {
     for (const [name, filePath] of Object.entries(PREFS_FILE_PATHS)) {
-        const content = await runtime.readFile?.(workspace.name, workspace.vmIp, filePath)
+        const content = await runtime.readFile?.(workspace.name, workspace.containerIp, filePath)
             .catch(() => null);
         if (content === null || content === undefined) continue;
 
@@ -261,18 +261,18 @@ New route file `packages/server/src/routes/settings.ts`:
 // PUT /api/settings/:name?workspaceId=xxx
 ```
 
-The PUT handler needs access to the runtime to SSH into the workspace. It gets this through the same dependency injection pattern used by the workspace routes. The workspace must be in "running" state with a `vmIp` — otherwise 409.
+The PUT handler needs access to the runtime to SSH into the workspace. It gets this through the same dependency injection pattern used by the workspace routes. The workspace must be in "running" state with a `containerIp` — otherwise 409.
 
 ### Error Handling
 
 | Failure | Behavior | HTTP Status |
 | --- | --- | --- |
 | Invalid pref name | Reject with enum validation error | 400 |
-| Workspace not running | Cannot read file from stopped VM | 409 |
-| File doesn't exist in VM | Return empty / skip (auto-sync) | 404 (manual) / skip (auto) |
-| SSH failure during manual save | Propagate error | 502 |
-| SSH failure during auto-sync on stop | Log warning, continue teardown | N/A (background) |
-| SSH failure during push on start | Log warning, continue startup | N/A (background) |
+| Workspace not running | Cannot read file from stopped container | 409 |
+| File doesn't exist in container | Return empty / skip (auto-sync) | 404 (manual) / skip (auto) |
+| Exec failure during manual save | Propagate error | 502 |
+| Exec failure during auto-sync on stop | Log warning, continue teardown | N/A (background) |
+| Exec failure during push on start | Log warning, continue startup | N/A (background) |
 
 Auto-sync failures (on stop and on start) are non-fatal. Preferences are a convenience — they should never block workspace lifecycle operations. Manual save failures are reported to the user since they explicitly requested the operation.
 
@@ -290,11 +290,11 @@ Note: `conditionalUpsertPrefsBlob` (timestamp-guarded upsert for auto-sync) defe
 
 ### Step 3: Prefs file path mapping ✅
 
-Added `PREFS_FILE_PATHS` constant, `readFile`/`writeFile` to `RuntimeRepository` interface, implemented in tart-runtime via `sshExec`. Stub-runtime omits them (optional methods).
+Added `PREFS_FILE_PATHS` constant, `readFile`/`writeFile` to `RuntimeRepository` interface, implemented in podman-runtime via `execInContainer`. Stub-runtime omits them (optional methods).
 
 ### Step 4: Push prefs on workspace start ✅
 
-`provisionAndStart` reads all stored blobs from DB and writes them into the VM after configure completes, before the workspace is marked running.
+`provisionAndStart` reads all stored blobs from DB and writes them into the container after configure completes, before the workspace is marked running.
 
 ### Step 5: Pull prefs on workspace stop — deferred
 
@@ -302,20 +302,20 @@ Auto-sync on stop is designed but not yet implemented. Manual save via the API a
 
 ### Step 6: Settings API routes ✅
 
-Server routes for listing, getting, and manually saving preference blobs. The PUT handler catches SSH failures when files don't exist on the VM (code-server doesn't create `settings.json` or `keybindings.json` until the user first modifies a setting) and returns 404.
+Server routes for listing, getting, and manually saving preference blobs. The PUT handler catches SSH failures when files don't exist on the container (code-server doesn't create `settings.json` or `keybindings.json` until the user first modifies a setting) and returns 404.
 
 ### Step 7: Frontend preferences UI ✅
 
 Added a `PrefsPanel` component to the workspace detail page (visible when workspace is running):
 - Table of all 3 preference types with "Last saved" timestamps
-- "Save all" button saves in parallel via `Promise.allSettled`, silently skips 404s for files that don't exist yet on the VM, reports count of successful saves
+- "Save all" button saves in parallel via `Promise.allSettled`, silently skips 404s for files that don't exist yet on the container, reports count of successful saves
 - Individual per-preference save buttons
 
 ### Step 8: E2E tests ✅
 
 Added `e2e/tests/06-preferences-save.spec.ts` (5 tests, skips on CI profile):
 - Settings list API returns empty array initially
-- Settings save returns 404 for files not yet created on VM
+- Settings save returns 404 for files not yet created in the container
 - Preferences panel renders in workspace detail
 - Timestamps show "Never" before any save
 - Save all silently skips missing files
@@ -328,7 +328,7 @@ packages/db/src/schema.ts                             -- user_prefs_blob table
 packages/db/src/queries.ts                            -- blob CRUD + upsert
 packages/runtime/src/prefs.ts                         -- PREFS_FILE_PATHS mapping
 packages/runtime/src/types.ts                         -- readFile/writeFile interface
-packages/runtime/src/tart-runtime.ts                  -- implement readFile/writeFile
+packages/runtime/src/podman-runtime.ts                 -- implement readFile/writeFile
 packages/runtime/src/stub-runtime.ts                  -- no-op stubs
 packages/server/src/routes/settings.ts                -- settings API routes (with 404 for missing files)
 packages/server/src/app.ts                            -- register settings routes

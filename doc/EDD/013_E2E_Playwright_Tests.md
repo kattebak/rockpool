@@ -11,13 +11,13 @@
 
 ## Summary
 
-Add a Playwright-based end-to-end test suite that runs the real platform stack — Caddy, server, worker, queue, database — with only the VM runtime stubbed out. The test stack runs on a separate port range (9xxx) with an ephemeral database, so it can run alongside local development without interference.
+Add a Playwright-based end-to-end test suite that runs the real platform stack — Caddy, server, worker, queue, database — with only the container runtime stubbed out. The test stack runs on a separate port range (9xxx) with an ephemeral database, so it can run alongside local development without interference.
 
 Two profiles, controlled by env files:
 
 1. **Test profile** (`test.env`, committed) — runs on GitHub Actions and locally. Real Caddy with basic auth, real server, real worker, real SQS queue (ElasticMQ), ephemeral SQLite DB, stub runtime. Playwright launches its own Chromium. Catches SPA regressions, API contract breaks, UI interaction bugs, Caddy routing/auth issues, and workspace state machine bugs on every push.
 
-2. **Development profile** (`development.env`, gitignored) — runs against `npm start` with real Tart VMs. Connects to a debug Chrome via CDP. Extends test-profile coverage with IDE loading verification (code-server through the Caddy proxy chain). Catches VM provisioning failures and proxy chain issues.
+2. **Development profile** (`development.env`, gitignored) — runs against `npm start` with real containers. Connects to a debug Chrome via CDP. Extends test-profile coverage with IDE loading verification (code-server through the Caddy proxy chain). Catches Container provisioning failures and proxy chain issues.
 
 The same test stack also enables running API integration tests against real services in CI — not just E2E browser tests.
 
@@ -32,10 +32,10 @@ Recent regressions have gone undetected because all existing tests are unit/inte
 - UI interaction bugs (dialog flows, state transitions, polling)
 - Caddy route misconfiguration (prefix stripping, auth handler ordering)
 - Basic auth misconfiguration (wrong routes gated, health check blocked)
-- VM provisioning race conditions (health check timing, IP assignment)
+- Container provisioning race conditions (health check timing, IP assignment)
 - code-server not starting or not responding behind the proxy
 
-Running stubs for everything except VMs means phases 1-2 catch the first five categories on every push. Phase 3 (local) catches the last two before deployment.
+Running stubs for everything except containers means phases 1-2 catch the first five categories on every push. Phase 3 (local) catches the last two before deployment.
 
 ## Prerequisites
 
@@ -50,7 +50,7 @@ Running stubs for everything except VMs means phases 1-2 catch the first five ca
 
 - Everything above, plus:
 - [EDD-010](010_PM2_Process_Management.md) — PM2 manages Caddy + server + client
-- `rockpool-workspace` Tart image built (`make .stamps/rockpool-workspace`)
+- `rockpool-workspace container image built (`make .stamps/rockpool-workspace`)
 - `npm run chrome:debug` for the debug browser
 
 ## Design Decisions
@@ -59,7 +59,7 @@ Running stubs for everything except VMs means phases 1-2 catch the first five ca
 
 The previous draft stubbed out everything (Caddy, queue, DB behavior) in the test profile via `NODE_ENV=test`. This was an oversimplification — it meant CI never validated Caddy routing, basic auth, or the real request path users hit.
 
-The revised design runs the real stack in both profiles. The only difference is the VM runtime:
+The revised design runs the real stack in both profiles. The only difference is the container runtime:
 
 | Component    | Test profile                                                | Development profile           |
 | ------------ | ----------------------------------------------------------- | ----------------------------- |
@@ -68,10 +68,10 @@ The revised design runs the real stack in both profiles. The only difference is 
 | Worker       | Real — queue polling, job processing                        | Same                          |
 | Queue        | Real — ElasticMQ (SQS-compatible)                           | Same                          |
 | Database     | Real SQLite — ephemeral file, migrations on connect         | Same (persistent file)        |
-| Runtime      | `StubRuntime` — in-memory VMs, instant boot, fake IPs       | `TartRuntime` — real Tart VMs |
-| Health check | No-op (stub VMs don't need it)                              | curl to VM:8080               |
+| Runtime      | `StubRuntime` — in-memory containers, instant boot, fake IPs       | `PodmanRuntime` — real Podman containers |
+| Health check | No-op (stub containers don't need it)                              | health check to container:8080               |
 
-The server already selects the runtime via `RUNTIME` env var (`const useStubVm = process.env.RUNTIME !== "tart"`). The test profile simply doesn't set `RUNTIME=tart`. Critically, `NODE_ENV` is **not** set to `test` — the server runs its normal startup path including Caddy bootstrap and workspace recovery.
+The server already selects the runtime via `RUNTIME` env var (`const useStub = process.env.RUNTIME !== "podman"`). The test profile simply doesn't set `RUNTIME=podman`. Critically, `NODE_ENV` is **not** set to `test` — the server runs its normal startup path including Caddy bootstrap and workspace recovery.
 
 ### Separate port range for test isolation
 
@@ -141,15 +141,15 @@ Each test run creates a workspace with a unique name (`e2e-{timestamp}`) and cle
 
 Cleanup runs in `afterAll` via direct API calls (bypasses UI for reliability). A try/catch ensures cleanup even on test failure.
 
-### Generous timeouts for VM operations
+### Generous timeouts for container operations
 
 | Scope               | CI timeout | Local timeout | Rationale                           |
 | ------------------- | ---------- | ------------- | ----------------------------------- |
-| Test (per test)     | 30s        | 5 minutes     | Stubs are instant; VMs take 60s+    |
+| Test (per test)     | 30s        | 5 minutes     | Stubs are instant; containers take longer    |
 | Navigation          | 10s        | 30s           | SPA loads fast; Caddy adds latency  |
 | Action              | 5s         | 15s           | UI interactions should be fast      |
 | Expect (assertion)  | 10s        | 30s           | Stub state changes are near-instant |
-| Workspace provision | 15s        | 3 minutes     | Stubs: ~1s; Tart VM: 30-60s         |
+| Workspace provision | 15s        | 3 minutes     | Stubs: ~1s; Podman container: 30-60s         |
 
 ## Code Changes Required
 
@@ -186,13 +186,13 @@ bootstrapOptions.srv0Port = config.srv0Port;
 
 ### 2. Worker respects RUNTIME env var
 
-Currently `packages/worker/src/main.ts` hardcodes `createTartRuntime`. It needs the same `RUNTIME` check as the server:
+Currently `packages/worker/src/main.ts` hardcodes `createPodmanRuntime`. It needs the same `RUNTIME` check as the server:
 
 ```typescript
-const useStubVm = process.env.RUNTIME !== "tart";
+const useStub = process.env.RUNTIME !== "podman";
 const runtime = useStubVm
   ? createStubRuntime()
-  : createTartRuntime({ sshKeyPath });
+  : createPodmanRuntime({ sshKeyPath });
 ```
 
 ### 3. `setup-elasticmq.sh` accepts config argument
@@ -633,7 +633,7 @@ npm run test:e2e:smoke
 
 ## Phase 2: Workspace Lifecycle — Create, Provision, Stop, Delete
 
-**Goal:** Exercise the workspace state machine through the UI. The full stack processes real queue messages through the real worker — only the VM operations are stubbed (instant boot, fake IPs). This validates the Caddy route lifecycle too: stub workspaces get real Caddy routes added/removed.
+**Goal:** Exercise the workspace state machine through the UI. The full stack processes real queue messages through the real worker — only the container operations are stubbed (instant boot, fake IPs). This validates the Caddy route lifecycle too: stub workspaces get real Caddy routes added/removed.
 
 **Runs in:** CI + local
 
@@ -748,7 +748,7 @@ test.describe("Workspace lifecycle: create → provision → stop → delete", (
 # Test profile (~10s with stubs, real queue/Caddy):
 npm run test:e2e:lifecycle
 
-# Development profile (~3 min with real VMs):
+# Development profile (~3 min with real containers):
 npm run test:e2e:lifecycle
 ```
 
@@ -756,7 +756,7 @@ npm run test:e2e:lifecycle
 
 **Goal:** After a workspace reaches `running`, open the IDE URL on srv1 and verify code-server loads through the Caddy proxy chain.
 
-**Runs in:** local only (requires real VM with code-server)
+**Runs in:** local only (requires real container with code-server)
 
 ### Key challenge: cross-origin navigation
 
@@ -787,7 +787,7 @@ import {
 const profile = process.env.E2E_PROFILE ?? "development";
 test.skip(
   profile === "test",
-  "IDE loading requires real VMs — development profile only",
+  "IDE loading requires real containers — development profile only",
 );
 
 const IDE_PORT = Number.parseInt(process.env.SRV1_PORT ?? "8081", 10);
@@ -1031,14 +1031,14 @@ rockpool/
 
 GitHub Actions sets `E2E_PROFILE=test` and runs phases 1-2 automatically. Phase 3 is skipped. The full stack is started by Playwright's `webServer` config on the 9xxx port range.
 
-### Local — quick validation (test profile, no VMs needed)
+### Local — quick validation (test profile, no containers needed)
 
 ```bash
 # Starts full stack on 9xxx ports — safe to run while npm start is up
 npm run test:e2e
 ```
 
-### Local — full validation (development profile, real VMs)
+### Local — full validation (development profile, real containers)
 
 ```bash
 # Terminal 1: start platform
@@ -1053,7 +1053,7 @@ E2E_PROFILE=development npm run test:e2e
 
 ## What Each Mode Catches
 
-| Regression category                                 | Test profile (stub VMs) | Development profile (real VMs) |
+| Regression category                                 | Test profile (stub containers) | Development profile (real containers) |
 | --------------------------------------------------- | ----------------------- | ------------------------------ |
 | SPA build failures (broken imports, missing assets) | Yes                     | Yes                            |
 | API contract mismatches (SDK vs server)             | Yes                     | Yes                            |
@@ -1064,7 +1064,7 @@ E2E_PROFILE=development npm run test:e2e
 | API proxy routing through Caddy                     | Yes                     | Yes                            |
 | Queue processing (server → ElasticMQ → worker)      | Yes                     | Yes                            |
 | Workspace Caddy route lifecycle (add/remove)        | Yes (stub IPs)          | Yes (real IPs)                 |
-| VM provisioning failures                            | No                      | Yes                            |
+| Container provisioning failures                            | No                      | Yes                            |
 | code-server proxy chain issues                      | No                      | Yes                            |
 | WebSocket upgrade failures                          | No                      | Yes                            |
 
@@ -1074,7 +1074,7 @@ E2E_PROFILE=development npm run test:e2e
 - [ ] Should Phase 3 test terminal interaction (type a command, verify output)? This would validate WebSocket proxying but adds complexity.
 - [ ] Should we add a Phase 4 that tests port forwarding (register a port, open preview URL)?
 - [x] Should `setup-elasticmq.sh` accept a config file argument? — Yes, `setup-elasticmq.sh test` uses `elasticmq.test.conf`, `setup-elasticmq.sh download` pre-caches the jar.
-- [x] Can E2E tests run in CI without real VMs? — Yes, all phases except IDE loading run against stub runtime with the real stack.
+- [x] Can E2E tests run in CI without real containers? — Yes, all phases except IDE loading run against stub runtime with the real stack.
 - [x] Should the test profile run through Caddy? — Yes, both profiles use real Caddy with basic auth. This validates routing, auth, and proxy configuration in CI.
 
 ## Implementation Notes
@@ -1091,7 +1091,7 @@ The E2E workflow exposed two pre-existing CI issues unrelated to the E2E tests t
 
 1. **`sed -i ''` is macOS-only** — The Makefile used `sed -i ''` which doesn't work on Linux (GNU sed interprets `''` as a filename). Fixed to `sed -i.bak` with cleanup, which works on both platforms.
 
-2. **`make all` tries to build Tart VM image** — The `all` target includes the Packer/Tart VM image, which is macOS-only (Tart uses Apple Virtualization.framework). Added a `make ci` target that builds only code artifacts. The `preinstall` script uses `make ci` when the `CI` env var is set (GitHub Actions sets this automatically).
+2. **`make all` tries to build container image** — The `all` target includes the workspace container image build. Added a `make ci` target that builds only code artifacts. The `preinstall` script uses `make ci` when the `CI` env var is set (GitHub Actions sets this automatically).
 
 #### Global setup requires auth for SPA readiness
 
@@ -1105,7 +1105,7 @@ Full workspace lifecycle test (8 serial tests, ~16s with stubs): create → prov
 
 #### Worker missing no-op health check for stub runtime
 
-The server already had a no-op health check when using `StubRuntime`, but the worker didn't. The `defaultHealthCheck` curls `http://${vmIp}:8080/healthz` — stub VMs have fake IPs (10.0.1.x) that don't respond, so provisioning hung. Fixed by passing a no-op health check in the worker when `RUNTIME !== "tart"`.
+The server already had a no-op health check when using `StubRuntime`, but the worker didn't. The `defaultHealthCheck` curls `http://${containerIp}:8080/healthz` — stub containers have fake IPs (10.0.1.x) that don't respond, so provisioning hung. Fixed by passing a no-op health check in the worker when `RUNTIME !== "podman"`.
 
 #### Global setup ensures queue exists
 
@@ -1115,7 +1115,7 @@ ElasticMQ's config-based queue auto-creation can fail when the dev ElasticMQ is 
 
 PR: #7
 
-IDE loading verification test (4 tests, ~10s with real VMs). Skipped in CI via `test.skip(profile === "test")`.
+IDE loading verification test (4 tests, ~10s with real containers). Skipped in CI via `test.skip(profile === "test")`.
 
 #### Playwright strict mode requires specific selectors
 

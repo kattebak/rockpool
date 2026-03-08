@@ -81,7 +81,7 @@ model Workspace {
   description?: string;
 
   @visibility(Lifecycle.Read)
-  vmIp?: string;
+  containerIp?: string;
 
   @visibility(Lifecycle.Read)
   errorMessage?: string;

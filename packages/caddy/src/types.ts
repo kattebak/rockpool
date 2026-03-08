@@ -6,9 +6,9 @@ export interface CaddyRoute {
 }
 
 export interface CaddyRepository {
-	addWorkspaceRoute(name: string, vmIp: string): Promise<void>;
+	addWorkspaceRoute(name: string, containerIp: string): Promise<void>;
 	removeWorkspaceRoute(name: string): Promise<void>;
-	addPortRoute(workspaceName: string, vmIp: string, port: number): Promise<void>;
+	addPortRoute(workspaceName: string, containerIp: string, port: number): Promise<void>;
 	removePortRoute(workspaceName: string, port: number): Promise<void>;
 	bootstrap(config: unknown): Promise<void>;
 }

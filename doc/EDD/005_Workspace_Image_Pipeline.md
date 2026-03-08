@@ -11,7 +11,7 @@
 
 Defines how Rockpool builds and stores workspace container images. The workspace image is a Dockerfile built with `podman build`. It produces a standard OCI container image used by the Podman runtime for all workspaces.
 
-The original Packer-based pipeline (Tart OCI images, ext4 rootfs) has been replaced. Workspace images are now standard Dockerfiles.
+Workspace images are standard Dockerfiles built with `podman build`.
 
 ## Prerequisites
 
@@ -105,7 +105,7 @@ Existing workspaces keep their volume data unchanged. Only new workspaces use th
 ## Resolved Questions
 
 - [x] Which base distro? **Debian bookworm-slim** -- broad compatibility, minimal footprint.
-- [x] How to build images? **podman build** -- standard Dockerfile, no Packer.
+- [x] How to build images? **podman build** -- standard Dockerfile.
 - [x] Local or registry? **Local only** -- build on each machine, no distribution overhead.
 - [x] What's in the base image? **Kitchen sink** -- code-server, git, bash, node, python, make, jq, curl.
 - [x] How is user state preserved? **Podman named volumes** -- `/home/admin` survives stop/start/rm.

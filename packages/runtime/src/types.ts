@@ -8,7 +8,7 @@ export interface RuntimeRepository {
 	status(name: string): Promise<VmStatus>;
 	getIp(name: string): Promise<string>;
 	configure?(name: string, env: Record<string, string>): Promise<void>;
-	clone?(name: string, vmIp: string, repository: string, token?: string): Promise<void>;
-	readFile?(name: string, vmIp: string, filePath: string): Promise<string>;
-	writeFile?(name: string, vmIp: string, filePath: string, content: string): Promise<void>;
+	clone?(name: string, containerIp: string, repository: string, token?: string): Promise<void>;
+	readFile?(name: string, containerIp: string, filePath: string): Promise<string>;
+	writeFile?(name: string, containerIp: string, filePath: string, content: string): Promise<void>;
 }

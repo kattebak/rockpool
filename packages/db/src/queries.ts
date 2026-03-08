@@ -174,13 +174,13 @@ export function updateWorkspaceStatus(
 	db: DbClient,
 	id: string,
 	status: WorkspaceStatus,
-	fields?: { vmIp?: string | null; errorMessage?: string | null },
+	fields?: { containerIp?: string | null; errorMessage?: string | null },
 ): Promise<Workspace | undefined> {
 	return db
 		.update(workspaces)
 		.set({
 			status,
-			vmIp: fields?.vmIp,
+			containerIp: fields?.containerIp,
 			errorMessage: fields?.errorMessage,
 			updatedAt: new Date(),
 		})

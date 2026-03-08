@@ -36,7 +36,7 @@ These are the explicit starting decisions for production planning beyond the MVP
 
 ### Linux (direct on host)
 
-On Linux, there is no Root VM layer. The control plane runs as containers via `podman compose` directly on the host. Workspace containers are created as siblings managed by the host's Podman.
+The control plane runs as containers via `podman compose` directly on the host. Workspace containers are created as siblings managed by the host's Podman.
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -63,33 +63,6 @@ On Linux, there is no Root VM layer. The control plane runs as containers via `p
 │  │ :44231 │ │ :44232 │                       │
 │  └────────┘ └────────┘                       │
 └──────────────────────────────────────────────┘
-```
-
-### macOS (Root VM)
-
-On macOS, a Root VM (Tart or QEMU) provides a Linux environment. The control plane compose stack runs inside the VM with the project directory mounted via Virtiofs. See [EDD-022](022_Root_VM.md) for details.
-
-```
-┌──────────────────────────────────────┐
-│         Host (macOS)                 │
-│                                      │
-│  Tart / QEMU (hypervisor only)      │
-│  User's editor                       │
-│                                      │
-│  ┌────────────────────────────────┐  │
-│  │      Root VM (Linux)          │  │
-│  │                                │  │
-│  │  podman compose               │  │
-│  │  (caddy, server, worker,     │  │
-│  │   elasticmq, client)         │  │
-│  │                                │  │
-│  │  ┌────────┐ ┌────────┐       │  │
-│  │  │ ws-a   │ │ ws-b   │       │  │
-│  │  │(podman)│ │(podman)│       │  │
-│  │  └────────┘ └────────┘       │  │
-│  │                                │  │
-│  └────────────────────────────────┘  │
-└──────────────────────────────────────┘
 ```
 
 Ports `:8080`, `:8081`, and `:8082` are separate browser origins, providing origin isolation between the control plane, IDE sessions, and app previews. See [ADR-015](../ADR/015-three-port-origin-isolation.md).
@@ -241,10 +214,9 @@ Workspace containers expose port 8080 via Podman's `-P` (publish all) flag, whic
 
 | Target        | OS    | Workspace Runtime | Control Plane    | Notes                              |
 | ------------- | ----- | ----------------- | ---------------- | ---------------------------------- |
-| Laptop (Mac)  | macOS | Podman (in Root VM) | podman compose (in Root VM) | Root VM via Tart, Virtiofs mount |
-| Desktop/Server| Linux | Podman (on host)  | podman compose (on host) | Direct, no VM layer needed    |
+| Desktop/Server| Linux | Podman (on host)  | podman compose (on host) | Direct on host                |
 
-See: [EDD 002: MicroVM Runtime](002_MicroVM_Runtime.md) for runtime evaluation. See: [EDD 022: Root VM](022_Root_VM.md) for the macOS Root VM setup.
+See: [EDD 002: MicroVM Runtime](002_MicroVM_Runtime.md) for runtime evaluation.
 
 ## Open Questions
 

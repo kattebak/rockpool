@@ -3,7 +3,7 @@ import type { Logger } from "pino";
 const HEALTH_POLL_INTERVAL_MS = 1000;
 const HEALTH_POLL_MAX_ATTEMPTS = 60;
 
-export type HealthCheckFn = (vmIp: string) => Promise<void>;
+export type HealthCheckFn = (containerIp: string) => Promise<void>;
 
 function fetchHealthCheck(url: string, timeoutMs: number): Promise<boolean> {
 	return fetch(url, { signal: AbortSignal.timeout(timeoutMs) })
@@ -11,20 +11,20 @@ function fetchHealthCheck(url: string, timeoutMs: number): Promise<boolean> {
 		.catch(() => false);
 }
 
-function toHealthUrl(vmIp: string): string {
-	const host = vmIp.includes(":") ? vmIp : `${vmIp}:8080`;
+function toHealthUrl(containerIp: string): string {
+	const host = containerIp.includes(":") ? containerIp : `${containerIp}:8080`;
 	return `http://${host}/healthz`;
 }
 
 export function defaultHealthCheck(logger: Logger): HealthCheckFn {
-	return async (vmIp: string): Promise<void> => {
-		const url = toHealthUrl(vmIp);
+	return async (containerIp: string): Promise<void> => {
+		const url = toHealthUrl(containerIp);
 		for (let attempt = 0; attempt < HEALTH_POLL_MAX_ATTEMPTS; attempt++) {
 			const ok = await fetchHealthCheck(url, 5000);
 			if (ok) {
 				return;
 			}
-			logger.debug({ vmIp, attempt }, "Waiting for code-server");
+			logger.debug({ containerIp, attempt }, "Waiting for code-server");
 			await new Promise((resolve) => setTimeout(resolve, HEALTH_POLL_INTERVAL_MS));
 		}
 		throw new Error(`Timed out waiting for code-server at ${url}`);

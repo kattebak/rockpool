@@ -183,11 +183,11 @@ export function WorkspaceDetailPage() {
 							<dd>
 								<code className="font-mono text-xs">{workspace.image}</code>
 							</dd>
-							{workspace.vmIp && (
+							{workspace.containerIp && (
 								<>
-									<dt className="text-muted-foreground">VM IP</dt>
+									<dt className="text-muted-foreground">IP Address</dt>
 									<dd>
-										<code className="font-mono text-xs">{workspace.vmIp}</code>
+										<code className="font-mono text-xs">{workspace.containerIp}</code>
 									</dd>
 								</>
 							)}

@@ -169,7 +169,12 @@ export function createPodmanRuntime(options: PodmanRuntimeOptions = {}): Runtime
 			await waitForRunning(name);
 		},
 
-		async clone(name: string, _vmIp: string, repository: string, token?: string): Promise<void> {
+		async clone(
+			name: string,
+			_containerIp: string,
+			repository: string,
+			token?: string,
+		): Promise<void> {
 			if (token) {
 				const helperScript = [
 					"#!/bin/sh",
@@ -200,11 +205,16 @@ export function createPodmanRuntime(options: PodmanRuntimeOptions = {}): Runtime
 			]);
 		},
 
-		async readFile(name: string, _vmIp: string, filePath: string): Promise<string> {
+		async readFile(name: string, _containerIp: string, filePath: string): Promise<string> {
 			return podmanExec(name, ["cat", `/home/${user}/${filePath}`]);
 		},
 
-		async writeFile(name: string, _vmIp: string, filePath: string, content: string): Promise<void> {
+		async writeFile(
+			name: string,
+			_containerIp: string,
+			filePath: string,
+			content: string,
+		): Promise<void> {
 			const dir = filePath.substring(0, filePath.lastIndexOf("/"));
 			const escaped = content.replace(/'/g, "'\\''");
 			const mkdirCmd = dir ? `mkdir -p /home/${user}/${dir} && ` : "";

@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS workspace (
 	status TEXT NOT NULL DEFAULT 'creating',
 	image TEXT NOT NULL,
 	description TEXT,
-	vm_ip TEXT,
+	container_ip TEXT,
 	error_message TEXT,
 	created_at INTEGER NOT NULL,
 	updated_at INTEGER NOT NULL
@@ -71,6 +71,17 @@ function dropColumnIfPresent(sqlite: Database.Database, table: string, column: s
 	sqlite.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
 }
 
+function renameColumnIfPresent(
+	sqlite: Database.Database,
+	table: string,
+	oldName: string,
+	newName: string,
+): void {
+	const columns = sqlite.pragma(`table_info(${table})`) as Array<{ name: string }>;
+	if (!columns.some((c) => c.name === oldName)) return;
+	sqlite.exec(`ALTER TABLE ${table} RENAME COLUMN ${oldName} TO ${newName}`);
+}
+
 export function createDb(dbPath: string) {
 	const sqlite = new Database(dbPath);
 	sqlite.pragma("journal_mode = WAL");
@@ -86,6 +97,7 @@ export function createDb(dbPath: string) {
 	addColumnIfMissing(sqlite, "workspace", "cpu", "INTEGER");
 	addColumnIfMissing(sqlite, "workspace", "memory", "INTEGER");
 	dropColumnIfPresent(sqlite, "workspace", "repository_id");
+	renameColumnIfPresent(sqlite, "workspace", "vm_ip", "container_ip");
 
 	return drizzle({ client: sqlite, schema });
 }

@@ -21,9 +21,9 @@ function portRedirectId(workspaceName: string, port: number): string {
 	return `workspace-${workspaceName}-port-${port}-redirect`;
 }
 
-function toDial(vmIp: string, defaultPort: number): string {
-	if (vmIp.includes(":")) return vmIp;
-	return `${vmIp}:${defaultPort}`;
+function toDial(containerIp: string, defaultPort: number): string {
+	if (containerIp.includes(":")) return containerIp;
+	return `${containerIp}:${defaultPort}`;
 }
 
 function buildWorkspaceRedirectRoute(name: string): Record<string, unknown> {
@@ -46,7 +46,7 @@ function buildWorkspaceRedirectRoute(name: string): Record<string, unknown> {
 
 function buildWorkspaceRoute(
 	name: string,
-	vmIp: string,
+	containerIp: string,
 	authMode?: AuthMode,
 ): Record<string, unknown> {
 	const pathPrefix = `/workspace/${name}`;
@@ -60,7 +60,7 @@ function buildWorkspaceRoute(
 		{ handler: "rewrite", strip_path_prefix: pathPrefix },
 		{
 			handler: "reverse_proxy",
-			upstreams: [{ dial: toDial(vmIp, 8080) }],
+			upstreams: [{ dial: toDial(containerIp, 8080) }],
 			flush_interval: -1,
 			stream_timeout: "24h",
 			stream_close_delay: "5s",
@@ -102,7 +102,7 @@ function buildPortRedirectRoute(workspaceName: string, port: number): Record<str
 
 function buildPortRoute(
 	workspaceName: string,
-	vmIp: string,
+	containerIp: string,
 	port: number,
 	authMode?: AuthMode,
 ): Record<string, unknown> {
@@ -117,7 +117,7 @@ function buildPortRoute(
 		{ handler: "rewrite", strip_path_prefix: pathPrefix },
 		{
 			handler: "reverse_proxy",
-			upstreams: [{ dial: toDial(vmIp, port) }],
+			upstreams: [{ dial: toDial(containerIp, port) }],
 			flush_interval: -1,
 			headers: {
 				request: {
@@ -171,7 +171,7 @@ export function createCaddyClient(options: CaddyClientOptions = {}): CaddyReposi
 	};
 
 	return {
-		async addWorkspaceRoute(name: string, vmIp: string): Promise<void> {
+		async addWorkspaceRoute(name: string, containerIp: string): Promise<void> {
 			const redirect = buildWorkspaceRedirectRoute(name);
 			const redirectResponse = await fetchFn(`${adminUrl}${SRV1_ROUTES_PATH}`, {
 				method: "POST",
@@ -180,7 +180,7 @@ export function createCaddyClient(options: CaddyClientOptions = {}): CaddyReposi
 			});
 			await assertOk(redirectResponse, "addWorkspaceRoute (redirect)");
 
-			const route = buildWorkspaceRoute(name, vmIp, authMode);
+			const route = buildWorkspaceRoute(name, containerIp, authMode);
 			const response = await fetchFn(`${adminUrl}${SRV1_ROUTES_PATH}`, {
 				method: "POST",
 				headers: adminHeaders,
@@ -206,7 +206,7 @@ export function createCaddyClient(options: CaddyClientOptions = {}): CaddyReposi
 			);
 		},
 
-		async addPortRoute(workspaceName: string, vmIp: string, port: number): Promise<void> {
+		async addPortRoute(workspaceName: string, containerIp: string, port: number): Promise<void> {
 			const redirect = buildPortRedirectRoute(workspaceName, port);
 			const redirectResponse = await fetchFn(`${adminUrl}${SRV2_ROUTES_PATH}`, {
 				method: "POST",
@@ -215,7 +215,7 @@ export function createCaddyClient(options: CaddyClientOptions = {}): CaddyReposi
 			});
 			await assertOk(redirectResponse, "addPortRoute (redirect)");
 
-			const route = buildPortRoute(workspaceName, vmIp, port, authMode);
+			const route = buildPortRoute(workspaceName, containerIp, port, authMode);
 			const response = await fetchFn(`${adminUrl}${SRV2_ROUTES_PATH}`, {
 				method: "POST",
 				headers: adminHeaders,

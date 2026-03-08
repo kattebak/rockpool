@@ -11,7 +11,7 @@ Requirements:
 
 - Runs locally with zero infrastructure (no separate database server).
 - Supports typed queries that align with our TypeSpec-generated interfaces.
-- Simple enough to embed in the control plane VM.
+- Simple enough to embed in the control plane.
 
 Alternatives considered:
 

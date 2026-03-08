@@ -88,7 +88,7 @@ queues {
 }
 ```
 
-Visibility timeout of 120 seconds accommodates VM provisioning (clone + boot + SSH + health check).
+Visibility timeout of 120 seconds accommodates container provisioning (create + start + configure + health check).
 
 ### Ecosystem Config Changes
 

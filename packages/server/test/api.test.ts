@@ -236,13 +236,13 @@ function createMockCaddy(): CaddyRepository & { calls: string[] } {
 	const calls: string[] = [];
 	return {
 		calls,
-		async addWorkspaceRoute(name: string, _vmIp: string) {
+		async addWorkspaceRoute(name: string, _containerIp: string) {
 			calls.push(`addRoute:${name}`);
 		},
 		async removeWorkspaceRoute(name: string) {
 			calls.push(`removeRoute:${name}`);
 		},
-		async addPortRoute(workspaceName: string, _vmIp: string, port: number) {
+		async addPortRoute(workspaceName: string, _containerIp: string, port: number) {
 			calls.push(`addPort:${workspaceName}:${port}`);
 		},
 		async removePortRoute(workspaceName: string, port: number) {
@@ -277,7 +277,7 @@ describe("Port API", () => {
 		const app = createApp({ workspaceService, portService, logger, authService: null, db });
 
 		const ws = await createWorkspace(db, { name: "port-test-ws", image: "alpine-v1" });
-		await updateWorkspaceStatus(db, ws.id, WS.running, { vmIp: "10.0.1.50" });
+		await updateWorkspaceStatus(db, ws.id, WS.running, { containerIp: "10.0.1.50" });
 		runningWorkspaceId = ws.id;
 
 		await new Promise<void>((resolve) => {
@@ -392,7 +392,7 @@ describe("Workspace limits", () => {
 		await service.create("finish-ws-2", "alpine-v1");
 		await service.create("finish-ws-3", "alpine-v1");
 
-		await updateWorkspaceStatus(db, ws1.id, WS.running, { vmIp: "10.0.1.1" });
+		await updateWorkspaceStatus(db, ws1.id, WS.running, { containerIp: "10.0.1.1" });
 
 		const ws4 = await service.create("finish-ws-4", "alpine-v1");
 		assert.equal(ws4.name, "finish-ws-4");
@@ -411,9 +411,9 @@ describe("Workspace limits", () => {
 		await service.create("start-limit-3", "alpine-v1");
 
 		const ws = await createWorkspace(db, { name: "start-limit-stopped", image: "alpine-v1" });
-		await updateWorkspaceStatus(db, ws.id, WS.running, { vmIp: "10.0.1.1" });
+		await updateWorkspaceStatus(db, ws.id, WS.running, { containerIp: "10.0.1.1" });
 		await updateWorkspaceStatus(db, ws.id, WS.stopping);
-		await updateWorkspaceStatus(db, ws.id, WS.stopped, { vmIp: null });
+		await updateWorkspaceStatus(db, ws.id, WS.stopped, { containerIp: null });
 
 		await assert.rejects(
 			() => service.start(ws.id),
