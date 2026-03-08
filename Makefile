@@ -1,17 +1,9 @@
 .PHONY: all ci clean setup
 
 STAMP_DIR := .stamps
-TART_HOME := $(CURDIR)/.tart
-UNAME_S := $(shell uname -s)
-export TART_HOME
-
 TSP_SOURCES := typespec/main.tsp typespec/tspconfig.yaml
 
-ifeq ($(UNAME_S),Linux)
 all: rockpool.config.json build/sdk $(STAMP_DIR)/node-modules-linux
-else
-all: rockpool.config.json build/sdk $(STAMP_DIR)/rockpool-workspace $(STAMP_DIR)/rockpool-root-vm-tart
-endif
 
 ci: rockpool.config.json build/sdk
 
@@ -43,11 +35,6 @@ rockpool.config.json:
 packages/config/rockpool.schema.json: packages/config/src/schema.ts
 	npm run generate-schema -w packages/config
 
-$(STAMP_DIR)/rockpool-workspace: images/workspace.pkr.hcl images/scripts/setup.sh | $(STAMP_DIR)
-	packer init images/workspace.pkr.hcl
-	packer build images/workspace.pkr.hcl
-	touch $@
-
 $(STAMP_DIR)/node-modules-linux: package-lock.json $(STAMP_DIR)/rockpool-control-plane | $(STAMP_DIR)
 	podman run --rm -e CI=1 --entrypoint="" -v $(CURDIR):/app -v rockpool-node-modules:/app/node_modules -w /app rockpool-control-plane:latest npm ci
 	touch $@
@@ -61,25 +48,7 @@ $(STAMP_DIR)/rockpool-workspace-container: images/workspace/Dockerfile images/sc
 	podman build -t rockpool-workspace:latest images/workspace/
 	touch $@
 
-$(STAMP_DIR)/rockpool-root-vm: images/root-vm/build-root-vm.sh images/root-vm/setup-root-vm.sh images/root-vm/keys/rockpool-root-vm_ed25519.pub | $(STAMP_DIR)
-	images/root-vm/build-root-vm.sh
-	touch $@
-
-$(STAMP_DIR)/rockpool-root-vm-tart: images/root-vm/build-root-vm-tart.sh images/root-vm/setup-root-vm.sh images/root-vm/keys/rockpool-root-vm_ed25519.pub | $(STAMP_DIR)
-	images/root-vm/build-root-vm-tart.sh
-	touch $@
-
 setup:
-ifeq ($(UNAME_S),Darwin)
-	@echo "Detected macOS — install prerequisites via Homebrew:"
-	@echo "  brew install cirruslabs/cli/tart"
+	@echo "Install prerequisites:"
+	@echo "  sudo apt install podman"
 	@echo "  make all"
-else ifeq ($(UNAME_S),Linux)
-	@echo "Detected Linux — install prerequisites:"
-	@echo "  sudo apt install qemu-system-x86 qemu-utils virtiofsd mmdebstrap e2fsprogs podman"
-	@echo "  make all"
-else
-	@echo "Unsupported platform: $(UNAME_S)"
-	@echo "Rockpool supports macOS (Tart) and Linux (QEMU/KVM + Podman)."
-	@exit 1
-endif

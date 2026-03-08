@@ -63,7 +63,7 @@ export function createSettingsRouter(deps: SettingsRouterDeps): Router {
 				return;
 			}
 
-			if (workspace.status !== "running" || !workspace.vmIp) {
+			if (workspace.status !== "running" || !workspace.containerIp) {
 				res.status(409).json({
 					error: {
 						code: "conflict",
@@ -85,7 +85,7 @@ export function createSettingsRouter(deps: SettingsRouterDeps): Router {
 
 			let content: string;
 			try {
-				content = await runtime.readFile(workspace.name, workspace.vmIp, filePath);
+				content = await runtime.readFile(workspace.name, workspace.containerIp, filePath);
 			} catch {
 				res.status(404).json({
 					error: {

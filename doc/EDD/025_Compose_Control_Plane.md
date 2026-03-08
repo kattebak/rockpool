@@ -7,27 +7,25 @@
 | Created      | 2026-03-02                                                     |
 | Updated      | 2026-03-03                                                     |
 | Related ADRs | [ADR-014](../ADR/014-build-tooling-conventions.md)             |
-| Related EDDs | [EDD-010](010_PM2_Process_Management.md), [EDD-022](022_Root_VM.md) |
+| Related EDDs | [EDD-010](010_PM2_Process_Management.md) |
 
 ## Summary
 
-Replace PM2 with Podman Compose for control plane orchestration. The compose stack has three services: **Caddy** (workspace reverse proxy), **ElasticMQ** (job queue), and **control-plane** (API server, worker, and Vite client in a single container). Caddy only handles workspace routing (three-port origin isolation). Services communicate via compose DNS. The same compose file works on the host, in CI, and inside the Root VM. PM2 and all its ecosystem configs are removed.
+Replace PM2 with Podman Compose for control plane orchestration. The compose stack has three services: **Caddy** (workspace reverse proxy), **ElasticMQ** (job queue), and **control-plane** (API server, worker, and Vite client in a single container). Caddy only handles workspace routing (three-port origin isolation). Services communicate via compose DNS. The same compose file works on the host and in CI. PM2 and all its ecosystem configs are removed.
 
 ## Motivation
 
-The current PM2 setup has accumulated seven ecosystem config files for different profiles. Each profile requires Node.js, Java (ElasticMQ), and Caddy installed on the host or in the Root VM. Adding a new profile means copying another ecosystem config and adjusting ports.
+The current PM2 setup has accumulated seven ecosystem config files for different profiles. Each profile requires Node.js, Java (ElasticMQ), and Caddy installed on the host. Adding a new profile means copying another ecosystem config and adjusting ports.
 
 Podman Compose solves this:
 
-- **One compose file, multiple contexts.** The same `compose.yaml` runs on the developer's machine, in CI, and inside the Root VM. Environment files control ports and runtime selection.
+- **One compose file, multiple contexts.** The same `compose.yaml` runs on the developer's machine and in CI. Environment files control ports and runtime selection.
 - **Container images replace provisioning.** Node.js, Caddy, ElasticMQ, and Podman CLI are in OCI images, not installed via `apt` or `fnm`. Rebuilding takes seconds, not minutes.
-- **Root VM becomes minimal.** The VM image only needs Podman and SSH. No Node.js, no Java, no Caddy. Smaller image, smaller attack surface, faster builds.
 - **CI parity.** GitHub-hosted runners have Podman pre-installed. `podman compose up` in CI gives the same stack as local dev.
 - **No PM2 dependency.** Compose handles process lifecycle, restart policies, and log aggregation. Node.js `--watch` replaces PM2 file watching.
 
 ## Prerequisites
 
-- [EDD-022: Root VM with Podman workspaces](022_Root_VM.md) — Podman runtime, Root VM infrastructure
 - [EDD-010: PM2 Process Management](010_PM2_Process_Management.md) — the system being replaced
 - Podman with compose support on the host (`podman compose` or `podman-compose`)
 
@@ -37,7 +35,7 @@ Podman Compose solves this:
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  Host (or Root VM)                               │
+│  Host (Linux)                                    │
 │                                                  │
 │  podman compose up                               │
 │  ┌──────────────────────────────────────────┐    │
@@ -85,11 +83,10 @@ compose stack ──(podman socket)──► host Podman ──► workspace con
 
 ### Three contexts, one compose file
 
-| Context        | VM  | How compose runs                                       |
-| -------------- | --- | ------------------------------------------------------ |
-| **Development**| no  | `podman compose up` on the host                        |
-| **CI**         | no  | `podman compose up` on GitHub runner                   |
-| **Production** | yes | `podman compose up` inside the Root VM (over SSH)      |
+| Context        | How compose runs                                       |
+| -------------- | ------------------------------------------------------ |
+| **Development**| `podman compose up` on the host                        |
+| **CI**         | `podman compose up` on GitHub runner                   |
 
 The only difference between contexts is the `.env` file passed to compose, controlling ports, `RUNTIME`, and `NODE_ENV`.
 
@@ -197,45 +194,6 @@ The entrypoint script starts the worker process and Vite (in dev mode when `SPA_
 
 The `podman` CLI uses `CONTAINER_HOST=unix:///run/podman.sock` (set in compose) to talk to the host's Podman service. All `podman create`, `podman exec`, `podman port` commands in `podman-runtime.ts` are routed through the socket.
 
-## Root VM Impact
-
-### Before (EDD-022)
-
-The Root VM image installs via `setup-root-vm.sh`:
-
-- Node.js (via fnm)
-- PM2 (global)
-- Caddy (from apt repo)
-- ElasticMQ (Java JRE + JAR)
-- Podman
-- SSH server
-- build-essential, python3, vim, tmux, etc.
-
-### After
-
-The Root VM image installs only:
-
-- Podman (+ `podman-compose` or `podman compose` support)
-- SSH server
-- virtiofs mount support
-
-Everything else moves into container images. `setup-root-vm.sh` shrinks from ~130 lines to ~40 lines.
-
-### Root VM workflow
-
-```bash
-# Host side
-npm run start:vm                    # boot VM, wait for SSH
-
-# Inside the VM (via SSH)
-cd /mnt/rockpool
-podman compose up -d                # start the control plane
-podman compose logs -f              # tail logs
-
-# Or from the host (one command)
-npm run start:rootvm                # boot VM + compose up over SSH
-```
-
 ## Profile Configuration
 
 Environment files replace ecosystem configs:
@@ -245,7 +203,6 @@ Environment files replace ecosystem configs:
 | `development.env` | Dev on host      | RUNTIME=podman, ports 8080-8082, SPA_PROXY_URL  |
 | `test.env`        | E2E tests        | RUNTIME=stub, ports 9080-9082                   |
 | `podman-test.env` | Podman E2E       | RUNTIME=podman, ports 9080-9082                 |
-| `rootvm-test.env` | Root VM E2E      | RUNTIME=stub, ports 9080-9082                   |
 | `ci.env`          | GitHub Actions   | RUNTIME=stub, ports 9080-9082                   |
 
 The compose file reads `ENV_FILE` to select the right environment:
@@ -290,7 +247,7 @@ ElasticMQ runs as a separate compose service using the official `elasticmq-nativ
 }
 ```
 
-`npm-scripts/start.sh` detects context: if a Root VM is configured, it boots the VM and runs `podman compose up` over SSH. Otherwise, it runs `podman compose up` locally.
+`npm-scripts/start.sh` runs `podman compose up` locally.
 
 ## E2E Test Changes
 
@@ -301,13 +258,7 @@ Replace PM2 commands with compose commands:
 ```typescript
 function composeCmd(args: string): string {
     const envFile = process.env.ENV_FILE ?? "test.env";
-    const base = `podman compose --env-file ${envFile}`;
-
-    if (IS_ROOTVM) {
-        return sshCmd(`cd /mnt/rockpool && ${base} ${args}`);
-    }
-
-    return `${base} ${args}`;
+    return `podman compose --env-file ${envFile} ${args}`;
 }
 
 export default async function globalSetup(): Promise<void> {
@@ -334,7 +285,6 @@ export default async function globalTeardown(): Promise<void> {
 | ---------------- | ------------------------------------------------------ | -------------------------- |
 | `test:e2e:ci`    | `ENV_FILE=ci.env npx playwright test ...`              | stub runtime, test ports   |
 | `test:e2e:podman`| `ENV_FILE=podman-test.env npx playwright test ...`     | podman runtime, test ports |
-| `test:e2e:rootvm`| `E2E_PROFILE=rootvm ENV_FILE=rootvm-test.env npx ...`  | stub, compose over SSH     |
 
 ## Impact on Existing Code
 
@@ -354,8 +304,6 @@ export default async function globalTeardown(): Promise<void> {
 | `ecosystem.caddy.config.cjs`     | Replaced by compose.yaml          |
 | `ecosystem.test.config.cjs`      | Replaced by compose.yaml + env    |
 | `ecosystem.production.config.cjs`| Replaced by compose.yaml + env    |
-| `ecosystem.rootvm.config.cjs`    | Replaced by compose.yaml + env    |
-| `ecosystem.rootvm-test.config.cjs`| Replaced by compose.yaml + env   |
 | `ecosystem.podman-test.config.cjs`| Replaced by compose.yaml + env   |
 | `npm-scripts/setup-elasticmq.sh` | Replaced by container image       |
 | `.elasticmq/` directory          | JAR no longer needed              |
@@ -367,10 +315,7 @@ export default async function globalTeardown(): Promise<void> {
 | `e2e/global-setup.ts`            | PM2 → compose commands            |
 | `npm-scripts/start.sh`           | PM2 → compose                     |
 | `npm-scripts/stop.sh`            | PM2 → compose                     |
-| `npm-scripts/start-rootvm.sh`    | PM2 over SSH → compose over SSH   |
-| `npm-scripts/stop-rootvm.sh`     | PM2 over SSH → compose over SSH   |
 | `npm-scripts/preflight.sh`       | Check for podman/compose, not java|
-| `images/root-vm/setup-root-vm.sh`| Remove Node, Java, Caddy installs |
 | `Makefile`                        | Add control-plane image target    |
 | `package.json`                    | Update npm scripts                |
 
@@ -392,7 +337,6 @@ export default async function globalTeardown(): Promise<void> {
 - ElasticMQ container replaces Java JAR
 - npm script migration from PM2 to compose
 - E2E global-setup/teardown migration
-- Root VM `setup-root-vm.sh` simplification
 - Makefile target for control plane image
 - Dev workflow with `--watch` via compose override
 
@@ -400,7 +344,6 @@ export default async function globalTeardown(): Promise<void> {
 
 - Podman REST API (keep using CLI via socket for now)
 - Production hardening (TLS, resource limits, health checks in compose)
-- macOS Tart Root VM adaptation (deferred, Linux/QEMU first)
 - Multi-stage production image (COPY source instead of bind mount)
 
 ## Rollout Plan
@@ -444,26 +387,7 @@ export default async function globalTeardown(): Promise<void> {
 - `npm run test:e2e:ci` passes (stub runtime, compose on host)
 - `npm run test:e2e:podman` passes (podman runtime, compose on host)
 
-### Phase 3: Root VM simplification
-
-**Goal:** The Root VM image contains only Podman + SSH. The control plane runs as compose containers inside the VM.
-
-**Steps:**
-
-1. Strip `setup-root-vm.sh` down to Podman + SSH + virtiofs
-2. Update `npm-scripts/start-rootvm.sh` to run `podman compose up` over SSH
-3. Update `npm-scripts/stop-rootvm.sh` to run `podman compose down` over SSH
-4. Rebuild and test the Root VM image
-5. Update `npm-scripts/vm-logs.sh` to use `podman compose logs`
-
-**Verification:**
-
-- Root VM boots and accepts SSH
-- `podman compose up` inside the VM starts the full stack
-- `npm run test:e2e:rootvm` passes from the host
-- Root VM image is smaller
-
-### Phase 4: CI pipeline
+### Phase 3: CI pipeline
 
 **Goal:** GitHub Actions runs E2E tests using compose.
 
@@ -485,4 +409,4 @@ export default async function globalTeardown(): Promise<void> {
 - [ ] **Podman socket permissions.** When the control plane container runs as a non-root user, the mounted Podman socket may not be accessible. Verify that `CONTAINER_HOST` + socket mount works with rootless Podman. May need `user: "${UID}:${GID}"` in compose or socket permission adjustments.
 - [ ] **`podman compose` vs `podman-compose`.** Podman 4.x has `podman compose` as a built-in subcommand. Older versions need the separate `podman-compose` Python package. Determine minimum Podman version and document accordingly.
 - [ ] **Container image caching in CI.** Building the control plane image on every CI run adds time. Evaluate GitHub Actions cache for Podman layers or a container registry.
-- [ ] **`node_modules` in bind mount performance.** The host's `node_modules` are bind-mounted into the container. On Linux this is native speed. Inside the Root VM (virtiofs), `npm install` may be slow — same issue as EDD-022. Keep `node_modules` on the virtiofs mount for now and optimize later if needed.
+- [ ] **`node_modules` in bind mount performance.** The host's `node_modules` are bind-mounted into the container. On Linux this is native speed.

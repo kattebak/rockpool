@@ -9,9 +9,9 @@
 
 ## Summary
 
-Caddy serves as the HTTP entry point for Rockpool, running inside the root VM alongside the control plane. Traffic is split across three listeners for origin isolation: `:8080` serves the control plane API and SPA, `:8081` serves IDE (code-server) sessions, `:8082` serves port-forwarded app previews. Each listener is a separate browser origin, preventing workspace-hosted JavaScript from reaching the control plane or IDE sessions from interfering with app previews. See [ADR-015](../ADR/015-three-port-origin-isolation.md).
+Caddy serves as the HTTP entry point for Rockpool, running alongside the control plane. Traffic is split across three listeners for origin isolation: `:8080` serves the control plane API and SPA, `:8081` serves IDE (code-server) sessions, `:8082` serves port-forwarded app previews. Each listener is a separate browser origin, preventing workspace-hosted JavaScript from reaching the control plane or IDE sessions from interfering with app previews. See [ADR-015](../ADR/015-three-port-origin-isolation.md).
 
-The control plane configures Caddy's routes via its admin API on localhost as workspaces are created and destroyed. All routing is path-based (no subdomains). The root VM is network-isolated from the host LAN; workspace VMs are further isolated from each other.
+The control plane configures Caddy's routes via its admin API on localhost as workspaces are created and destroyed. All routing is path-based (no subdomains). Workspace containers are isolated from each other.
 
 ## API Gateway Responsibilities
 
@@ -39,7 +39,7 @@ When `CADDY_USERNAME`/`CADDY_PASSWORD` are set and GitHub OAuth credentials are 
 
 When `GITHUB_OAUTH_CLIENT_ID`/`GITHUB_OAUTH_CLIENT_SECRET` are set, OAuth is handled by the control plane via the `@rockpool/auth` package — not by Caddy. Caddy acts as a pass-through proxy on srv0 and uses `forward_auth` subrequests on srv1/srv2 (see Workspace Authentication below). This gives the server full control over the GitHub access token, which is needed for:
 
-- Cloning private repos into workspace VMs
+- Cloning private repos into workspace containers
 - Querying the GitHub API (list repos, org membership)
 - Pre-configuring git credentials inside workspaces
 
@@ -432,7 +432,7 @@ The redirect route is added alongside the workspace route. Both are removed when
 
 Ports are registered dynamically via the API (`POST /api/workspaces/{id}/ports`, see [EDD 007](007_Data_Model.md)). When a user registers a port, the server creates a Caddy route on srv2. When unregistered, the route is deleted. Up to 5 ports per workspace.
 
-If a port is registered but no service is listening inside the VM, the proxy returns `502` until the port is live. Port routes include auth + proxy handlers in a single chain, mirroring the workspace route pattern. Replace the auth block shown here with the OAuth block when OAuth is enabled.
+If a port is registered but no service is listening inside the container, the proxy returns `502` until the port is live. Port routes include auth + proxy handlers in a single chain, mirroring the workspace route pattern. Replace the auth block shown here with the OAuth block when OAuth is enabled.
 
 ### Adding a port route (on port registration)
 
@@ -588,7 +588,7 @@ Use `ETag`/`If-Match` headers for optimistic concurrency when multiple requests 
 
 ## Workspace Environment Contract
 
-Workspace identity is communicated to the VM via environment variables, set by the worker at VM creation time (see [EDD 008](008_Package_Structure.md), `RuntimeRepository`).
+Workspace identity is communicated to the container via environment variables, set by the worker at container creation time (see [EDD 008](008_Package_Structure.md), `RuntimeRepository`).
 
 | Variable                  | Example | Description                                                                                                                      |
 | ------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -600,7 +600,7 @@ The base image's code-server init script reads `ROCKPOOL_WORKSPACE_NAME` to set 
 
 Implemented:
 
-- [x] **Caddy runs in the root VM** alongside the control plane — admin API on localhost only, network-isolated from host LAN
+- [x] **Caddy runs alongside the control plane** — admin API on localhost only
 - [x] **Three-port origin isolation**: `:8080` for control plane + SPA, `:8081` for IDE sessions, `:8082` for app previews — each a separate browser origin, prevents cross-boundary JS access ([ADR-015](../ADR/015-three-port-origin-isolation.md))
 - [x] **Basic auth in Caddy** for E2E/CI. Implemented in `@rockpool/caddy`: `hashPassword()` generates bcrypt hashes, `buildBootstrapConfig({ auth })` adds authentication handlers to srv0 protecting `/api/*` and `/app/*` with a health check bypass on `/api/health`. Wired into server startup via `CADDY_USERNAME`/`CADDY_PASSWORD` env vars — server bootstraps Caddy with auth on startup when not in stub mode.
 - [x] **GitHub OAuth in the control plane** via `@rockpool/auth` package. Server handles the full OAuth flow (`/api/auth/github`, `/api/auth/callback`, `/api/auth/me`, `/api/auth/logout`), stores GitHub access tokens server-side, and manages sessions via cookies. Caddy stays as a pass-through proxy when OAuth is enabled (`GITHUB_OAUTH_CLIENT_ID` + `GITHUB_OAUTH_CLIENT_SECRET` set). Auth mode selection with fail-fast preflight check on startup.
@@ -634,20 +634,16 @@ make development.env
 Then fill in your secrets. The file uses `KEY=VALUE` format (loaded via `node --env-file`):
 
 ```
-RUNTIME=tart
-WORKER_INLINE=true
+RUNTIME=podman
 SPA_PROXY_URL=http://localhost:5173
-SSH_KEY_PATH=images/ssh/rockpool_ed25519
 GITHUB_OAUTH_CLIENT_ID=<client-id>
 GITHUB_OAUTH_CLIENT_SECRET=<client-secret>
 ```
 
 | Variable               | Purpose                                                    |
 | ---------------------- | ---------------------------------------------------------- |
-| `RUNTIME`              | VM runtime backend (`tart` for macOS)                      |
-| `WORKER_INLINE`        | Run worker in-process with server (`true` for local dev)   |
+| `RUNTIME`              | Container runtime backend (`podman`)                       |
 | `SPA_PROXY_URL`        | Vite dev server URL for SPA proxy                          |
-| `SSH_KEY_PATH`         | Path to SSH key for VM access                              |
 | `GITHUB_OAUTH_CLIENT_ID`     | GitHub OAuth App client ID (control-plane OAuth via `@rockpool/auth`) |
 | `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth App client secret (control-plane OAuth)                  |
 | `CADDY_USERNAME`       | Basic auth username (E2E/CI mode)                          |

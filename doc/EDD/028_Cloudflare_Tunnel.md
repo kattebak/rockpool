@@ -14,7 +14,7 @@ Add opt-in Cloudflare Tunnel support so the Rockpool stack can be exposed public
 
 ## Problem
 
-The Rockpool stack currently binds to `localhost` (or VM-local ports). This makes the IDE inaccessible from outside the local network. Public access is needed for:
+The Rockpool stack currently binds to `localhost`. This makes the IDE inaccessible from outside the local network. Public access is needed for:
 
 - **Collaboration** -- sharing a running workspace with a colleague or reviewer.
 - **Mobile testing** -- previewing a web app on a phone over the internet.
@@ -55,7 +55,7 @@ This EDD recommends **dashboard-managed tunnels** because:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Host (or Root VM)                                           │
+│  Host                                                        │
 │                                                              │
 │  podman compose --profile tunnel up -d                       │
 │  ┌────────────────────────────────────────────────────────┐  │

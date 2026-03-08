@@ -4,15 +4,6 @@
 # Make stamp files
 .stamps/
 
-# Tart VM storage
-.tart/
-
-# QEMU VM storage
-.qemu/
-
-# VM artifacts (root disk, data disk, kernel, initrd, PID files)
-.vm/
-
 # Podman compose volumes (created by podman compose up)
 # Note: compose.yaml and compose.override.yaml are checked in
 
@@ -175,9 +166,8 @@ tsp-output/
 *.sqlite-shm
 *.sqlite-wal
 
-# VM SSH keys (private key only, public key is checked in)
+# SSH keys (private key only, public key is checked in)
 images/ssh/rockpool_ed25519
-images/root-vm/keys/rockpool-root-vm_ed25519
 
 # Playwright test results
 test-results/

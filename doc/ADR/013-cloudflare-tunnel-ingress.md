@@ -9,7 +9,7 @@ The system runs on self-hosted hardware (home/office servers) without static IPs
 
 ## Decision
 
-Use **Cloudflare Tunnel** (`cloudflared`) to expose the Caddy endpoint externally. Traffic flows: internet → Cloudflare edge → tunnel → Caddy → workspace VMs.
+Use **Cloudflare Tunnel** (`cloudflared`) to expose the Caddy endpoint externally. Traffic flows: internet → Cloudflare edge → tunnel → Caddy → workspace containers.
 
 Two-way door — can be swapped for Tailscale, WireGuard, or any other tunnel with minimal effort since Caddy is the real ingress point.
 

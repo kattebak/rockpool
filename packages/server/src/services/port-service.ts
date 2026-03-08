@@ -50,8 +50,8 @@ export function createPortService(deps: PortServiceDeps) {
 			}
 
 			const created = await addPort(db, { workspaceId, port, label });
-			const vmIp = workspace.vmIp as string;
-			await caddy.addPortRoute(workspace.name, vmIp, port);
+			const containerIp = workspace.containerIp as string;
+			await caddy.addPortRoute(workspace.name, containerIp, port);
 			return created;
 		},
 

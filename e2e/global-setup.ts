@@ -16,18 +16,7 @@ const AUTH_HEADER = config.auth.basic
 
 const POLL_INTERVAL = 2_000;
 
-const IS_ROOTVM = process.env.E2E_PROFILE === "rootvm";
-
-function sshCmd(remoteCommand: string): string {
-	return `npm run ssh:vm -- '${remoteCommand}'`;
-}
-
 function composeCmd(args: string): string {
-	if (IS_ROOTVM) {
-		const base = "podman compose";
-		return sshCmd(`cd /mnt/rockpool && ${base} ${args}`);
-	}
-
 	return `npm-scripts/podman.sh ${args}`;
 }
 

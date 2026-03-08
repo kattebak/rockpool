@@ -18,7 +18,7 @@ Evaluation of workspace runtimes for hosting isolated Rockpool workspaces. The r
 | Requirement          | Priority | Notes                                     |
 | -------------------- | -------- | ----------------------------------------- |
 | Linux support        | Must     | Primary development and deployment target |
-| macOS support        | Should   | Via Root VM (Tart/QEMU) running Podman    |
+| macOS support        | Should   | Via a Linux VM running Podman             |
 | Network isolation    | Must     | NAT egress only, no LAN access            |
 | Programmatic control | Must     | CLI for lifecycle management              |
 | Lightweight Linux    | Must     | Slim custom image with code-server        |
@@ -46,7 +46,7 @@ Podman provides the right balance of isolation, performance, and simplicity for 
 
 | Aspect    | Assessment                                                |
 | --------- | --------------------------------------------------------- |
-| macOS     | Via Root VM (Tart boots a Linux VM, Podman runs inside)  |
+| macOS     | Via a Linux VM with Podman                               |
 | Linux     | Native, first-class. Rootless, no daemon.                |
 | Boot time | ~1-2s (container start)                                  |
 | API       | `podman` CLI, OCI-compatible                             |
@@ -56,9 +56,9 @@ Podman provides the right balance of isolation, performance, and simplicity for 
 
 ### Why Podman over VMs?
 
-- **No nested virtualization penalty.** When running inside a Root VM (macOS), Podman containers avoid the ~40-80% I/O overhead of running VMs inside VMs.
+- **No nested virtualization penalty.** Podman containers avoid the I/O overhead of running VMs inside VMs.
 - **Fast lifecycle.** Container create/start/stop is sub-second, vs. 3-30s for VM boot.
-- **Dockerfile images.** Standard OCI images built with `podman build`, no Packer or custom rootfs tooling.
+- **Dockerfile images.** Standard OCI images built with `podman build`.
 - **Rootless by default.** No root daemon, user namespace isolation, seccomp filtering.
 
 ### Isolation model
@@ -92,7 +92,7 @@ The `RuntimeRepository` interface provides: `create`, `start`, `stop`, `remove`,
 
 Key implementation details:
 
-- **No SSH.** All in-container operations use `podman exec`. The SSH-based approach from the Tart era was removed.
+- **No SSH.** All in-container operations use `podman exec`.
 - **Port mapping, not bridge IPs.** Rootless Podman bridge IPs (10.88.0.x) are unreachable from outside the container's user namespace. Containers are created with `-P` (publish all), and `getIp()` returns `host:mapped-port` from `podman port`.
 - **Configure restarts the container.** code-server runs as PID 1 (container entrypoint). Configuration changes are written via `podman exec`, then `podman restart` applies them. Port mappings change on restart, so `getIp()` must be called after `configure()`.
 
@@ -100,9 +100,9 @@ See: [EDD 005: Workspace Image Pipeline](005_Workspace_Image_Pipeline.md) for th
 
 ## Resolved Questions
 
-- [x] Which platform first? **Linux-first** -- Podman is native on Linux. macOS uses a Root VM.
+- [x] Which platform first? **Linux-first** -- Podman is native on Linux.
 - [x] Is sub-second boot time needed? **No** -- container start is already sub-second.
-- [x] Single runtime or per-platform? **Single runtime** -- Podman everywhere. Root VM provides the Linux environment on macOS.
+- [x] Single runtime or per-platform? **Single runtime** -- Podman everywhere.
 - [x] Custom images? **Dockerfile** -- standard OCI images, built with `podman build`.
 - [x] How much abstraction? **Thin wrapper** -- `RuntimeRepository` interface, single implementation.
 - [x] VM-level isolation? **Deferred** -- Podman rootless is sufficient for single-user. Kata Containers is the upgrade path.
