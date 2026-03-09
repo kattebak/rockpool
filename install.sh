@@ -50,10 +50,10 @@ else
 fi
 
 info "Installing dependencies (this may take a minute)..."
-npm install --prefix "$ROCKPOOL_DIR"
+(cd "$ROCKPOOL_DIR" && npm install)
 
 info "Linking rockpool CLI globally..."
-npm link -w packages/cli --prefix "$ROCKPOOL_DIR"
+(cd "$ROCKPOOL_DIR" && npm link -w packages/cli)
 
 if [ $# -gt 0 ]; then
     info "Running rockpool init with provided flags..."
