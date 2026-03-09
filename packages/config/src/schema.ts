@@ -51,6 +51,11 @@ const PortsSchema = z.object({
 	caddy: z.number().int().min(1).max(65535).default(2019),
 });
 
+const TunnelSchema = z.object({
+	domain: z.string().min(1),
+	token: z.string().min(1),
+});
+
 export const RockpoolConfigSchema = z.object({
 	logLevel: LogLevelSchema.default("info"),
 	runtime: RuntimeSchema.default("podman"),
@@ -59,4 +64,5 @@ export const RockpoolConfigSchema = z.object({
 	spa: SpaSchema.default({}),
 	urls: UrlsSchema.optional(),
 	ports: PortsSchema.default({}),
+	tunnel: TunnelSchema.optional(),
 });

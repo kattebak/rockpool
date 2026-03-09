@@ -115,4 +115,48 @@ describe("rockpool init", () => {
 		const { $schema, ...rest } = config;
 		assert.doesNotThrow(() => RockpoolConfigSchema.parse(rest));
 	});
+
+	it("creates config with tunnel section when domain and token provided", () => {
+		runInit(
+			`--auth-mode basic --auth-username admin --auth-password secret --tunnel-domain rockpool.example.com --tunnel-token eyJhIjoiNDk -o ${testOutput}`,
+		);
+		const config = JSON.parse(readFileSync(testOutput, "utf-8"));
+		assert.strictEqual(config.tunnel.domain, "rockpool.example.com");
+		assert.strictEqual(config.tunnel.token, "eyJhIjoiNDk");
+	});
+
+	it("auto-derives tunnel URLs in config", () => {
+		runInit(
+			`--auth-mode basic --auth-username admin --auth-password secret --tunnel-domain rockpool.example.com --tunnel-token eyJhIjoiNDk -o ${testOutput}`,
+		);
+		const config = JSON.parse(readFileSync(testOutput, "utf-8"));
+		assert.strictEqual(config.urls.ide, "https://ide.rockpool.example.com");
+		assert.strictEqual(config.urls.preview, "https://preview.rockpool.example.com");
+	});
+
+	it("sets secureCookies when tunnel configured", () => {
+		runInit(
+			`--auth-mode basic --auth-username admin --auth-password secret --tunnel-domain rockpool.example.com --tunnel-token eyJhIjoiNDk -o ${testOutput}`,
+		);
+		const config = JSON.parse(readFileSync(testOutput, "utf-8"));
+		assert.strictEqual(config.server.secureCookies, true);
+	});
+
+	it("omits tunnel section when only domain provided without token", () => {
+		runInit(
+			`--auth-mode basic --auth-username admin --auth-password secret --tunnel-domain rockpool.example.com -o ${testOutput}`,
+		);
+		const config = JSON.parse(readFileSync(testOutput, "utf-8"));
+		assert.strictEqual(config.tunnel, undefined);
+	});
+
+	it("generates a valid config with tunnel that passes schema validation", () => {
+		runInit(
+			`--auth-mode basic --auth-username admin --auth-password secret --tunnel-domain rockpool.example.com --tunnel-token eyJhIjoiNDk -o ${testOutput}`,
+		);
+		const raw = readFileSync(testOutput, "utf-8");
+		const config = JSON.parse(raw);
+		const { $schema, ...rest } = config;
+		assert.doesNotThrow(() => RockpoolConfigSchema.parse(rest));
+	});
 });

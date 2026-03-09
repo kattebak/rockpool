@@ -36,6 +36,16 @@ function detectPodmanSocket(): string {
 	return "/var/run/docker.sock";
 }
 
+export function deriveUrls(config: RockpoolConfig): { ide: string; preview: string } | undefined {
+	if (config.urls) return config.urls;
+	if (!config.tunnel) return undefined;
+
+	return {
+		ide: `https://ide.${config.tunnel.domain}`,
+		preview: `https://preview.${config.tunnel.domain}`,
+	};
+}
+
 export function generateCompose(options: ComposeOptions): string {
 	const { config, projectRoot, configFileName, configPath } = options;
 	const { ports } = config;
@@ -107,6 +117,18 @@ export function generateCompose(options: ComposeOptions): string {
 			"node-modules": { name: "rockpool-node-modules" },
 		},
 	};
+
+	if (config.tunnel) {
+		compose.services.cloudflared = {
+			image: "docker.io/cloudflare/cloudflared:latest",
+			command: "tunnel --no-autoupdate run",
+			environment: {
+				TUNNEL_TOKEN: config.tunnel.token,
+			},
+			restart: "unless-stopped",
+			depends_on: ["caddy"],
+		};
+	}
 
 	return stringify(compose);
 }
