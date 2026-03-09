@@ -47,6 +47,7 @@ export function resolveProject(configFileArg?: string): ProjectContext {
 		config,
 		projectRoot,
 		configFileName,
+		configPath,
 		podmanSocket,
 	});
 	writeFileSync(composeFilePath, yaml);
