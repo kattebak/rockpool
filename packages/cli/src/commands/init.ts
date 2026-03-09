@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import { RockpoolConfigSchema } from "@rockpool/config";
-import { REPO_ROOT } from "../project.ts";
 
 interface InitFlags {
 	authMode?: string;
@@ -163,7 +162,7 @@ export async function init(args: string[]): Promise<void> {
 	RockpoolConfigSchema.parse(stripped);
 
 	const outputFile = flags.output ?? "rockpool.config.json";
-	const outputPath = resolve(REPO_ROOT, outputFile);
+	const outputPath = resolve(process.cwd(), outputFile);
 	writeFileSync(outputPath, `${JSON.stringify(config, null, "\t")}\n`);
 
 	process.stdout.write(`Created ${outputFile}\n`);

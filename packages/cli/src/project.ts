@@ -31,7 +31,8 @@ interface ProjectContext {
 export function resolveProject(configFileArg?: string): ProjectContext {
 	const configFileName = configFileArg ?? "rockpool.config.json";
 	const projectRoot = REPO_ROOT;
-	const config = loadConfig(resolve(projectRoot, configFileName));
+	const configPath = resolve(process.cwd(), configFileName);
+	const config = loadConfig(configPath);
 
 	const dotRockpool = resolve(projectRoot, ".rockpool");
 	if (!existsSync(dotRockpool)) {
