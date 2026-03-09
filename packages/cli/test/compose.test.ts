@@ -23,6 +23,7 @@ describe("generateCompose", () => {
 			config,
 			projectRoot: "/home/user/rockpool",
 			configFileName: "rockpool.config.json",
+			configPath: "/home/user/rockpool/rockpool.config.json",
 			podmanSocket: "/var/run/docker.sock",
 		});
 
@@ -47,6 +48,7 @@ describe("generateCompose", () => {
 			config,
 			projectRoot: "/home/user/rockpool",
 			configFileName: "rockpool.test.config.json",
+			configPath: "/home/user/rockpool/rockpool.test.config.json",
 			podmanSocket: "/var/run/docker.sock",
 		});
 
@@ -75,6 +77,7 @@ describe("generateCompose", () => {
 			config,
 			projectRoot: "/home/user/rockpool",
 			configFileName: "rockpool.config.json",
+			configPath: "/home/user/rockpool/rockpool.config.json",
 			podmanSocket: "/var/run/docker.sock",
 		});
 
@@ -91,6 +94,7 @@ describe("generateCompose", () => {
 			config,
 			projectRoot: "/home/user/rockpool",
 			configFileName: "rockpool.config.json",
+			configPath: "/home/user/rockpool/rockpool.config.json",
 			podmanSocket: "/var/run/docker.sock",
 		});
 
@@ -104,6 +108,7 @@ describe("generateCompose", () => {
 			config,
 			projectRoot: "/home/user/rockpool",
 			configFileName: "rockpool.test.config.json",
+			configPath: "/home/user/rockpool/rockpool.test.config.json",
 			podmanSocket: "/var/run/docker.sock",
 		});
 
@@ -120,6 +125,7 @@ describe("generateCompose", () => {
 			config,
 			projectRoot: "/home/user/rockpool",
 			configFileName: "rockpool.config.json",
+			configPath: "/home/user/rockpool/rockpool.config.json",
 			podmanSocket: "/var/run/docker.sock",
 		});
 
@@ -132,6 +138,28 @@ describe("generateCompose", () => {
 			doc.services.elasticmq.volumes.includes(
 				"/home/user/rockpool/elasticmq.conf:/opt/elasticmq.conf:ro",
 			),
+		);
+	});
+
+	it("mounts config file into the container", () => {
+		const config = makeConfig();
+		const yaml = generateCompose({
+			config,
+			projectRoot: "/home/user/.rockpool",
+			configFileName: "rockpool.config.json",
+			configPath: "/home/user/myproject/rockpool.config.json",
+			podmanSocket: "/var/run/docker.sock",
+		});
+
+		const doc = parse(yaml);
+		assert.ok(
+			doc.services["control-plane"].volumes.includes(
+				"/home/user/myproject/rockpool.config.json:/app/rockpool.config.json:ro",
+			),
+		);
+		assert.strictEqual(
+			doc.services["control-plane"].environment.ROCKPOOL_CONFIG,
+			"/app/rockpool.config.json",
 		);
 	});
 
@@ -158,6 +186,7 @@ describe("generateCompose", () => {
 			config,
 			projectRoot: "/home/user/rockpool",
 			configFileName: "rockpool.config.json",
+			configPath: "/home/user/rockpool/rockpool.config.json",
 			podmanSocket: "/var/run/docker.sock",
 		});
 
@@ -175,6 +204,7 @@ describe("generateCompose", () => {
 			config,
 			projectRoot: "/home/user/rockpool",
 			configFileName: "rockpool.config.json",
+			configPath: "/home/user/rockpool/rockpool.config.json",
 			podmanSocket: "/var/run/docker.sock",
 		});
 
@@ -188,6 +218,7 @@ describe("generateCompose", () => {
 			config,
 			projectRoot: "/opt/rockpool",
 			configFileName: "rockpool.config.json",
+			configPath: "/opt/rockpool/rockpool.config.json",
 			podmanSocket: "/var/run/docker.sock",
 		});
 
