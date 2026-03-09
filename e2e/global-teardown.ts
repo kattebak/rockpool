@@ -1,16 +1,9 @@
 import { execSync } from "node:child_process";
-import { unlinkSync } from "node:fs";
 
-function composeCmd(args: string): string {
-	return `npm-scripts/podman.sh ${args}`;
-}
+const TEST_CONFIG = "rockpool.test.config.json";
 
 export default async function globalTeardown(): Promise<void> {
 	try {
-		execSync(composeCmd("down"), { stdio: "ignore" });
-	} catch {}
-
-	try {
-		unlinkSync("/tmp/rockpool-e2e.db");
+		execSync(`npx rockpool stop ${TEST_CONFIG}`, { stdio: "ignore" });
 	} catch {}
 }

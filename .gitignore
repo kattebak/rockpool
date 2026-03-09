@@ -176,3 +176,6 @@ test-results/
 .tunnel-token
 .tunnel-metadata.json
 .cloudflare
+
+# Rockpool CLI generated files
+.rockpool/

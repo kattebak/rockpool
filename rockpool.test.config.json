@@ -7,6 +7,15 @@
 			"password": "test"
 		}
 	},
+	"ports": {
+		"http": 9080,
+		"ide": 9081,
+		"preview": 9082
+	},
+	"urls": {
+		"ide": "http://localhost:9081",
+		"preview": "http://localhost:9082"
+	},
 	"spa": {
 		"root": "packages/client/dist"
 	}
