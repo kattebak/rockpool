@@ -17,6 +17,8 @@ interface InitFlags {
 	logLevel?: string;
 	runtime?: string;
 	spaProxyUrl?: string;
+	tunnelDomain?: string;
+	tunnelToken?: string;
 	output?: string;
 }
 
@@ -36,6 +38,8 @@ function parseInitFlags(args: string[]): InitFlags {
 			"log-level": { type: "string" },
 			runtime: { type: "string" },
 			"spa-proxy-url": { type: "string" },
+			"tunnel-domain": { type: "string" },
+			"tunnel-token": { type: "string" },
 			o: { type: "string", short: "o" },
 		},
 		strict: true,
@@ -54,6 +58,8 @@ function parseInitFlags(args: string[]): InitFlags {
 		logLevel: values["log-level"] as string | undefined,
 		runtime: values.runtime as string | undefined,
 		spaProxyUrl: values["spa-proxy-url"] as string | undefined,
+		tunnelDomain: values["tunnel-domain"] as string | undefined,
+		tunnelToken: values["tunnel-token"] as string | undefined,
 		output: values.o as string | undefined,
 	};
 }
@@ -120,6 +126,8 @@ function buildConfig(params: {
 	logLevel: string;
 	runtime: string;
 	spaProxyUrl: string;
+	tunnelDomain?: string;
+	tunnelToken?: string;
 }): Record<string, unknown> {
 	const config: Record<string, unknown> = {
 		$schema: "./packages/config/rockpool.schema.json",
@@ -135,6 +143,15 @@ function buildConfig(params: {
 
 	if (params.spaProxyUrl) {
 		config.spa = { proxyUrl: params.spaProxyUrl };
+	}
+
+	if (params.tunnelDomain && params.tunnelToken) {
+		config.tunnel = { domain: params.tunnelDomain, token: params.tunnelToken };
+		config.urls = {
+			ide: `https://ide.${params.tunnelDomain}`,
+			preview: `https://preview.${params.tunnelDomain}`,
+		};
+		config.server = { secureCookies: true };
 	}
 
 	return config;
@@ -202,7 +219,26 @@ export async function init(args: string[]): Promise<void> {
 		"",
 	);
 
+	let tunnelDomain = flags.tunnelDomain;
+	let tunnelToken = flags.tunnelToken;
+
+	if (!tunnelDomain && rl) {
+		const enableTunnel = await rl.question("Enable Cloudflare Tunnel? (y/N): ");
+		if (enableTunnel.trim().toLowerCase() === "y") {
+			tunnelDomain = await promptIfMissing(rl, undefined, "Domain (e.g. rockpool.example.com)");
+			tunnelToken =
+				(await rl.question("Tunnel token (or run 'rockpool tunnel setup' later): ")).trim() ||
+				undefined;
+		}
+	}
+
 	rl?.close();
+
+	if (tunnelDomain && !tunnelToken) {
+		process.stdout.write(
+			`\nHint: run 'rockpool tunnel setup ${tunnelDomain}' to create a tunnel and obtain a token.\n\n`,
+		);
+	}
 
 	const config = buildConfig({
 		authMode,
@@ -217,6 +253,8 @@ export async function init(args: string[]): Promise<void> {
 		logLevel,
 		runtime,
 		spaProxyUrl,
+		tunnelDomain,
+		tunnelToken,
 	});
 
 	const stripped = { ...config };
