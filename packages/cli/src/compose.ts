@@ -5,6 +5,7 @@ interface ComposeOptions {
 	config: RockpoolConfig;
 	projectRoot: string;
 	configFileName: string;
+	configPath: string;
 	podmanSocket?: string;
 }
 
@@ -36,9 +37,10 @@ function detectPodmanSocket(): string {
 }
 
 export function generateCompose(options: ComposeOptions): string {
-	const { config, projectRoot, configFileName } = options;
+	const { config, projectRoot, configFileName, configPath } = options;
 	const { ports } = config;
 	const podmanSocket = options.podmanSocket ?? detectPodmanSocket();
+	const containerConfigPath = `/app/${configFileName}`;
 
 	const compose: ComposeDocument = {
 		services: {
@@ -72,7 +74,7 @@ export function generateCompose(options: ComposeOptions): string {
 				init: true,
 				working_dir: "/app",
 				environment: {
-					ROCKPOOL_CONFIG: `/app/${configFileName}`,
+					ROCKPOOL_CONFIG: containerConfigPath,
 					CONTAINER_HOST: "unix:///run/podman.sock",
 					CONTROL_PLANE_HOST: "control-plane",
 					PORT: "7163",
@@ -90,6 +92,7 @@ export function generateCompose(options: ComposeOptions): string {
 				restart: "unless-stopped",
 				volumes: [
 					`${projectRoot}:/app`,
+					`${configPath}:${containerConfigPath}:ro`,
 					"node-modules:/app/node_modules",
 					"rockpool-data:/opt/rockpool",
 					`${podmanSocket}:/run/podman.sock`,
