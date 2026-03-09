@@ -168,6 +168,91 @@ describe("RockpoolConfigSchema", () => {
 			});
 		});
 	});
+
+	it("parses config with tunnel section", () => {
+		const result = RockpoolConfigSchema.parse({
+			auth: {
+				mode: "basic",
+				basic: { username: "admin", password: "admin" },
+			},
+			tunnel: {
+				domain: "rockpool.example.com",
+				token: "eyJhIjoiNDk...",
+			},
+		});
+
+		assert.equal(result.tunnel?.domain, "rockpool.example.com");
+		assert.equal(result.tunnel?.token, "eyJhIjoiNDk...");
+	});
+
+	it("parses config without tunnel section (backward compatible)", () => {
+		const result = RockpoolConfigSchema.parse({
+			auth: {
+				mode: "basic",
+				basic: { username: "admin", password: "admin" },
+			},
+		});
+
+		assert.equal(result.tunnel, undefined);
+	});
+
+	it("rejects tunnel with missing domain", () => {
+		assert.throws(() => {
+			RockpoolConfigSchema.parse({
+				auth: {
+					mode: "basic",
+					basic: { username: "admin", password: "admin" },
+				},
+				tunnel: {
+					token: "eyJhIjoiNDk...",
+				},
+			});
+		});
+	});
+
+	it("rejects tunnel with missing token", () => {
+		assert.throws(() => {
+			RockpoolConfigSchema.parse({
+				auth: {
+					mode: "basic",
+					basic: { username: "admin", password: "admin" },
+				},
+				tunnel: {
+					domain: "rockpool.example.com",
+				},
+			});
+		});
+	});
+
+	it("rejects tunnel with empty domain", () => {
+		assert.throws(() => {
+			RockpoolConfigSchema.parse({
+				auth: {
+					mode: "basic",
+					basic: { username: "admin", password: "admin" },
+				},
+				tunnel: {
+					domain: "",
+					token: "eyJhIjoiNDk...",
+				},
+			});
+		});
+	});
+
+	it("rejects tunnel with empty token", () => {
+		assert.throws(() => {
+			RockpoolConfigSchema.parse({
+				auth: {
+					mode: "basic",
+					basic: { username: "admin", password: "admin" },
+				},
+				tunnel: {
+					domain: "rockpool.example.com",
+					token: "",
+				},
+			});
+		});
+	});
 });
 
 describe("loadConfig", () => {

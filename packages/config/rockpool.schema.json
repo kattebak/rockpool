@@ -136,6 +136,21 @@
 					},
 					"additionalProperties": false,
 					"default": {}
+				},
+				"tunnel": {
+					"type": "object",
+					"properties": {
+						"domain": {
+							"type": "string",
+							"minLength": 1
+						},
+						"token": {
+							"type": "string",
+							"minLength": 1
+						}
+					},
+					"required": ["domain", "token"],
+					"additionalProperties": false
 				}
 			},
 			"required": ["auth"],
