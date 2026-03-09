@@ -85,4 +85,34 @@ describe("rockpool init", () => {
 		const { $schema, ...rest } = config;
 		assert.doesNotThrow(() => RockpoolConfigSchema.parse(rest));
 	});
+
+	it("creates a config file with github auth via flags", () => {
+		runInit(
+			`--auth-mode github --auth-client-id my-client-id --auth-client-secret my-secret -o ${testOutput}`,
+		);
+		assert.ok(existsSync(testOutput));
+		const config = JSON.parse(readFileSync(testOutput, "utf-8"));
+		assert.strictEqual(config.auth.mode, "github");
+		assert.strictEqual(config.auth.github.clientId, "my-client-id");
+		assert.strictEqual(config.auth.github.clientSecret, "my-secret");
+		assert.strictEqual(config.auth.github.callbackUrl, "http://localhost:8080/api/auth/callback");
+	});
+
+	it("uses custom callback url for github auth", () => {
+		runInit(
+			`--auth-mode github --auth-client-id my-client-id --auth-client-secret my-secret --auth-callback-url https://example.com/callback -o ${testOutput}`,
+		);
+		const config = JSON.parse(readFileSync(testOutput, "utf-8"));
+		assert.strictEqual(config.auth.github.callbackUrl, "https://example.com/callback");
+	});
+
+	it("generates a valid config with github auth that passes schema validation", () => {
+		runInit(
+			`--auth-mode github --auth-client-id my-client-id --auth-client-secret my-secret -o ${testOutput}`,
+		);
+		const raw = readFileSync(testOutput, "utf-8");
+		const config = JSON.parse(raw);
+		const { $schema, ...rest } = config;
+		assert.doesNotThrow(() => RockpoolConfigSchema.parse(rest));
+	});
 });
