@@ -3,6 +3,7 @@ import { init } from "./commands/init.ts";
 import { logs } from "./commands/logs.ts";
 import { run } from "./commands/run.ts";
 import { stop } from "./commands/stop.ts";
+import { tunnel } from "./commands/tunnel.ts";
 
 const USAGE = `Usage: rockpool <command> [options]
 
@@ -11,6 +12,7 @@ Commands:
   stop [config-file]   Stop the running stack
   logs [config-file]   Tail compose logs
   init                 Create a config file interactively
+  tunnel <subcommand>  Manage Cloudflare Tunnel (setup, teardown, status)
 
 Options:
   --help               Show this help message
@@ -30,6 +32,7 @@ const commands: Record<string, (args: string[]) => Promise<void>> = {
 	stop,
 	logs,
 	init,
+	tunnel,
 };
 
 const handler = commands[command];

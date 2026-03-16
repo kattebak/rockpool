@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { RockpoolConfig } from "@rockpool/config";
 import { parse } from "yaml";
-import { generateCompose } from "../src/compose.ts";
+import { deriveUrls, generateCompose } from "../src/compose.ts";
 
 function makeConfig(overrides: Partial<RockpoolConfig> = {}): RockpoolConfig {
 	return {
@@ -224,5 +224,104 @@ describe("generateCompose", () => {
 
 		const doc = parse(yaml);
 		assert.strictEqual(doc.services["control-plane"].build, "/opt/rockpool/images/control-plane");
+	});
+
+	it("includes cloudflared service when tunnel is configured", () => {
+		const config = makeConfig({
+			tunnel: { domain: "rockpool.example.com", token: "eyJhIjoiNDk..." },
+		});
+		const yaml = generateCompose({
+			config,
+			projectRoot: "/home/user/rockpool",
+			configFileName: "rockpool.config.json",
+			configPath: "/home/user/rockpool/rockpool.config.json",
+			podmanSocket: "/var/run/docker.sock",
+		});
+
+		const doc = parse(yaml);
+		assert.ok(doc.services.cloudflared);
+		assert.strictEqual(doc.services.cloudflared.image, "docker.io/cloudflare/cloudflared:latest");
+		assert.strictEqual(doc.services.cloudflared.command, "tunnel --no-autoupdate run");
+		assert.strictEqual(doc.services.cloudflared.restart, "unless-stopped");
+	});
+
+	it("sets TUNNEL_TOKEN environment on cloudflared service", () => {
+		const config = makeConfig({
+			tunnel: { domain: "rockpool.example.com", token: "my-tunnel-token" },
+		});
+		const yaml = generateCompose({
+			config,
+			projectRoot: "/home/user/rockpool",
+			configFileName: "rockpool.config.json",
+			configPath: "/home/user/rockpool/rockpool.config.json",
+			podmanSocket: "/var/run/docker.sock",
+		});
+
+		const doc = parse(yaml);
+		assert.strictEqual(doc.services.cloudflared.environment.TUNNEL_TOKEN, "my-tunnel-token");
+	});
+
+	it("cloudflared depends on caddy", () => {
+		const config = makeConfig({
+			tunnel: { domain: "rockpool.example.com", token: "eyJhIjoiNDk..." },
+		});
+		const yaml = generateCompose({
+			config,
+			projectRoot: "/home/user/rockpool",
+			configFileName: "rockpool.config.json",
+			configPath: "/home/user/rockpool/rockpool.config.json",
+			podmanSocket: "/var/run/docker.sock",
+		});
+
+		const doc = parse(yaml);
+		assert.deepStrictEqual(doc.services.cloudflared.depends_on, ["caddy"]);
+	});
+
+	it("omits cloudflared when no tunnel config", () => {
+		const config = makeConfig();
+		const yaml = generateCompose({
+			config,
+			projectRoot: "/home/user/rockpool",
+			configFileName: "rockpool.config.json",
+			configPath: "/home/user/rockpool/rockpool.config.json",
+			podmanSocket: "/var/run/docker.sock",
+		});
+
+		const doc = parse(yaml);
+		assert.strictEqual(doc.services.cloudflared, undefined);
+	});
+});
+
+describe("deriveUrls", () => {
+	it("derives URLs from tunnel domain when urls absent", () => {
+		const config = makeConfig({
+			tunnel: { domain: "rockpool.example.com", token: "tok" },
+		});
+		const urls = deriveUrls(config);
+		assert.deepStrictEqual(urls, {
+			ide: "https://ide.rockpool.example.com",
+			preview: "https://preview.rockpool.example.com",
+		});
+	});
+
+	it("returns explicit urls when set", () => {
+		const config = makeConfig({
+			urls: {
+				ide: "https://custom-ide.example.com",
+				preview: "https://custom-preview.example.com",
+			},
+			tunnel: { domain: "rockpool.example.com", token: "tok" },
+		});
+		const urls = deriveUrls(config);
+		assert.deepStrictEqual(urls, {
+			ide: "https://custom-ide.example.com",
+			preview: "https://custom-preview.example.com",
+		});
+	});
+
+	it("returns undefined when no tunnel and no urls", () => {
+		const config = makeConfig();
+		const urls = deriveUrls(config);
+		assert.strictEqual(urls, undefined);
 	});
 });
