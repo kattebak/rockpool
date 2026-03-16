@@ -13,7 +13,7 @@ export function generateId(): string {
 	return translator.generate();
 }
 
-export { workspaces, repositories, workspaceRepositories, userPrefsBlobs };
+export { repositories, userPrefsBlobs, workspaceRepositories, workspaces };
 
 export const ports = port;
 
