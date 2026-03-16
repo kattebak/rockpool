@@ -21,6 +21,12 @@ check_command() {
 }
 
 check_node_version() {
+    if ! command -v node &>/dev/null; then
+        error "Node.js is not installed."
+        error "Install from https://nodejs.org/ or use a version manager like nvm."
+        exit 1
+    fi
+
     local version
     version=$(node --version 2>/dev/null | sed 's/^v//')
     local major
@@ -33,12 +39,36 @@ check_node_version() {
     fi
 }
 
+check_build_tools() {
+    local missing=()
+
+    if ! command -v python3 &>/dev/null; then
+        missing+=("python3")
+    fi
+
+    if ! command -v make &>/dev/null; then
+        missing+=("make")
+    fi
+
+    if ! command -v g++ &>/dev/null && ! command -v gcc &>/dev/null; then
+        missing+=("g++ (or gcc)")
+    fi
+
+    if [ ${#missing[@]} -gt 0 ]; then
+        error "Missing build tools required to compile native modules: ${missing[*]}"
+        error "On Debian/Ubuntu:  sudo apt install python3 make g++"
+        error "On Fedora/RHEL:    sudo dnf install python3 make gcc-c++"
+        error "On macOS:          xcode-select --install"
+        exit 1
+    fi
+}
+
 info "Checking prerequisites..."
-check_command "node" "Install from https://nodejs.org/ or use a version manager like nvm."
 check_node_version
 check_command "npm" "npm should come with Node.js. Reinstall Node from https://nodejs.org/"
 check_command "podman" "Install from https://podman.io/docs/installation"
 check_command "git" "Install git from https://git-scm.com/downloads"
+check_build_tools
 info "All prerequisites met."
 
 if [ -d "$ROCKPOOL_DIR" ]; then
