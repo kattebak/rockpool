@@ -1,9 +1,10 @@
 import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 import { needsClientBuild } from "../client-build.ts";
-import { composeArgs, REPO_ROOT, resolveProject } from "../project.ts";
+import { composeArgs, REPO_ROOT, resolveComposeProvider, resolveProject } from "../project.ts";
 
 export async function run(args: string[]): Promise<void> {
+	const provider = resolveComposeProvider();
 	const configFile = args[0];
 	const ctx = resolveProject(configFile);
 
@@ -20,10 +21,10 @@ export async function run(args: string[]): Promise<void> {
 		});
 	}
 
-	const podmanArgs = composeArgs(ctx, ["up", "-d"]);
+	const providerArgs = composeArgs(ctx, ["up", "-d"]);
 
 	process.stdout.write(`Starting rockpool (${ctx.configFileName})...\n`);
-	execSync(`podman ${podmanArgs.join(" ")}`, {
+	execSync(`${provider} ${providerArgs.join(" ")}`, {
 		cwd: ctx.projectRoot,
 		stdio: "inherit",
 	});

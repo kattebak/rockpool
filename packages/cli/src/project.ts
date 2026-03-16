@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { loadConfig, type RockpoolConfig } from "@rockpool/config";
@@ -59,6 +60,34 @@ export function resolveProject(configFileArg?: string): ProjectContext {
 		composeFilePath,
 		projectName,
 	};
+}
+
+function hasComposeProvider(command: string): boolean {
+	try {
+		execFileSync(command, ["compose", "version"], { stdio: "ignore" });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+export function resolveComposeProvider(): string {
+	if (hasComposeProvider("podman")) {
+		return "podman";
+	}
+
+	if (hasComposeProvider("docker")) {
+		return "docker";
+	}
+
+	process.stderr.write(
+		"Error: No container runtime found.\n\n" +
+			"Rockpool requires either podman or docker with compose support.\n" +
+			"Install one of:\n" +
+			"  - podman: https://podman.io/docs/installation\n" +
+			"  - docker: https://docs.docker.com/get-docker/\n",
+	);
+	process.exit(1);
 }
 
 export function composeArgs(ctx: ProjectContext, subcommand: string[]): string[] {

@@ -1,8 +1,9 @@
 import { execSync } from "node:child_process";
 import { parseArgs } from "node:util";
-import { composeArgs, resolveProject } from "../project.ts";
+import { composeArgs, resolveComposeProvider, resolveProject } from "../project.ts";
 
 export async function logs(args: string[]): Promise<void> {
+	const provider = resolveComposeProvider();
 	const { positionals, values } = parseArgs({
 		args,
 		options: {
@@ -24,9 +25,9 @@ export async function logs(args: string[]): Promise<void> {
 		logsArgs.push(`--tail=${values.tail}`);
 	}
 
-	const podmanArgs = composeArgs(ctx, logsArgs);
+	const providerArgs = composeArgs(ctx, logsArgs);
 
-	execSync(`podman ${podmanArgs.join(" ")}`, {
+	execSync(`${provider} ${providerArgs.join(" ")}`, {
 		cwd: ctx.projectRoot,
 		stdio: "inherit",
 	});
