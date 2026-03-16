@@ -16,7 +16,7 @@
 	"dependencies": {
 		"@rockpool/db-schema": "*",
 		"@rockpool/enums": "*",
-		"better-sqlite3": "^11.0.0",
+		"better-sqlite3": "^12.8.0",
 		"drizzle-orm": "1.0.0-beta.15-859cf75",
 		"short-uuid": "^5.2.0"
 	},
