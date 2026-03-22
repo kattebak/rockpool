@@ -6,6 +6,8 @@ Capture screenshots or record videos and attach them to pull requests using a de
 
 Use this skill when creating or updating a pull request that includes UI changes. Visual demos should be captured automatically as part of the PR workflow whenever frontend components are added or modified.
 
+The demo must be truly end-to-end: capture the full user journey from empty dashboard through workspace creation, IDE loading, and back to dashboard. Partial demos (missing IDE, showing errors) are not acceptable.
+
 ## Choosing a Format
 
 Pick ONE format per PR — not both.
@@ -139,7 +141,12 @@ node record-demo.mjs
 
 ### 3. Verify Assets
 
-Read each screenshot or play each video to verify it captured the right content before uploading.
+Read each screenshot or play each video to verify it captured the right content before uploading. Every screenshot must be inspected for errors before proceeding:
+
+- Check for error banners, red status badges, or failure messages
+- Verify the workspace reached "Running" state with a green badge
+- Verify the IDE fully loaded (monaco editor visible, not a loading spinner)
+- If any screenshot shows errors, re-capture — do not upload broken demos
 
 ### 4. Push to the Assets Branch
 
@@ -170,24 +177,26 @@ git worktree remove /tmp/assets-wt
 
 ### 5. Reference in PR Comment
 
-Use raw.githubusercontent.com URLs in the PR body or comment:
+**For screenshots**, use the standard image syntax:
 
 ```markdown
 ![Description](https://github.com/<owner>/<repo>/blob/assets/pr-<number>/screenshot-name.png?raw=true)
 ```
 
-For videos (GitHub renders `.webm` natively in markdown):
+**For videos**, GitHub does NOT support inline video playback from repo URLs. The syntax `![alt](video.webm?raw=true)` shows a broken thumbnail. Use a clickable thumbnail that links to the raw video instead:
 
 ```markdown
-![Demo](https://github.com/<owner>/<repo>/blob/assets/pr-<number>/demo-name.webm?raw=true)
+[![Demo video](https://github.com/<owner>/<repo>/blob/assets/pr-<number>/thumbnail.png?raw=true)](https://github.com/<owner>/<repo>/blob/assets/pr-<number>/demo.webm?raw=true)
 ```
 
 For this repo:
 
 ```markdown
 ![Feature Screenshot](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/feature-name.png?raw=true)
-![Feature Demo](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/feature-name.webm?raw=true)
+[![Demo video](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/thumbnail.png?raw=true)](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/demo.webm?raw=true)
 ```
+
+**Tip:** For the best native playback experience, drag-drop the video file directly into a PR comment on github.com. GitHub will host the video and provide inline playback controls. The repo-hosted approach above only works as a clickable link to download/view the video.
 
 **Important:** Use the `blob/...?raw=true` format, NOT `raw.githubusercontent.com`. The blob format works for both private and public repos when the viewer is authenticated. The `raw.githubusercontent.com` format returns 404 for private repos.
 
@@ -201,7 +210,7 @@ gh pr comment <number> --body "$(cat <<'EOF'
 
 ![Screenshot](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/screenshot.png?raw=true)
 
-![Video Demo](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/demo.webm?raw=true)
+[![Demo video](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/thumbnail.png?raw=true)](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/demo.webm?raw=true)
 EOF
 )"
 ```
@@ -215,6 +224,18 @@ EOF
 | `<feature>-<state>.webm` | `compose-flow.webm` | Video: feature + flow name |
 | `<page>-<view>.png` | `settings-smtp.png` | Screenshot: page + view |
 | `before.png` / `after.png` | | For comparison screenshots |
+
+## Demo Checklist
+
+Before posting, verify every item:
+
+- [ ] Empty dashboard screenshot — clean, no stale data
+- [ ] Workspace creation flow — all steps captured
+- [ ] Workspace detail — Running status, green badge, no errors
+- [ ] IDE loaded — monaco editor visible, activity bar present
+- [ ] Dashboard with workspace — workspace card visible
+- [ ] Video plays or links correctly in PR
+- [ ] All screenshots inspected for errors before upload
 
 ## Troubleshooting
 
