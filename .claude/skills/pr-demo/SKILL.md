@@ -143,30 +143,29 @@ Read each screenshot or play each video to verify it captured the right content 
 
 ### 4. Push to the Assets Branch
 
+**IMPORTANT: Never checkout the orphan `assets` branch in the main worktree.** Doing so wipes all tracked files (including `.claude/settings.json`), breaking the working tree. Always use a temporary git worktree.
+
 ```bash
-# Save current state
-git stash
+# Create a temporary worktree for the assets branch
+git worktree add /tmp/assets-wt assets 2>/dev/null || {
+  # First time: create the orphan branch
+  git worktree add --orphan -b assets /tmp/assets-wt
+}
 
-# Switch to orphan assets branch (create if first time)
-git checkout assets 2>/dev/null || git checkout --orphan assets
+# Copy assets into the worktree
+mkdir -p /tmp/assets-wt/pr-<number>
+cp /tmp/ss-*.png /tmp/assets-wt/pr-<number>/ 2>/dev/null
+cp /tmp/demos/*.webm /tmp/assets-wt/pr-<number>/ 2>/dev/null
 
-# If first time: clean everything
-git rm -rf . 2>/dev/null
-git clean -fd 2>/dev/null
-
-# Create PR directory and copy assets
-mkdir -p pr-<number>
-cp /tmp/ss-*.png pr-<number>/ 2>/dev/null
-cp /tmp/demos/*.webm pr-<number>/ 2>/dev/null
-
-# Commit and push
+# Commit and push from the worktree
+cd /tmp/assets-wt
 git add pr-<number>/
 git commit -m "Add PR #<number> demo assets"
 git push origin assets
+cd -
 
-# Return to your branch
-git checkout <your-branch>
-git stash pop
+# Clean up the worktree
+git worktree remove /tmp/assets-wt
 ```
 
 ### 5. Reference in PR Comment

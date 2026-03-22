@@ -56,6 +56,20 @@ After changes to API routes, server logic, UI components, or frontend UX, run th
 npm run test:e2e:headless
 ```
 
+## Git Safety
+
+**Never switch branches in the main worktree.** All branch work (feature branches, orphan branches, any `git checkout <other-branch>`) MUST happen in a temporary git worktree. Switching branches in the main checkout wipes tracked files, breaks `.claude/settings.json`, and destroys working state.
+
+```bash
+# Create a worktree for any branch work
+git worktree add /tmp/<name>-wt <branch>
+
+# Do all work there, then clean up
+git worktree remove /tmp/<name>-wt
+```
+
+The main worktree stays on its current branch at all times. No exceptions.
+
 ## Rules
 
 - Coding standards: `.claude/rules/typescript.md`, `.claude/rules/development.md`
