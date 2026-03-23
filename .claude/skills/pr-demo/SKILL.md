@@ -39,9 +39,23 @@ assets branch (orphan)
 
 ## Prerequisites
 
-- Chromium installed (`chromium-browser`)
-- Playwright available in devDependencies
-- Local dev stack running (use `/local-dev` skill to start)
+Run the self-check to verify all dependencies are available:
+
+```bash
+# Self-check: verify all dependencies
+echo "Checking prerequisites..."
+command -v npx >/dev/null && echo "✓ npx" || echo "✗ npx — install Node.js"
+npx playwright install --dry-run chromium 2>/dev/null && echo "✓ playwright chromium" || echo "✗ playwright — run: npx playwright install chromium"
+command -v ffmpeg >/dev/null && echo "✓ ffmpeg" || { echo "✗ ffmpeg — install:"; echo "  macOS:  brew install ffmpeg"; echo "  Linux:  sudo apt-get install -y ffmpeg"; }
+curl -sf http://localhost:8080/ -o /dev/null && echo "✓ dev stack running" || echo "✗ dev stack — start with: npm start"
+```
+
+- **Node.js / npx** — required for running Playwright scripts
+- **Playwright with Chromium** — install with: `npx playwright install chromium`
+- **ffmpeg** — for APNG conversion:
+  - macOS: `brew install ffmpeg`
+  - Debian/Ubuntu: `sudo apt-get install -y ffmpeg`
+- **Local dev stack running** — start with `npm start`
 
 ## Step-by-Step Recipe
 
@@ -148,7 +162,27 @@ Read each screenshot or play each video to verify it captured the right content 
 - Verify the IDE fully loaded (monaco editor visible, not a loading spinner)
 - If any screenshot shows errors, re-capture — do not upload broken demos
 
-### 4. Push to the Assets Branch
+### 4. Convert Video to APNG
+
+GitHub does not support inline video playback from repository URLs. Convert the recorded WebM to an animated PNG (APNG) with an optimized color palette for inline rendering:
+
+```bash
+ffmpeg -i /tmp/demos/demo.webm \
+  -vf "fps=5,scale=1440:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3" \
+  -plays 0 \
+  /tmp/demos/demo.apng
+```
+
+**Flags explained:**
+- `fps=5` — 5 frames per second (sufficient for UI demos, keeps file small)
+- `max_colors=128` — indexed palette per frame (UI is mostly flat colors)
+- `stats_mode=diff` — optimize palette for frame differences
+- `dither=bayer:bayer_scale=3` — ordered dithering, good for sharp UI edges
+- `-plays 0` — loop forever
+
+The output APNG renders inline on GitHub using standard image syntax — no special embedding needed.
+
+### 5. Push to the Assets Branch
 
 **IMPORTANT: Never checkout the orphan `assets` branch in the main worktree.** Doing so wipes all tracked files (including `.claude/settings.json`), breaking the working tree. Always use a temporary git worktree.
 
@@ -163,6 +197,7 @@ git worktree add /tmp/assets-wt assets 2>/dev/null || {
 mkdir -p /tmp/assets-wt/pr-<number>
 cp /tmp/ss-*.png /tmp/assets-wt/pr-<number>/ 2>/dev/null
 cp /tmp/demos/*.webm /tmp/assets-wt/pr-<number>/ 2>/dev/null
+cp /tmp/demos/*.apng /tmp/assets-wt/pr-<number>/ 2>/dev/null
 
 # Commit and push from the worktree
 cd /tmp/assets-wt
@@ -175,7 +210,7 @@ cd -
 git worktree remove /tmp/assets-wt
 ```
 
-### 5. Reference in PR Comment
+### 6. Reference in PR Comment
 
 **For screenshots**, use the standard image syntax:
 
@@ -183,7 +218,13 @@ git worktree remove /tmp/assets-wt
 ![Description](https://github.com/<owner>/<repo>/blob/assets/pr-<number>/screenshot-name.png?raw=true)
 ```
 
-**For videos**, GitHub does NOT support inline video playback from repo URLs. The syntax `![alt](video.webm?raw=true)` shows a broken thumbnail. Use a clickable thumbnail that links to the raw video instead:
+**For animated demos (APNG)**, APNG renders inline like a regular image — no special embedding needed:
+
+```markdown
+![Full demo](https://github.com/<owner>/<repo>/blob/assets/pr-<number>/demo.apng?raw=true)
+```
+
+**For videos (WebM fallback)**, GitHub does NOT support inline video playback from repo URLs. Use a clickable thumbnail that links to the raw video instead:
 
 ```markdown
 [![Demo video](https://github.com/<owner>/<repo>/blob/assets/pr-<number>/thumbnail.png?raw=true)](https://github.com/<owner>/<repo>/blob/assets/pr-<number>/demo.webm?raw=true)
@@ -193,14 +234,15 @@ For this repo:
 
 ```markdown
 ![Feature Screenshot](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/feature-name.png?raw=true)
+![Full demo](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/demo.apng?raw=true)
 [![Demo video](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/thumbnail.png?raw=true)](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/demo.webm?raw=true)
 ```
 
-**Tip:** For the best native playback experience, drag-drop the video file directly into a PR comment on github.com. GitHub will host the video and provide inline playback controls. The repo-hosted approach above only works as a clickable link to download/view the video.
+**Tip:** Prefer APNG for inline demos — it renders directly in PR comments without any click-through. For the best native video playback, drag-drop the WebM file directly into a PR comment on github.com.
 
 **Important:** Use the `blob/...?raw=true` format, NOT `raw.githubusercontent.com`. The blob format works for both private and public repos when the viewer is authenticated. The `raw.githubusercontent.com` format returns 404 for private repos.
 
-### 6. Post to PR
+### 7. Post to PR
 
 ```bash
 gh pr comment <number> --body "$(cat <<'EOF'
@@ -210,7 +252,7 @@ gh pr comment <number> --body "$(cat <<'EOF'
 
 ![Screenshot](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/screenshot.png?raw=true)
 
-[![Demo video](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/thumbnail.png?raw=true)](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/demo.webm?raw=true)
+![Full demo](https://github.com/kattebak/rockpool/blob/assets/pr-<number>/demo.apng?raw=true)
 EOF
 )"
 ```
