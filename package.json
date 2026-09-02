@@ -26,7 +26,8 @@
 		"test:e2e:headless": "make .stamps/rockpool-workspace-container && ROCKPOOL_CONFIG=rockpool.test.config.json node_modules/.bin/playwright test --config e2e/playwright.config.ts",
 		"start:tunnel": "make .stamps/rockpool-workspace-container && npm run build -w packages/client && npm-scripts/podman.sh --profile tunnel up -d",
 		"stop:tunnel": "npm-scripts/podman.sh --profile tunnel down",
-		"cf": "npm-scripts/cloudflare.sh"
+		"cf": "npm-scripts/cloudflare.sh",
+		"rewrite:strip-claude-coauthors": "npm-scripts/strip-claude-coauthors.sh"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.4",
